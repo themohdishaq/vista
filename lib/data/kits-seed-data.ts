@@ -1,0 +1,298 @@
+// filepath: lib/data/kits-seed-data.ts
+/**
+ * @file lib/data/kits-seed-data.ts
+ * @description Mock seed dataset for VISTA Kits & Packing Module matching the design specification:
+ * - 4 Summary KPI metrics: 24 Total Kits, 120 Packed Today, 98.5% Complete Rate, 8 Pending Packs
+ * - Kit Categories with accurate counts: Medical Kits (8), Emergency Kits (6), Office Kits (4), Cleaning Kits (3), Other Kits (3)
+ * - Master list of Kit definitions with BOM components and packaging specifications
+ * - Recent Packing Activities mini-log
+ * - 30-Day Packing Statistics dual-bar time series data
+ * - Standard Packing Configurations & QA compliance checklists
+ */
+
+import {
+  KitKPIData,
+  KitRecord,
+  PackingActivity,
+  PackingStatPoint,
+  PackingConfiguration,
+} from '@/types/kits';
+
+export const KITS_KPI_DATA: KitKPIData = {
+  totalKits: {
+    value: '24',
+    label: 'Total Kits',
+    change: '↑ 8.3%',
+    isPositive: true,
+    sparkline: [18, 19, 20, 21, 21, 22, 23, 24],
+  },
+  packedToday: {
+    value: '120',
+    label: 'Packed Today',
+    change: '↑ 12.5%',
+    isPositive: true,
+    sparkline: [40, 55, 62, 78, 85, 96, 110, 120],
+  },
+  completeRate: {
+    value: '98.5%',
+    label: 'Complete Rate',
+    change: '↑ 0.1%',
+    isPositive: true,
+    sparkline: [95, 96, 96.5, 97, 97.5, 98, 98.2, 98.5],
+  },
+  pendingPacks: {
+    value: '8',
+    label: 'Pending Packs',
+    change: '↓ 11.1%',
+    isPositive: false,
+    sparkline: [22, 18, 16, 15, 12, 11, 9, 8],
+  },
+};
+
+export const INITIAL_KITS: KitRecord[] = [
+  {
+    id: 'kit-1',
+    code: 'KIT-001',
+    name: 'First Aid Kit',
+    category: 'Medical Kits',
+    componentCount: 5,
+    status: 'Active',
+    lastUpdated: 'Apr 28, 2025 14:30',
+    description: 'Basic first aid kit containing essential medical supplies.',
+    packagingType: 'Waterproof High-Impact ABS Red Box',
+    weightKg: 1.8,
+    targetStation: 'Station A1 - Rapid Response Line',
+    inStockKits: 145,
+    components: [
+      { itemCode: 'VST-001', itemName: 'Surgical Mask (3-ply)', quantity: 10, unit: 'Pieces' },
+      { itemCode: 'VST-002', itemName: 'Sterile Nitrile Gloves', quantity: 4, unit: 'Pairs' },
+      { itemCode: 'VST-004', itemName: 'Antiseptic Alcohol Swabs', quantity: 20, unit: 'Packs' },
+      { itemCode: 'VST-007', itemName: 'Infrared Digital Thermometer', quantity: 1, unit: 'Unit' },
+      { itemCode: 'VST-010', itemName: 'Bandage & Gauze Roll 5m', quantity: 3, unit: 'Rolls' },
+    ],
+  },
+  {
+    id: 'kit-2',
+    code: 'KIT-002',
+    name: 'Emergency Response Kit',
+    category: 'Emergency Kits',
+    componentCount: 8,
+    status: 'Active',
+    lastUpdated: 'Apr 27, 2025 11:20',
+    description: 'Disaster trauma and rapid triage kit for emergency logistics personnel.',
+    packagingType: 'Heavy-Duty Cordura Tactical Bag',
+    weightKg: 4.5,
+    targetStation: 'Station B2 - Emergency Pack Unit',
+    inStockKits: 64,
+    components: [
+      { itemCode: 'VST-003', itemName: 'IV Normal Saline 500ml', quantity: 4, unit: 'Packs' },
+      { itemCode: 'VST-004', itemName: 'Safety Syringes 5ml & 10ml', quantity: 12, unit: 'Units' },
+      { itemCode: 'VST-005', itemName: 'Paracetamol 500mg Strips', quantity: 5, unit: 'Strips' },
+      { itemCode: 'VST-008', itemName: 'Portable Blood Pressure Monitor', quantity: 1, unit: 'Unit' },
+      { itemCode: 'VST-002', itemName: 'Heavy Duty Nitrile Gloves', quantity: 6, unit: 'Pairs' },
+      { itemCode: 'VST-009', itemName: 'Disinfectant Gel 500ml', quantity: 2, unit: 'Bottles' },
+      { itemCode: 'VST-011', itemName: 'Tourniquet Rapid Band', quantity: 2, unit: 'Units' },
+      { itemCode: 'VST-012', itemName: 'Emergency Mylar Blanket', quantity: 4, unit: 'Pieces' },
+    ],
+  },
+  {
+    id: 'kit-3',
+    code: 'KIT-003',
+    name: 'Office Starter Kit',
+    category: 'Office Kits',
+    componentCount: 4,
+    status: 'Active',
+    lastUpdated: 'Apr 26, 2025 16:45',
+    description: 'Workstation administrative & stationery essentials for field operations.',
+    packagingType: 'Recycled Kraft Corrugated Carton',
+    weightKg: 2.1,
+    targetStation: 'Station C1 - General Goods',
+    inStockKits: 88,
+    components: [
+      { itemCode: 'VST-015', itemName: 'Inventory Logbook A4 Hardcover', quantity: 2, unit: 'Books' },
+      { itemCode: 'VST-016', itemName: 'High-Density Barcode Scanners', quantity: 1, unit: 'Unit' },
+      { itemCode: 'VST-017', itemName: 'Thermal Label Rolls (1000 pcs)', quantity: 3, unit: 'Rolls' },
+      { itemCode: 'VST-018', itemName: 'Stationery Marker & Pen Set', quantity: 1, unit: 'Set' },
+    ],
+  },
+  {
+    id: 'kit-4',
+    code: 'KIT-004',
+    name: 'Cleaning Kit',
+    category: 'Cleaning Kits',
+    componentCount: 3,
+    status: 'Active',
+    lastUpdated: 'Apr 25, 2025 09:15',
+    description: 'Sanitation, surface sterilization and biocidal disinfection set.',
+    packagingType: 'Chemical-Resistant Poly Box with Handle',
+    weightKg: 3.2,
+    targetStation: 'Station D1 - Hazmat & Sanitation',
+    inStockKits: 52,
+    components: [
+      { itemCode: 'VST-010', itemName: 'Disinfectant Spray 1000ml', quantity: 3, unit: 'Bottles' },
+      { itemCode: 'VST-019', itemName: 'Microfiber Lint-Free Cloths', quantity: 6, unit: 'Pieces' },
+      { itemCode: 'VST-020', itemName: 'Heavy-Duty Rubber Washing Gloves', quantity: 2, unit: 'Pairs' },
+    ],
+  },
+  {
+    id: 'kit-5',
+    code: 'KIT-005',
+    name: 'Hygiene Kit',
+    category: 'Medical Kits',
+    componentCount: 6,
+    status: 'Inactive',
+    lastUpdated: 'Apr 20, 2025 13:10',
+    description: 'Personal hygiene and sanitization package for displaced patient intake.',
+    packagingType: 'Sealed Biodegradable Polybag',
+    weightKg: 1.4,
+    targetStation: 'Station A2 - Batch Packaging',
+    inStockKits: 0,
+    components: [
+      { itemCode: 'VST-009', itemName: 'Hand Sanitizer 500ml', quantity: 2, unit: 'Bottles' },
+      { itemCode: 'VST-001', itemName: 'Face Masks (Earloop)', quantity: 20, unit: 'Pieces' },
+      { itemCode: 'VST-021', itemName: 'Antibacterial Bar Soap', quantity: 4, unit: 'Bars' },
+      { itemCode: 'VST-022', itemName: 'Cotton Towels Small', quantity: 2, unit: 'Pieces' },
+      { itemCode: 'VST-023', itemName: 'Oral Hygiene Kit (Toothbrush + Paste)', quantity: 2, unit: 'Packs' },
+      { itemCode: 'VST-024', itemName: 'Wet Wipes Alcohol 80 count', quantity: 2, unit: 'Packs' },
+    ],
+  },
+  {
+    id: 'kit-6',
+    code: 'KIT-006',
+    name: 'Pediatric Care Kit',
+    category: 'Medical Kits',
+    componentCount: 5,
+    status: 'Active',
+    lastUpdated: 'Apr 18, 2025 10:00',
+    description: 'Infant and child wellness nutritional and diagnostic support package.',
+    packagingType: 'Reinforced Storage Tote',
+    weightKg: 2.8,
+    targetStation: 'Station A1 - Rapid Response Line',
+    inStockKits: 38,
+    components: [
+      { itemCode: 'VST-025', itemName: 'Pediatric Paracetamol Syrup 60ml', quantity: 3, unit: 'Bottles' },
+      { itemCode: 'VST-026', itemName: 'Digital Ear Thermometer', quantity: 1, unit: 'Unit' },
+      { itemCode: 'VST-027', itemName: 'Oral Rehydration Salts (ORS)', quantity: 10, unit: 'Sachets' },
+      { itemCode: 'VST-028', itemName: 'Zinc Sulfate Dispensable Tablets', quantity: 2, unit: 'Strips' },
+      { itemCode: 'VST-029', itemName: 'MUAC Pediatric Nutrition Tape', quantity: 2, unit: 'Units' },
+    ],
+  },
+];
+
+export const RECENT_PACKING_ACTIVITIES: PackingActivity[] = [
+  {
+    id: 'act-1',
+    dateTime: 'Apr 30, 2025 14:20',
+    kitCode: 'KIT-001',
+    kitName: 'First Aid Kit',
+    action: 'Packed',
+    quantity: 25,
+    performedBy: 'John Doe',
+    batchNumber: 'BATCH-2025-089',
+    notes: 'Completed batch verification and tamper seal application.',
+  },
+  {
+    id: 'act-2',
+    dateTime: 'Apr 30, 2025 13:45',
+    kitCode: 'KIT-003',
+    kitName: 'Office Starter Kit',
+    action: 'Packed',
+    quantity: 50,
+    performedBy: 'Jane Smith',
+    batchNumber: 'BATCH-2025-088',
+    notes: 'Barcodes verified for field supply depot dispatch.',
+  },
+  {
+    id: 'act-3',
+    dateTime: 'Apr 29, 2025 16:30',
+    kitCode: 'KIT-002',
+    kitName: 'Emergency Response Kit',
+    action: 'Packed',
+    quantity: 30,
+    performedBy: 'Mike Chen',
+    batchNumber: 'BATCH-2025-087',
+    notes: 'Cold pack inserts added for thermal stability.',
+  },
+  {
+    id: 'act-4',
+    dateTime: 'Apr 29, 2025 11:15',
+    kitCode: 'KIT-004',
+    kitName: 'Cleaning Kit',
+    action: 'Packed',
+    quantity: 15,
+    performedBy: 'David Kim',
+    batchNumber: 'BATCH-2025-086',
+  },
+];
+
+export const PACKING_STATISTICS_DATA: PackingStatPoint[] = [
+  { date: 'Apr 1', packed: 45, pending: 75 },
+  { date: 'Apr 3', packed: 55, pending: 80 },
+  { date: 'Apr 5', packed: 70, pending: 72 },
+  { date: 'Apr 8', packed: 90, pending: 65 },
+  { date: 'Apr 10', packed: 105, pending: 60 },
+  { date: 'Apr 12', packed: 120, pending: 55 },
+  { date: 'Apr 15', packed: 110, pending: 58 },
+  { date: 'Apr 18', packed: 130, pending: 50 },
+  { date: 'Apr 20', packed: 115, pending: 65 },
+  { date: 'Apr 22', packed: 95, pending: 70 },
+  { date: 'Apr 25', packed: 100, pending: 58 },
+  { date: 'Apr 28', packed: 125, pending: 45 },
+  { date: 'Apr 30', packed: 120, pending: 52 },
+];
+
+export const PACKING_CONFIGURATIONS: PackingConfiguration[] = [
+  {
+    id: 'cfg-1',
+    kitCode: 'KIT-001',
+    kitName: 'First Aid Kit',
+    boxType: 'Custom Molded Red ABS Box (32x22x12 cm)',
+    sealType: 'Numbered Red Tamper-Evident Security Seal',
+    labelFormat: 'GS1-128 Compliance Shipping & Lot Barcode',
+    maxPerCarton: 12,
+    instructions:
+      'Pack items strictly by layer: 1. Bandages & Gauze at base, 2. Antiseptic Swabs in center compartment, 3. Thermometer & PPE on top tray. Seal with QA verification sticker.',
+    qaChecklist: [
+      'Visual check for packaging cracks or scratches',
+      'Verify expiration date of sterile components is > 18 months',
+      'Scan GS1 lot serial identifier',
+      'Weigh carton on verified scale (Target: 1.8 kg ± 50g)',
+    ],
+    lastAudited: 'Apr 25, 2025',
+  },
+  {
+    id: 'cfg-2',
+    kitCode: 'KIT-002',
+    kitName: 'Emergency Response Kit',
+    boxType: '1000D Cordura Waterproof Tactical Backpack (48x34x20 cm)',
+    sealType: 'Heavy-Duty Zipper Padlock & Cable Seal',
+    labelFormat: 'Reflective Neon Rescue Identifier + QR Verification',
+    maxPerCarton: 4,
+    instructions:
+      'Secure trauma dressings in outer velcro pockets for instant extraction. Sterile IV fluids must be nested in central padded dividers.',
+    qaChecklist: [
+      'Check all zipper teeth and reinforced stitch points',
+      'Verify IV fluid bag integrity (zero leak test)',
+      'Confirm battery charge on blood pressure monitor',
+      'Affix official Ministry of Health emergency decal',
+    ],
+    lastAudited: 'Apr 22, 2025',
+  },
+  {
+    id: 'cfg-3',
+    kitCode: 'KIT-003',
+    kitName: 'Office Starter Kit',
+    boxType: 'Double-Wall Corrugated Kraft Carton (40x30x25 cm)',
+    sealType: 'Reinforced Filament Packing Tape',
+    labelFormat: 'Standard Warehouse 4x6 Thermal Direct Label',
+    maxPerCarton: 8,
+    instructions:
+      'Protect electronic scanner with anti-static bubble wrap. Cushion paper logbooks at bottom of carton.',
+    qaChecklist: [
+      'Check scanner power boot & laser test',
+      'Verify 3 thermal label rolls are dry and uncreased',
+      'Confirm package gross weight is within carrier limit (2.1 kg)',
+    ],
+    lastAudited: 'Apr 20, 2025',
+  },
+];
