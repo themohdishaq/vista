@@ -3,11 +3,11 @@
 
 /**
  * @file components/staff/modals/LogDamagedModal.tsx
- * @description Modal for warehouse staff to report damaged, lost or expired stock.
+ * @description Modal for warehouse staff to report damaged, lost or expired stock with dynamic item lookup.
  * Fulfills Responsibility 6: "Record damaged, lost or expired stock for manager review."
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   X,
@@ -28,15 +28,51 @@ export function LogDamagedModal({
   onRecordIncident,
 }: LogDamagedModalProps) {
   const [type, setType] = useState<'Damaged' | 'Expired' | 'Lost'>('Damaged');
+  const [items, setItems] = useState<Array<{ id: string; code: string; name: string; unit: string }>>([
+    { id: 'item-001', code: 'VST-001', name: 'Surgical Mask 3-Ply', unit: 'Box' },
+    { id: 'item-002', code: 'VST-002', name: 'Nitrile Examination Gloves', unit: 'Box' },
+    { id: 'item-003', code: 'VST-003', name: 'Sterile Elastic Bandage 10cm', unit: 'Pack' },
+    { id: 'item-004', code: 'VST-004', name: 'Disposable Syringe 5ml', unit: 'Box' },
+    { id: 'item-005', code: 'VST-005', name: 'IV Infusion Set Sterile', unit: 'Pack' },
+    { id: 'item-009', code: 'VST-009', name: 'Hand Sanitizer 500ml', unit: 'Bottle' },
+  ]);
   const [itemCode, setItemCode] = useState('VST-003');
-  const [itemName, setItemName] = useState('Sterile Elastic Bandage');
+  const [itemName, setItemName] = useState('Sterile Elastic Bandage 10cm');
   const [batchNo, setBatchNo] = useState('LOT-2024-089');
   const [quantity, setQuantity] = useState('5');
   const [unit, setUnit] = useState('Pack');
   const [binLocation, setBinLocation] = useState('Zone A - Bin A-03');
   const [description, setDescription] = useState('Carton crushed during pallet relocation; sterile wrapping punctured.');
 
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/stock')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            const mapped = json.data.map((s: any) => ({
+              id: s.id || s.itemCode,
+              code: s.itemCode,
+              name: s.itemName,
+              unit: s.unit || 'Unit',
+            }));
+            setItems(mapped);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const handleItemChange = (code: string) => {
+    setItemCode(code);
+    const found = items.find((it) => it.code === code);
+    if (found) {
+      setItemName(found.name);
+      setUnit(found.unit);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,28 +160,14 @@ export function LogDamagedModal({
             </label>
             <select
               value={itemCode}
-              onChange={(e) => {
-                setItemCode(e.target.value);
-                if (e.target.value === 'VST-001') {
-                  setItemName('Surgical Mask 3-Ply');
-                  setBatchNo('LOT-2024-001');
-                } else if (e.target.value === 'VST-002') {
-                  setItemName('Nitrile Medical Gloves');
-                  setBatchNo('LOT-2024-042');
-                } else if (e.target.value === 'VST-003') {
-                  setItemName('Sterile Elastic Bandage');
-                  setBatchNo('LOT-2024-089');
-                } else {
-                  setItemName('IV Fluid 500ml Saline');
-                  setBatchNo('LOT-2024-055');
-                }
-              }}
+              onChange={(e) => handleItemChange(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
             >
-              <option value="VST-003">VST-003 • Sterile Elastic Bandage (Bin A-03)</option>
-              <option value="VST-001">VST-001 • Surgical Mask 3-Ply (Bin A-01)</option>
-              <option value="VST-002">VST-002 • Nitrile Medical Gloves (Bin A-02)</option>
-              <option value="VST-005">VST-005 • IV Fluid 500ml Saline</option>
+              {items.map((it) => (
+                <option key={it.code} value={it.code}>
+                  {it.code} • {it.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -167,16 +189,12 @@ export function LogDamagedModal({
               <label className="block font-semibold text-slate-700 mb-1">
                 Unit
               </label>
-              <select
+              <input
+                type="text"
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
-              >
-                <option value="Pack">Pack</option>
-                <option value="Box">Box</option>
-                <option value="Unit">Unit</option>
-                <option value="Bottle">Bottle</option>
-              </select>
+              />
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
@@ -234,4 +252,3 @@ export function LogDamagedModal({
     </div>
   );
 }
-

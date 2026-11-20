@@ -1,20 +1,51 @@
 // filepath: components/admin/adjustments/AdjustmentsByReasonChart.tsx
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { ADJUSTMENTS_BY_REASON_DATA } from '@/lib/data/adjustments-seed-data';
+import { StockAdjustmentRecord } from '@/types/adjustments';
 
-/**
- * @file components/admin/adjustments/AdjustmentsByReasonChart.tsx
- * @description Donut Chart for "Adjustments by Reason" matching design specification:
- * - Center text: 48 / Total
- * - Slices: Stock Count (35.4%), Damage (27.1%), Expiry (18.8%), System Correction (10.4%), Others (8.3%)
- * - Clean right-hand legend with bold percentages
- */
+interface AdjustmentsByReasonChartProps {
+  adjustments?: StockAdjustmentRecord[];
+}
 
-export function AdjustmentsByReasonChart() {
-  const data = ADJUSTMENTS_BY_REASON_DATA;
+const REASON_COLORS: Record<string, string> = {
+  'Stock Count': '#008a90',
+  'Damage': '#ef4444',
+  'Expiry': '#f59e0b',
+  'Return': '#3b82f6',
+  'System Correction': '#8b5cf6',
+  'Others': '#94a3b8',
+};
+
+export function AdjustmentsByReasonChart({ adjustments = [] }: AdjustmentsByReasonChartProps) {
+  const { data, totalCount } = useMemo(() => {
+    const total = adjustments.length;
+    if (total === 0) {
+      return {
+        data: [{ name: 'No Adjustments Recorded', count: 1, percentage: 100, color: '#e2e8f0' }],
+        totalCount: 0,
+      };
+    }
+
+    const reasonMap = new Map<string, number>();
+    for (const adj of adjustments) {
+      const r = adj.reason || 'Others';
+      reasonMap.set(r, (reasonMap.get(r) || 0) + 1);
+    }
+
+    const formatted = Array.from(reasonMap.entries()).map(([name, count]) => {
+      const percentage = (count / total) * 100;
+      return {
+        name,
+        count,
+        percentage,
+        color: REASON_COLORS[name] || '#94a3b8',
+      };
+    });
+
+    return { data: formatted, totalCount: total };
+  }, [adjustments]);
 
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
@@ -83,7 +114,7 @@ export function AdjustmentsByReasonChart() {
           {/* Centered Donut Value */}
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
             <span className="text-2xl font-black text-[#0a2540] tracking-tight">
-              48
+              {totalCount.toLocaleString()}
             </span>
             <span className="text-xs font-medium text-slate-400">
               Total

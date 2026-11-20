@@ -50,10 +50,10 @@ export function AssignedBinsBrowser({
   const filteredBins = useMemo(() => {
     return bins.filter((bin) => {
       const matchQuery =
-        bin.binCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bin.itemCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bin.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bin.batchNo.toLowerCase().includes(searchQuery.toLowerCase());
+        (bin.binCode || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (bin.itemCode || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (bin.itemName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (bin.batchNo || '').toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchCategory =
         selectedCategory === 'All' || bin.category === selectedCategory;

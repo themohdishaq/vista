@@ -14,4 +14,3 @@ export default function StaffDiscrepanciesLayout({
 }) {
   return <div className="w-full">{children}</div>;
 }
-

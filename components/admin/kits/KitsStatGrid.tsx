@@ -79,32 +79,6 @@ export function KitsStatGrid({ data }: KitsStatGridProps) {
       icon: <ClipboardCheck className="h-6 w-6 text-[#0284c7]" />,
       sparkline: data.packedToday.sparkline.map((v, i) => ({ x: i, v })),
     },
-    {
-      id: 'complete-rate',
-      label: data.completeRate.label,
-      value: data.completeRate.value,
-      sublabel: 'QA passed orders',
-      badge: data.completeRate.change,
-      isPositiveBadge: true,
-      bg: 'bg-[#f0fdf4] text-[#16a34a]',
-      stroke: '#22c55e',
-      gradId: 'kitGradGreen',
-      icon: <CheckCircle2 className="h-6 w-6 text-[#16a34a]" />,
-      sparkline: data.completeRate.sparkline.map((v, i) => ({ x: i, v })),
-    },
-    {
-      id: 'pending-packs',
-      label: data.pendingPacks.label,
-      value: data.pendingPacks.value,
-      sublabel: 'in queue today',
-      badge: data.pendingPacks.change,
-      isPositiveBadge: false,
-      bg: 'bg-[#fff7ed] text-[#ea580c]',
-      stroke: '#f97316',
-      gradId: 'kitGradOrange',
-      icon: <Clock className="h-6 w-6 text-[#ea580c]" />,
-      sparkline: data.pendingPacks.sparkline.map((v, i) => ({ x: i, v })),
-    },
   ];
 
   return (

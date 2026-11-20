@@ -13,29 +13,94 @@
  * - Row 3: Stock by Location Multi-Warehouse Inventory Table with Search, Category & Warehouse Dropdowns, CSV Export & Actions
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar, ChevronDown } from 'lucide-react';
 import { StockOverviewStatGrid } from '@/components/admin/stock-overview/StockOverviewStatGrid';
 import { StockByCategoryChart } from '@/components/admin/stock-overview/StockByCategoryChart';
 import { StockTrendChart } from '@/components/admin/stock-overview/StockTrendChart';
 import { StockByLocationTable } from '@/components/admin/stock-overview/StockByLocationTable';
-import {
-  STOCK_OVERVIEW_KPI_DATA,
-  INITIAL_LOCATION_STOCK_ITEMS,
-} from '@/lib/data/stock-overview-seed-data';
-import { LocationStockItem } from '@/types/stock-overview';
+import { LocationStockItem, StockOverviewKPIData } from '@/types/stock-overview';
 
 export default function StockOverviewPage() {
   const [dateRange, setDateRange] = useState('Last 30 Days');
-  const [locationItems, setLocationItems] = useState<LocationStockItem[]>(
-    INITIAL_LOCATION_STOCK_ITEMS
-  );
+  const [locationItems, setLocationItems] = useState<LocationStockItem[]>([]);
+  const [totalWarehouseCount, setTotalWarehouseCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchStockData = async () => {
+    try {
+      setIsLoading(true);
+      const [stockRes, whRes] = await Promise.all([
+        fetch('/api/stock'),
+        fetch('/api/warehouses'),
+      ]);
+      const [stockJson, whJson] = await Promise.all([
+        stockRes.json(),
+        whRes.json(),
+      ]);
+
+      if (stockJson.success && Array.isArray(stockJson.data)) {
+        setLocationItems(stockJson.data);
+      }
+      if (whJson.success && Array.isArray(whJson.data)) {
+        setTotalWarehouseCount(whJson.data.length);
+      }
+    } catch (err) {
+      console.error('Failed to load stock overview data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStockData();
+  }, []);
 
   const handleUpdateItem = (updated: LocationStockItem) => {
     setLocationItems((prev) =>
       prev.map((i) => (i.id === updated.id ? updated : i))
     );
   };
+
+  const dynamicKpiData: StockOverviewKPIData = useMemo(() => {
+    const totalQty = locationItems.reduce((acc, curr) => acc + (curr.totalStock || 0), 0);
+    const uniqueItemCodes = new Set(locationItems.map((i) => i.code)).size;
+    const lowStockCount = locationItems.filter(
+      (i) => i.status === 'Low Stock' || i.status === 'Out of Stock'
+    ).length;
+    const activeWhCount = totalWarehouseCount || new Set(locationItems.map((i) => i.location)).size;
+
+    return {
+      totalStockQuantity: {
+        value: totalQty.toLocaleString(),
+        label: 'Total Stock Quantity',
+        change: '+0.0%',
+        isPositive: true,
+        sparkline: [totalQty, totalQty, totalQty],
+      },
+      warehouses: {
+        value: activeWhCount.toString(),
+        label: 'Warehouses',
+        change: 'Active',
+        isPositive: true,
+        sparkline: [activeWhCount, activeWhCount, activeWhCount],
+      },
+      uniqueItems: {
+        value: uniqueItemCodes.toLocaleString(),
+        label: 'Unique Items',
+        change: '+0.0%',
+        isPositive: true,
+        sparkline: [uniqueItemCodes, uniqueItemCodes, uniqueItemCodes],
+      },
+      lowStockItems: {
+        value: lowStockCount.toLocaleString(),
+        label: 'Low Stock Items',
+        change: lowStockCount > 0 ? 'Action Required' : 'Optimal',
+        isPositive: lowStockCount === 0,
+        sparkline: [lowStockCount, lowStockCount, lowStockCount],
+      },
+    };
+  }, [locationItems, totalWarehouseCount]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -111,22 +176,14 @@ export default function StockOverviewPage() {
       </div>
 
       {/* ================= ROW 1: 4 KPI CARDS ================= */}
-      <StockOverviewStatGrid data={STOCK_OVERVIEW_KPI_DATA} />
+      <StockOverviewStatGrid data={dynamicKpiData} />
 
       {/* ================= ROW 2: 2 VISUALIZATION CARDS ================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
         
-        {/* Left: Stock by Category Donut Chart (5 Cols on LG) */}
-        <div className="lg:col-span-5">
-          <StockByCategoryChart />
-        </div>
+          <StockByCategoryChart items={locationItems} />
 
-        {/* Right: Stock Trend Dual-series Area Chart (7 Cols on LG) */}
-        <div className="lg:col-span-7">
-          <StockTrendChart />
-        </div>
-
-      </div>
+      
 
       {/* ================= ROW 3: STOCK BY LOCATION TABLE ================= */}
       <StockByLocationTable

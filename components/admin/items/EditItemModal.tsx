@@ -27,17 +27,17 @@ export function EditItemModal({ item, isOpen, onClose, onSave }: EditItemModalPr
 
   useEffect(() => {
     if (item) {
-      setName(item.name);
+      setName(item.name || '');
       setCategory(item.category);
-      setUnit(item.unit);
-      setStatus(item.status);
-      setAvailableStock(item.availableStock);
-      setReservedStock(item.reservedStock);
-      setReorderLevel(item.reorderLevel);
-      setExpiryDate(item.expiryDate);
-      setDescription(item.description);
-      setBatchTracking(item.batchTracking);
-      setExpiryTracking(item.expiryTracking);
+      setUnit(item.unit || 'Box');
+      setStatus(item.status || 'Active');
+      setAvailableStock(Number(item.availableStock ?? (item as any)?.available_stock ?? item.stockQuantity ?? 0));
+      setReservedStock(Number(item.reservedStock ?? (item as any)?.reserved_stock ?? 0));
+      setReorderLevel(Number(item.reorderLevel ?? (item as any)?.reorder_level ?? 100));
+      setExpiryDate(item.expiryDate || '');
+      setDescription(item.description || '');
+      setBatchTracking(Boolean(item.batchTracking ?? (item as any)?.batch_tracking));
+      setExpiryTracking(Boolean(item.expiryTracking ?? (item as any)?.expiry_tracking));
     }
   }, [item]);
 

@@ -35,19 +35,11 @@ import { AddWarehouseModal } from '@/components/admin/warehouses/AddWarehouseMod
 import { EditWarehouseModal } from '@/components/admin/warehouses/EditWarehouseModal';
 import { AddBinModal } from '@/components/admin/warehouses/AddBinModal';
 import { TransferStockModal } from '@/components/admin/warehouses/TransferStockModal';
-import {
-  WAREHOUSES_KPI_DATA,
-  INITIAL_WAREHOUSE_FACILITIES,
-} from '@/lib/data/warehouses-seed-data';
 import { WarehouseFacility, StorageZone } from '@/types/warehouses';
 
 export default function WarehousesPage() {
-  const [warehouses, setWarehouses] = useState<WarehouseFacility[]>(
-    INITIAL_WAREHOUSE_FACILITIES
-  );
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(
-    INITIAL_WAREHOUSE_FACILITIES[0]?.id || null
-  );
+  const [warehouses, setWarehouses] = useState<WarehouseFacility[]>([]);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
 
   // Modals state
   const [isAddWarehouseOpen, setIsAddWarehouseOpen] = useState(false);
@@ -66,16 +58,39 @@ export default function WarehousesPage() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const fetchWarehouses = async () => {
+    try {
+      const res = await fetch('/api/warehouses');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setWarehouses(data.data);
+        if (data.data.length > 0) {
+          if (!selectedWarehouseId || !data.data.find((w: any) => w.id === selectedWarehouseId)) {
+            setSelectedWarehouseId(data.data[0].id);
+          }
+        } else {
+          setSelectedWarehouseId(null);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch warehouses:', e);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchWarehouses();
+  }, []);
+
   // Currently selected warehouse
   const selectedWarehouse = useMemo(() => {
-    return warehouses.find((w) => w.id === selectedWarehouseId) || null;
+    return warehouses.find((w) => w.id === selectedWarehouseId) || warehouses[0] || null;
   }, [warehouses, selectedWarehouseId]);
 
   // Dynamic KPI calculation
   const dynamicKpiData = useMemo(() => {
     const totalCount = warehouses.length;
-    const totalBinsCount = warehouses.reduce((acc, w) => acc + w.totalBins, 0);
-    const totalUsedBins = warehouses.reduce((acc, w) => acc + w.usedBins, 0);
+    const totalBinsCount = warehouses.reduce((acc, w) => acc + (w.totalBins || 0), 0);
+    const totalUsedBins = warehouses.reduce((acc, w) => acc + (w.usedBins || 0), 0);
     const avgUtilization =
       totalBinsCount > 0
         ? ((totalUsedBins / totalBinsCount) * 100).toFixed(1)
@@ -83,26 +98,60 @@ export default function WarehousesPage() {
 
     return {
       totalWarehouses: {
-        ...WAREHOUSES_KPI_DATA.totalWarehouses,
         value: totalCount.toString(),
+        change: `${totalCount} operational`,
+        isPositive: true,
+        color: '#008a90',
+        sparkline: [totalCount, totalCount, totalCount],
+        label: 'Total Warehouses',
       },
       totalLocations: {
-        ...WAREHOUSES_KPI_DATA.totalLocations,
         value: totalBinsCount.toLocaleString(),
+        change: `${totalBinsCount} storage bins`,
+        isPositive: true,
+        color: '#0284c7',
+        sparkline: [totalBinsCount, totalBinsCount, totalBinsCount],
+        label: 'Storage Locations',
       },
       capacityUtilization: {
-        ...WAREHOUSES_KPI_DATA.capacityUtilization,
         value: `${avgUtilization}%`,
+        change: 'Occupied vs available',
+        isPositive: true,
+        color: '#10b981',
+        sparkline: [Number(avgUtilization), Number(avgUtilization), Number(avgUtilization)],
+        label: 'Capacity Utilization',
       },
-      maintenanceRestricted: WAREHOUSES_KPI_DATA.maintenanceRestricted,
+      maintenanceRestricted: {
+        value: '0',
+        change: 'No quarantine flags',
+        isPositive: true,
+        color: '#f59e0b',
+        sparkline: [0, 0, 0],
+        label: 'Restricted / Hold',
+      },
     };
   }, [warehouses]);
 
   // Handlers for CRUD & State actions
-  const handleAddWarehouse = (newFacility: WarehouseFacility) => {
-    setWarehouses((prev) => [newFacility, ...prev]);
-    setSelectedWarehouseId(newFacility.id);
-    showToast(`Successfully registered new facility "${newFacility.name}" (${newFacility.code}).`);
+  const handleAddWarehouse = async (newFacility: WarehouseFacility) => {
+    try {
+      const res = await fetch('/api/warehouses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newFacility),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Successfully registered facility "${newFacility.name}".`);
+        fetchWarehouses();
+      } else {
+        showToast(data.message || 'Failed to create warehouse');
+      }
+    } catch {
+      setWarehouses((prev) => [newFacility, ...prev]);
+      setSelectedWarehouseId(newFacility.id);
+      showToast(`Successfully registered new facility "${newFacility.name}" (${newFacility.code}).`);
+    }
   };
 
   const handleUpdateWarehouse = (updated: WarehouseFacility) => {
@@ -253,8 +302,8 @@ export default function WarehousesPage() {
 
       {/* ================= ROW 2: VISUALIZATION CARDS ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <WarehouseCapacityChart />
-        <OccupancyTrendChart />
+        <WarehouseCapacityChart warehouses={warehouses} />
+        <OccupancyTrendChart warehouses={warehouses} />
       </div>
 
       {/* ================= ROW 3: SPLIT TABLE & INSPECTOR CARD ================= */}

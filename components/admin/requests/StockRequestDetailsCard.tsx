@@ -252,6 +252,19 @@ VISTA-SR-SECURE-${request.requestId}-${Date.now().toString(36).toUpperCase()}
         </div>
       </div>
 
+      {/* Quick Approve for Pending Requests */}
+      {request.status === 'Pending' && onApproveReject && (
+        <div className="pt-2 border-t border-slate-100">
+          <button
+            onClick={() => onApproveReject(request)}
+            className="w-full py-2.5 px-3 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Approve Stock Request</span>
+          </button>
+        </div>
+      )}
+
       {/* Section 5: Action Buttons Grid */}
       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
         <button

@@ -19,14 +19,59 @@ import { MovementsStatGrid } from '@/components/admin/movements/MovementsStatGri
 import { MovementsByTypeChart } from '@/components/admin/movements/MovementsByTypeChart';
 import { MovementTrendChart } from '@/components/admin/movements/MovementTrendChart';
 import { MovementsTable } from '@/components/admin/movements/MovementsTable';
-import {
-  MOVEMENTS_KPI_DATA,
-  INITIAL_STOCK_MOVEMENTS,
-} from '@/lib/data/movements-seed-data';
 
 export default function StockMovementsPage() {
   const [dateRange, setDateRange] = useState('Apr 1 – Apr 30, 2025');
-  const [movements, setMovements] = useState(INITIAL_STOCK_MOVEMENTS);
+  const [movements, setMovements] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    fetch('/api/movements')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setMovements(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const dynamicKpis = React.useMemo(() => {
+    const total = movements.length;
+    const receipts = movements.filter((m) => m.type === 'Receipt').length;
+    const issues = movements.filter((m) => m.type === 'Issue').length;
+    const transfers = movements.filter((m) => m.type === 'Transfer').length;
+
+    return {
+      totalMovements: {
+        value: total.toLocaleString(),
+        label: 'Total Movements',
+        
+        sparkline: [total, total, total],
+        color: '#008a90',
+      },
+      totalReceipts: {
+        value: receipts.toLocaleString(),
+        label: 'Receipts',
+        
+        sparkline: [receipts, receipts, receipts],
+        color: '#10b981',
+      },
+      totalIssues: {
+        value: issues.toLocaleString(),
+        label: 'Issues',
+        
+        sparkline: [issues, issues, issues],
+        color: '#0284c7',
+      },
+      transfers: {
+        value: transfers.toLocaleString(),
+        label: 'Transfers',
+        
+        sparkline: [transfers, transfers, transfers],
+        color: '#8b5cf6',
+      },
+    };
+  }, [movements]);
 
   // Export Full Movements Report CSV
   const handleExportReport = () => {
@@ -106,19 +151,19 @@ export default function StockMovementsPage() {
       </div>
 
       {/* ================= ROW 1: 4 KPI CARDS ================= */}
-      <MovementsStatGrid data={MOVEMENTS_KPI_DATA} />
+      <MovementsStatGrid data={dynamicKpis as any} />
 
       {/* ================= ROW 2: 2 VISUALIZATION CARDS ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left: Movements by Type Donut Chart (5 Cols on LG) */}
         <div className="lg:col-span-5">
-          <MovementsByTypeChart />
+          <MovementsByTypeChart movements={movements} />
         </div>
 
         {/* Right: Movement Trend 3-Series Area Chart (7 Cols on LG) */}
         <div className="lg:col-span-7">
-          <MovementTrendChart />
+          <MovementTrendChart movements={movements} />
         </div>
 
       </div>

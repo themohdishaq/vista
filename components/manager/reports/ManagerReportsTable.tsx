@@ -19,7 +19,7 @@ import {
 import {
   ManagerGeneratedReport,
   ManagerScheduledAudit,
-} from '@/lib/data/manager-reports-data';
+} from '@/types/manager';
 
 interface ManagerReportsTableProps {
   reports: ManagerGeneratedReport[];

@@ -1,21 +1,52 @@
 // filepath: components/admin/stock-overview/StockByCategoryChart.tsx
 'use client';
 
-import React from 'react';
-import { PieChart as PieChartIcon } from 'lucide-react';
+import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { STOCK_CATEGORY_DISTRIBUTION } from '@/lib/data/stock-overview-seed-data';
+import { LocationStockItem } from '@/types/stock-overview';
 
-/**
- * @file components/admin/stock-overview/StockByCategoryChart.tsx
- * @description Donut Chart for "Stock by Category" matching design specification:
- * - Center text: 245,750 / Total Stock
- * - Slices: Medical Supplies (38.5%), Pharmaceuticals (28.2%), Equipment (18.7%), Hygiene (8.1%), Others (6.5%)
- * - Clean right-hand legend with bold percentages
- */
+interface StockByCategoryChartProps {
+  items?: LocationStockItem[];
+}
 
-export function StockByCategoryChart() {
-  const data = STOCK_CATEGORY_DISTRIBUTION;
+const CATEGORY_COLORS: Record<string, string> = {
+  'Medical Supplies': '#008a90',
+  'Pharmaceuticals': '#0ea5e9',
+  'Equipment': '#6366f1',
+  'Hygiene': '#14b8a6',
+  'PPE': '#f59e0b',
+  'Diagnostics': '#8b5cf6',
+  'Others': '#94a3b8',
+};
+
+export function StockByCategoryChart({ items = [] }: StockByCategoryChartProps) {
+  const { data, totalStock } = useMemo(() => {
+    const total = items.reduce((acc, curr) => acc + (curr.totalStock || 0), 0);
+    if (!items.length || total === 0) {
+      return {
+        data: [{ name: 'No Inventory Recorded', quantity: 1, percentage: 100, color: '#e2e8f0' }],
+        totalStock: 0,
+      };
+    }
+
+    const catMap = new Map<string, number>();
+    for (const item of items) {
+      const cat = item.category || 'Others';
+      catMap.set(cat, (catMap.get(cat) || 0) + (item.totalStock || 0));
+    }
+
+    const formatted = Array.from(catMap.entries()).map(([name, quantity]) => {
+      const percentage = (quantity / total) * 100;
+      return {
+        name,
+        quantity,
+        percentage,
+        color: CATEGORY_COLORS[name] || '#94a3b8',
+      };
+    });
+
+    return { data: formatted, totalStock: total };
+  }, [items]);
 
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
@@ -84,7 +115,7 @@ export function StockByCategoryChart() {
           {/* Centered Donut Value */}
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
             <span className="text-xl sm:text-2xl font-black text-[#0a2540] tracking-tight">
-              245,750
+              {totalStock.toLocaleString()}
             </span>
             <span className="text-xs font-medium text-slate-400">
               Total Stock

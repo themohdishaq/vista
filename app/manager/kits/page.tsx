@@ -5,9 +5,10 @@
  * @file app/manager/kits/page.tsx
  * @description Dedicated Kit & Sub-Kit Management for the Inventory Manager.
  * Fulfills Responsibility 6: "Manage kits, sub-kits, boxes and packing lists."
+ * Live assembly progress, bill of materials tracking, and QA inspection.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Boxes,
   Plus,
@@ -17,32 +18,77 @@ import {
   Printer,
   Download,
   Users,
+  RefreshCw,
 } from 'lucide-react';
-import { INITIAL_KITS_PROGRESS } from '@/lib/data/manager-seed-data';
 import { KitPackingProgress } from '@/types/manager';
 
 export default function ManagerKitsPage() {
-  const [kits, setKits] = useState<KitPackingProgress[]>(INITIAL_KITS_PROGRESS);
+  const [kits, setKits] = useState<KitPackingProgress[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const fetchKits = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/manager/dashboard');
+      const json = await res.json();
+      if (json.success && json.data?.kitPacking) {
+        setKits(json.data.kitPacking);
+      }
+    } catch (err) {
+      console.error('Failed to load manager kits:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchKits();
+  }, []);
+
   const handleApproveInspection = (kitCode: string) => {
     setKits((prev) =>
       prev.map((k) =>
-        k.kitCode === kitCode ? { ...k, targetPacks: k.completedPacks } : k
+        k.kitCode === kitCode ? { ...k, progressPercentage: 100, missingItemsCount: 0 } : k
       )
     );
-    showToast(`Approved QA inspection for kit assembly ${kitCode}.`);
+    showToast(`Approved QA inspection for kit assembly [${kitCode}]. Ready for clinic dispatch.`);
+  };
+
+  const handleExportPackingList = () => {
+    const headers = ['Kit Code', 'Kit Name', 'Completed Packs', 'Target Packs', 'Progress %', 'Lead Packer', 'Due Time', 'Bottleneck Item', 'Priority', 'Destination'];
+    const rows = kits.map((k) => [
+      k.kitCode,
+      `"${k.kitName}"`,
+      k.completedPacks || 0,
+      k.targetPacks || 0,
+      `${k.progressPercentage || 0}%`,
+      `"${k.leadPacker || 'Floor Specialist'}"`,
+      `"${k.dueTime || 'End of Shift'}"`,
+      `"${k.bottleneckItem || 'None'}"`,
+      k.priority || 'Normal',
+      `"${k.destinationWard || 'Hospital Central'}"`,
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encoded = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.href = encoded;
+    link.download = `VISTA-Kits-Packing-Manifest-${Date.now()}.csv`;
+    link.click();
+    showToast('Exported kit packing lists.');
   };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl bg-[#0a2540] px-5 py-3.5 text-xs text-white shadow-2xl border border-slate-700 animate-in slide-in-from-bottom-5">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span className="font-semibold">{toastMessage}</span>
           <button
             type="button"
@@ -64,93 +110,119 @@ export default function ManagerKitsPage() {
             <span className="text-slate-300">•</span>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
               <Boxes className="w-3.5 h-3.5 text-slate-400" />
-              <span>BOM Assembly & Packing Bays</span>
+              <span>BOM Assembly &amp; Packing Bays</span>
             </div>
           </div>
           <h1 className="font-sans text-2xl font-black tracking-tight text-[#0a2540] mt-1">
-            Manage Kits, Sub-Kits & Packing Lists
+            Manage Kits, Sub-Kits &amp; Packing Lists
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Supervise medical kit assemblies, verify bill-of-materials integrity, inspect packing progress and authorize dispatch.
           </p>
         </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={fetchKits}
+            className="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-[#008a90]' : ''}`} />
+          </button>
+          <button
+            onClick={handleExportPackingList}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#008a90] hover:bg-[#00747a] text-white text-xs font-bold shadow-xs transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export Packing Manifest</span>
+          </button>
+        </div>
       </div>
 
-      {/* Kit Production Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {kits.map((kit) => {
-          const completed = kit.completedPacks ?? kit.packedUnits ?? 0;
-          const target = kit.targetPacks ?? kit.targetUnits ?? 1;
-          const percent = Math.min(100, Math.round((completed / target) * 100));
-          return (
-            <div
-              key={kit.kitCode}
-              className="rounded-2xl bg-white border border-slate-200/90 p-6 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
-                    {kit.kitCode}
-                  </span>
-                  <span className="text-[11px] font-bold text-slate-500">
-                    SLA: {kit.dueTime}
-                  </span>
+      {/* Kits List Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {kits.map((kit) => (
+          <div
+            key={kit.id}
+            className="rounded-2xl bg-white border border-slate-200/90 p-5 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow"
+          >
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="font-mono text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200/80">
+                  {kit.kitCode}
+                </span>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                    kit.priority === 'High'
+                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                      : 'bg-slate-50 text-slate-600 border border-slate-200'
+                  }`}
+                >
+                  {kit.priority} Priority
+                </span>
+              </div>
+
+              <h3 className="font-bold text-slate-900 text-sm">{kit.kitName}</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Destination: {kit.destinationWard || 'Hospital Wards'}</p>
+
+              {/* Progress Bar */}
+              <div className="mt-4 space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-600 font-medium">Packing Completion</span>
+                  <span className="font-mono font-bold text-slate-900">{kit.progressPercentage}%</span>
                 </div>
+                <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      (kit.progressPercentage || 0) >= 100
+                        ? 'bg-emerald-500'
+                        : (kit.progressPercentage || 0) >= 50
+                        ? 'bg-[#008a90]'
+                        : 'bg-amber-500'
+                    }`}
+                    style={{ width: `${kit.progressPercentage}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-slate-400">
+                  <span>{kit.completedPacks} Packed</span>
+                  <span>Target: {kit.targetPacks} Packs</span>
+                </div>
+              </div>
 
-                <h3 className="font-sans text-base font-bold text-slate-900 mt-2">
-                  {kit.kitName}
-                </h3>
-
-                <div className="mt-2 text-xs text-slate-500 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-slate-400" />
-                  <span>
-                    Lead Packer: <strong className="text-slate-700">{kit.leadPacker}</strong>
+              {/* Floor Details */}
+              <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between text-slate-600">
+                  <span className="flex items-center gap-1 text-slate-500">
+                    <Users className="w-3.5 h-3.5" /> Specialist:
                   </span>
+                  <span className="font-semibold text-slate-800">{kit.leadPacker}</span>
                 </div>
-
-                {/* Progress */}
-                <div className="mt-4">
-                  <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-                    <span>Assembly Output</span>
-                    <span className="text-purple-700 font-bold">
-                      {kit.completedPacks} / {kit.targetPacks} Kits ({percent}%)
-                    </span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-500"
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
+                <div className="flex items-center justify-between text-slate-600">
+                  <span className="flex items-center gap-1 text-slate-500">
+                    <Clock className="w-3.5 h-3.5" /> Due Window:
+                  </span>
+                  <span className="font-mono text-slate-700">{kit.dueTime}</span>
                 </div>
-
-                {/* Missing / Bottleneck Alert */}
-                {kit.bottleneckItem ? (
-                  <div className="mt-4 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                    <span>Bottleneck: Missing {kit.bottleneckItem}</span>
-                  </div>
-                ) : (
-                  <div className="mt-4 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>All BOM components in stock</span>
+                {kit.bottleneckItem && (
+                  <div className="flex items-center gap-1.5 text-amber-700 bg-amber-50 p-2 rounded-lg text-[11px] font-semibold mt-2 border border-amber-200">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Bottleneck: {kit.bottleneckItem}</span>
                   </div>
                 )}
               </div>
-
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs text-slate-400">Bay 2 Active</span>
-                <button
-                  type="button"
-                  onClick={() => handleApproveInspection(kit.kitCode)}
-                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Approve QA
-                </button>
-              </div>
             </div>
-          );
-        })}
+
+            <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => handleApproveInspection(kit.kitCode)}
+                className="w-full py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer text-center"
+              >
+                ✓ Sign-Off QA Inspection
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

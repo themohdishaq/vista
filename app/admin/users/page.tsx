@@ -4,200 +4,361 @@
 /**
  * @file app/admin/users/page.tsx
  * @description Master User Management Screen for VISTA Portal.
- * Matches the uploaded design specification:
- * - Top Header: Group Icon, Title, Subtitle, + Add User, Import Users, Export Users, More ⌵
- * - Row 1: 4 KPI Cards (Total Users 248, Active Users 232, Inactive Users 16, Roles & Permissions 6)
- * - Row 2: 3 Analytics Cards (Role Distribution donut, Manage Users by Role, User Activity Trend)
- * - Row 3: Split Table & Recent Activity Feed
- * - Working Modals: AddUserModal, EditUserModal, UserDetailsModal, ImportUsersModal, AllActivitiesModal
+ * Clean, focused, and fully functional:
+ * - Direct credential provisioning (email & password) by Super Admin
+ * - Strictly 2 manageable access roles: Inventory Manager & Warehouse Staff
+ * - Direct assignment to Admin-created warehouse facilities
+ * - Instant table display with dual persistence (database + client storage)
+ * - Working creation, editing, status toggle, deletion, and real-time dashboard analytics
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Users,
   UserPlus,
-  Upload,
-  Download,
-  ChevronDown,
   CheckCircle2,
-  MoreVertical,
-  ShieldAlert,
-  FileSpreadsheet,
+  AlertCircle,
 } from 'lucide-react';
 
-import { UsersStatGrid } from '@/components/admin/users/UsersStatGrid';
+
 import { RoleDistributionChart } from '@/components/admin/users/RoleDistributionChart';
 import { ManageUsersByRoleCard } from '@/components/admin/users/ManageUsersByRoleCard';
-import { UserActivityTrendChart } from '@/components/admin/users/UserActivityTrendChart';
 import { UsersTable } from '@/components/admin/users/UsersTable';
-import { RecentActivitiesFeed } from '@/components/admin/users/RecentActivitiesFeed';
 
-import { AddUserModal } from '@/components/admin/users/AddUserModal';
+import { AddUserModal, WarehouseOption } from '@/components/admin/users/AddUserModal';
 import { EditUserModal } from '@/components/admin/users/EditUserModal';
 import { UserDetailsModal } from '@/components/admin/users/UserDetailsModal';
-import { ImportUsersModal } from '@/components/admin/users/ImportUsersModal';
-import { AllActivitiesModal } from '@/components/admin/users/AllActivitiesModal';
 
-import {
-  USERS_KPI_DATA,
-  INITIAL_USERS,
-  RECENT_USER_ACTIVITIES,
-} from '@/lib/data/users-seed-data';
-import { UserRecord, UserActivityLog } from '@/types/users';
+import { UserRecord, UserStatus } from '@/types/users';
+
+const STORAGE_KEY = 'vista_custom_users';
 
 export default function UserManagementPage() {
-  const [users, setUsers] = useState<UserRecord[]>(INITIAL_USERS);
-  const [activities, setActivities] = useState<UserActivityLog[]>(
-    RECENT_USER_ACTIVITIES
-  );
+  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
   const [roleFilter, setRoleFilter] = useState('All');
+  const [isLoading, setIsLoading] = useState(true);
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
   const [viewingUser, setViewingUser] = useState<UserRecord | null>(null);
-  const [isActivitiesModalOpen, setIsActivitiesModalOpen] = useState(false);
-
-  // Dropdown state for "More"
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
   // Toast notification state
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
+  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Dynamic KPI calculation based on live users state
-  const dynamicKpiData = useMemo(() => {
-    const totalCount = users.length;
-    const activeCount = users.filter((u) => u.status === 'Active').length;
-    const inactiveCount = users.filter((u) => u.status === 'Inactive').length;
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/users', { cache: 'no-store' });
+      const data = await res.json();
+      let liveList: UserRecord[] = [];
+      if (data.success && Array.isArray(data.data)) {
+        liveList = data.data;
+      }
 
-    return {
-      totalUsers: {
-        ...USERS_KPI_DATA.totalUsers,
-        value: totalCount.toString(),
-      },
-      activeUsers: {
-        ...USERS_KPI_DATA.activeUsers,
-        value: activeCount.toString(),
-      },
-      inactiveUsers: {
-        ...USERS_KPI_DATA.inactiveUsers,
-        value: inactiveCount.toString(),
-      },
-      rolesPermissions: USERS_KPI_DATA.rolesPermissions,
+      // Merge with custom users saved in localStorage as a client-side safety net
+      if (typeof window !== 'undefined') {
+        try {
+          const stored: UserRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+          if (Array.isArray(stored) && stored.length > 0) {
+            const existingIds = new Set(liveList.map((u) => u.id));
+            const existingEmails = new Set(liveList.map((u) => u.email.toLowerCase()));
+            const newToAdd = stored.filter(
+              (s) => !existingIds.has(s.id) && !existingEmails.has(s.email.toLowerCase())
+            );
+            liveList = [...newToAdd, ...liveList];
+          }
+        } catch {}
+      }
+
+      setUsers(liveList);
+    } catch (e) {
+      console.error('Failed to fetch live users:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const fetchWarehouses = async () => {
+    try {
+      const res = await fetch('/api/warehouses', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setWarehouses(
+          data.data.map((w: any) => ({
+            id: w.id,
+            name: w.name,
+            code: w.code,
+          }))
+        );
+      }
+    } catch (e) {
+      console.error('Failed to fetch warehouses:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+    fetchWarehouses();
+  }, [fetchUsers]);
+
+
+  // Handler: Add User (Prepend immediately + dual persistence)
+  const handleAddUser = async (userData: {
+    fullName: string;
+    email: string;
+    password: string;
+    role: 'Inventory Manager' | 'Warehouse Staff';
+    warehouseId: string;
+    warehouseAccess?: string;
+    phone?: string;
+    status: UserStatus;
+  }) => {
+    const selectedWh = warehouses.find((w) => w.id === userData.warehouseId);
+    const facilityName =
+      userData.warehouseAccess ||
+      (selectedWh
+        ? `${selectedWh.code ? `[${selectedWh.code}] ` : ''}${selectedWh.name}`
+        : 'Main Central Warehouse');
+
+    const payload = {
+      ...userData,
+      warehouseAccess: facilityName,
     };
-  }, [users]);
 
-  // Handler: Add User
-  const handleAddUser = (newUser: UserRecord) => {
-    setUsers((prev) => [newUser, ...prev]);
+    const res = await fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
 
-    const newActivity: UserActivityLog = {
-      id: `act-${Date.now()}`,
-      type: 'added',
-      title: `New user added: ${newUser.fullName}`,
-      targetUser: newUser.fullName,
-      actor: 'Admin User',
-      timestamp: 'Just now',
-      details: `Assigned role: ${newUser.role}, Department: ${newUser.department}.`,
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || 'Failed to create user account.');
+    }
+
+    const createdRecord: UserRecord = data.user || {
+      id: data.id || `usr-${Date.now()}`,
+      fullName: userData.fullName,
+      username: userData.email.toLowerCase(),
+      email: userData.email.toLowerCase(),
+      role: userData.role,
+      status: userData.status,
+      lastLogin: 'Never',
+      phone: userData.phone || '+1 (555) 000-0000',
+      warehouseId: userData.warehouseId,
+      warehouseAccess: facilityName,
+      permissionsCount: userData.role === 'Inventory Manager' ? 36 : 18,
     };
-    setActivities((prev) => [newActivity, ...prev]);
 
-    showToast(`User ${newUser.fullName} created successfully.`);
+    // 1. Immediately prepend to table at index 0 so user is visibly at top of list
+    setUsers((prev) => [createdRecord, ...prev.filter((u) => u.id !== createdRecord.id)]);
+
+    // 2. Persist in localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const stored: UserRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const updated = [
+          createdRecord,
+          ...stored.filter((u) => u.id !== createdRecord.id && u.email !== createdRecord.email),
+        ];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch {}
+    }
+
+    // 3. Reset role filter so new account is not hidden
+    setRoleFilter('All');
+
+    showToast(`Account for ${userData.fullName} created successfully.`, 'success');
   };
 
   // Handler: Edit User
-  const handleUpdateUser = (updatedUser: UserRecord) => {
+  const handleUpdateUser = async (updatedData: {
+    id: string;
+    fullName: string;
+    role: 'Inventory Manager' | 'Warehouse Staff';
+    warehouseId: string;
+    phone?: string;
+    status: UserStatus;
+    password?: string;
+  }) => {
+    const selectedWh = warehouses.find((w) => w.id === updatedData.warehouseId);
+    const facilityName = selectedWh
+      ? `${selectedWh.code ? `[${selectedWh.code}] ` : ''}${selectedWh.name}`
+      : 'Main Central Warehouse';
+
+    const fullPayload = {
+      ...updatedData,
+      warehouseAccess: facilityName,
+    };
+
+    // Optimistic UI update
     setUsers((prev) =>
-      prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
+      prev.map((u) =>
+        u.id === updatedData.id
+          ? {
+              ...u,
+              fullName: updatedData.fullName,
+              role: updatedData.role,
+              warehouseId: updatedData.warehouseId,
+              warehouseAccess: facilityName,
+              phone: updatedData.phone || u.phone,
+              status: updatedData.status,
+            }
+          : u
+      )
     );
 
-    const newActivity: UserActivityLog = {
-      id: `act-${Date.now()}`,
-      type: 'updated',
-      title: `User updated: ${updatedUser.fullName}`,
-      targetUser: updatedUser.fullName,
-      actor: 'Admin User',
-      timestamp: 'Just now',
-      details: `Role: ${updatedUser.role}, Status: ${updatedUser.status}.`,
-    };
-    setActivities((prev) => [newActivity, ...prev]);
+    // Update in localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const stored: UserRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const updated = stored.map((u) =>
+          u.id === updatedData.id
+            ? {
+                ...u,
+                fullName: updatedData.fullName,
+                role: updatedData.role,
+                warehouseId: updatedData.warehouseId,
+                warehouseAccess: facilityName,
+                phone: updatedData.phone || u.phone,
+                status: updatedData.status,
+              }
+            : u
+        );
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch {}
+    }
 
-    showToast(`User ${updatedUser.fullName} updated.`);
+    try {
+      const res = await fetch(`/api/users/${updatedData.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fullPayload),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to update user profile.');
+      }
+
+      showToast(`Account for ${updatedData.fullName} updated.`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update user profile.', 'error');
+    }
   };
 
   // Handler: Toggle User Status
-  const handleToggleStatus = (userId: string) => {
+  const handleToggleStatus = async (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+
+    const newStatus: UserStatus = user.status === 'Active' ? 'Inactive' : 'Active';
+
+    // Optimistic UI update
     setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === userId) {
-          const newStatus = u.status === 'Active' ? 'Inactive' : 'Active';
-          showToast(`User ${u.fullName} marked as ${newStatus}.`);
-
-          const act: UserActivityLog = {
-            id: `act-${Date.now()}`,
-            type: newStatus === 'Active' ? 'added' : 'deactivated',
-            title: `User ${newStatus.toLowerCase()}: ${u.fullName}`,
-            targetUser: u.fullName,
-            actor: 'Admin User',
-            timestamp: 'Just now',
-          };
-          setActivities((a) => [act, ...a]);
-
-          return { ...u, status: newStatus };
-        }
-        return u;
-      })
+      prev.map((u) => (u.id === userId ? { ...u, status: newStatus } : u))
     );
+
+    // Update in localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const stored: UserRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const updated = stored.map((u) => (u.id === userId ? { ...u, status: newStatus } : u));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch {}
+    }
+
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to update status');
+      }
+
+      showToast(`User ${user.fullName} is now ${newStatus}.`, 'success');
+    } catch (err: any) {
+      // Revert optimistic update on failure
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, status: user.status } : u))
+      );
+      showToast(err.message || 'Failed to update user status.', 'error');
+    }
   };
 
-  // Handler: Import Users
-  const handleImportUsers = (newUsers: UserRecord[]) => {
-    setUsers((prev) => [...newUsers, ...prev]);
-    showToast(`Imported ${newUsers.length} users successfully.`);
+  // Handler: Delete / Deactivate User
+  const handleDeleteUser = async (userId: string) => {
+    // Optimistic remove
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+
+    // Remove from localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const stored: UserRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const updated = stored.filter((u) => u.id !== userId);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch {}
+    }
+
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to delete user.');
+      }
+
+      showToast('User account deactivated and removed.', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete user.', 'error');
+    }
   };
 
-  // Handler: Export Users CSV
-  const handleExportUsers = () => {
-    const headers = [
-      'Full Name',
-      'Username',
-      'Email',
-      'Role',
-      'Department',
-      'Status',
-      'Last Login',
-      'Warehouse Access',
-    ];
+  // Handler: Approve Staff Request
+  const handleApproveUser = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/users/${userId}/approve`, { method: 'PATCH' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Staff profile approved. Account is now active.', 'success');
+        await fetchUsers();
+      } else {
+        showToast(data.message || 'Failed to approve staff profile.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Approval error', 'error');
+    }
+  };
 
-    const rows = users.map((u) => [
-      `"${u.fullName}"`,
-      `"${u.username}"`,
-      `"${u.email}"`,
-      `"${u.role}"`,
-      `"${u.department}"`,
-      `"${u.status}"`,
-      `"${u.lastLogin}"`,
-      `"${u.warehouseAccess || 'Main Warehouse'}"`,
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `VISTA_User_Roster_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    showToast('Exported user roster to CSV.');
+  // Handler: Reject Staff Request
+  const handleRejectUser = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/users/${userId}/reject`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'Rejected by Super Admin' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Staff profile request rejected.', 'success');
+        await fetchUsers();
+      } else {
+        showToast(data.message || 'Failed to reject staff profile.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Rejection error', 'error');
+    }
   };
 
   return (
@@ -205,13 +366,17 @@ export default function UserManagementPage() {
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-xs border border-slate-700 animate-in slide-in-from-top-4 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{toastMessage}</span>
+          {toastMessage.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          )}
+          <span>{toastMessage.text}</span>
         </div>
       )}
 
-      {/* Top Header Row matching design */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Top Header Row (Cleaned: No Import, Export, or More buttons) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         {/* Left: Icon, Title & Subtitle */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#008a90] flex items-center justify-center text-white shadow-xs">
@@ -222,105 +387,56 @@ export default function UserManagementPage() {
               User Management
             </h1>
             <p className="text-xs text-slate-500">
-              Manage users, roles and permissions across VISTA.
+              Provision Manager and Staff accounts, assign facilities, and manage access credentials.
             </p>
           </div>
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {/* + Add User Button */}
+        {/* Right: Only the Primary + Add User Action */}
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-[#008a90] hover:bg-[#00747a] rounded-xl shadow-xs transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#008a90] hover:bg-[#00747a] rounded-xl shadow-xs transition-colors cursor-pointer"
           >
-            <UserPlus className="w-3.5 h-3.5" />
+            <UserPlus className="w-4 h-4" />
             <span>Add User</span>
           </button>
-
-          {/* Import Users Button */}
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-2xs transition-colors cursor-pointer"
-          >
-            <Upload className="w-3.5 h-3.5 text-slate-500" />
-            <span>Import Users</span>
-          </button>
-
-          {/* Export Users Button */}
-          <button
-            onClick={handleExportUsers}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-2xs transition-colors cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>Export Users</span>
-          </button>
-
-          {/* More ⌵ Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-              className="flex items-center gap-1 px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-2xs transition-colors cursor-pointer"
-            >
-              <span>More</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-            </button>
-            {isMoreMenuOpen && (
-              <div className="absolute right-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1 text-xs animate-in fade-in duration-100">
-                <button
-                  onClick={() => {
-                    setIsActivitiesModalOpen(true);
-                    setIsMoreMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3.5 py-2 hover:bg-slate-50 text-slate-700 cursor-pointer"
-                >
-                  View Audit History
-                </button>
-                <button
-                  onClick={() => {
-                    showToast('Role permissions synchronized across all facilities.');
-                    setIsMoreMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3.5 py-2 hover:bg-slate-50 text-slate-700 cursor-pointer"
-                >
-                  Sync RBAC Policies
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* Row 1: 4 KPI Cards */}
-      <UsersStatGrid data={dynamicKpiData} />
 
-      {/* Row 2: 3 Analytics Cards */}
+      {/* Row 2: Analytics Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
         <div className="lg:col-span-2">
-          <RoleDistributionChart />
+          <RoleDistributionChart users={users} />
         </div>
         <div className="lg:col-span-2">
           <ManageUsersByRoleCard
+            users={users}
             onSelectRoleFilter={(role) => setRoleFilter(role)}
           />
         </div>
       </div>
 
-      {/* Row 3: Split Users Table & Recent Activities Feed */}
-
+      {/* Row 3: Users Table */}
       <UsersTable
         users={users}
+        warehouses={warehouses}
         roleFilter={roleFilter}
         onRoleFilterChange={setRoleFilter}
         onViewUser={(u) => setViewingUser(u)}
         onEditUser={(u) => setEditingUser(u)}
         onToggleStatus={handleToggleStatus}
+        onDeleteUser={handleDeleteUser}
+        onApproveUser={handleApproveUser}
+        onRejectUser={handleRejectUser}
       />
 
       {/* Modals */}
       <AddUserModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+        warehouses={warehouses}
         onAddUser={handleAddUser}
       />
 
@@ -328,6 +444,7 @@ export default function UserManagementPage() {
         isOpen={Boolean(editingUser)}
         onClose={() => setEditingUser(null)}
         user={editingUser}
+        warehouses={warehouses}
         onUpdateUser={handleUpdateUser}
       />
 
@@ -336,14 +453,6 @@ export default function UserManagementPage() {
         onClose={() => setViewingUser(null)}
         user={viewingUser}
       />
-
-      <ImportUsersModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onImportUsers={handleImportUsers}
-      />
-
     </div>
   );
 }
-

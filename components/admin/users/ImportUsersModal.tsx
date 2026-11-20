@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { UserRecord } from '@/types/users';
 
 interface ImportUsersModalProps {
@@ -45,42 +46,46 @@ Taylor Brooks,taylor.brooks@vista.org,Auditor,Finance,All Facilities`;
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = (e: React.FormEvent) => {
+  const handleImport = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedFile) return;
     setIsProcessing(true);
 
-    setTimeout(() => {
-      const mockImported: UserRecord[] = [
-        {
-          id: `usr-imp-1-${Date.now()}`,
-          fullName: 'Alex Morgan',
-          username: 'alex.morgan@vista.org',
-          email: 'alex.morgan@vista.org',
-          role: 'Inventory Staff',
-          department: 'Logistics',
-          status: 'Active',
-          lastLogin: 'Never',
-          warehouseAccess: 'Main Warehouse',
-          permissionsCount: 18,
-        },
-        {
-          id: `usr-imp-2-${Date.now()}`,
-          fullName: 'Jordan Reed',
-          username: 'jordan.reed@vista.org',
-          email: 'jordan.reed@vista.org',
-          role: 'Inventory Manager',
-          department: 'Operations',
-          status: 'Active',
-          lastLogin: 'Never',
-          warehouseAccess: 'West Warehouse',
-          permissionsCount: 36,
-        },
-      ];
+    try {
+      const bytes = await selectedFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      const firstSheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[firstSheetName];
+      const rawJson = XLSX.utils.sheet_to_json(sheet);
 
-      onImportUsers(mockImported);
+      const parsedUsers: UserRecord[] = rawJson.map((row: any, i: number) => {
+        const fullName = row['Full Name'] || row['Name'] || row['full_name'] || 'New Staff';
+        const email = row['Email'] || row['email'] || `user${i}@vista.org`;
+        const role = row['Role'] || row['role'] || 'Inventory Staff';
+        const department = row['Department'] || row['department'] || 'Operations';
+        const warehouse = row['Warehouse Access'] || row['Warehouse'] || 'Main Central Warehouse';
+
+        return {
+          id: `usr-imp-${Date.now()}-${i}`,
+          fullName,
+          username: email.toLowerCase(),
+          email: email.toLowerCase(),
+          role: role as any,
+          department,
+          status: 'Active',
+          lastLogin: 'Never',
+          warehouseAccess: warehouse,
+          permissionsCount: role === 'Administrator' ? 48 : role === 'Inventory Manager' ? 36 : 18,
+        };
+      });
+
+      onImportUsers(parsedUsers);
       setIsProcessing(false);
       onClose();
-    }, 700);
+    } catch {
+      setIsProcessing(false);
+    }
   };
 
   return (

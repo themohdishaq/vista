@@ -13,6 +13,7 @@
  */
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   Search,
   Bell,
@@ -83,19 +84,23 @@ export function StaffTopbar({
         </button>
 
         {/* Staff User Profile Pill */}
-        <div className="flex items-center gap-3 pl-2 border-l border-slate-200">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-sky-500 to-teal-400 font-mono text-xs font-bold text-white shadow-xs ring-2 ring-sky-100">
+        <Link
+          href="/staff/settings"
+          className="flex items-center gap-3 pl-2 border-l border-slate-200 group hover:opacity-85 transition-opacity"
+          title="Staff Settings & Scanner Preferences"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-sky-500 to-teal-400 font-mono text-xs font-bold text-white shadow-xs ring-2 ring-sky-100 group-hover:scale-105 transition-transform">
             MC
           </div>
           <div className="hidden sm:flex flex-col text-left">
-            <span className="text-xs font-bold text-[#0a2540] leading-tight">
+            <span className="text-xs font-bold text-[#0a2540] leading-tight group-hover:text-sky-600 transition-colors">
               Mike Chen
             </span>
             <span className="text-[11px] text-slate-400 leading-tight">
-              Inventory Staff • Zone A
+              Settings &amp; Scanner
             </span>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   );

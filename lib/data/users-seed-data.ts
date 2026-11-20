@@ -133,6 +133,7 @@ export const INITIAL_USERS: UserRecord[] = [
     phone: '+1 (555) 345-6789',
     warehouseAccess: 'Main & West Warehouses',
     permissionsCount: 36,
+    password: 'manager123',
   },
   {
     id: 'usr-003',
@@ -146,6 +147,7 @@ export const INITIAL_USERS: UserRecord[] = [
     phone: '+1 (555) 456-7890',
     warehouseAccess: 'East Warehouse',
     permissionsCount: 18,
+    password: 'staff123',
   },
   {
     id: 'usr-004',
@@ -318,4 +320,7 @@ export const ALL_USER_ACTIVITIES_EXTENDED: UserActivityLog[] = [
     details: 'Assigned role: Auditor, Department: Finance.',
   },
 ];
+
+export const INITIAL_USER_RECORDS = INITIAL_USERS;
+
 

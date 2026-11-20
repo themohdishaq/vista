@@ -9,10 +9,70 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react';
-import {
-  MANAGER_REPORT_TEMPLATES,
-  ManagerReportTemplate,
-} from '@/lib/data/manager-reports-data';
+import { ManagerReportTemplate } from '@/types/manager';
+
+export const OPERATIONAL_REPORT_TEMPLATES: ManagerReportTemplate[] = [
+  {
+    id: 'tmpl-1',
+    name: 'Shift Inventory Balance & Bin Audit',
+    category: 'Reconciliation',
+    description: 'Comprehensive snapshot of physical bin balances, available vs reserved stock, and shift variance tallies.',
+    frequency: 'Daily',
+    lastRun: 'Today, 06:15 AM',
+    estimatedSize: '1.4 MB (CSV)',
+    badgeColor: 'bg-teal-50 text-teal-700 border-teal-200',
+  },
+  {
+    id: 'tmpl-2',
+    name: 'FEFO Batch Expiry & Potency Risk Audit',
+    category: 'Expiry & Batches',
+    description: 'Identifies all pharmaceutical and clinical batches approaching 30, 60, and 90-day expiry windows.',
+    frequency: 'Weekly',
+    lastRun: 'Apr 28, 2025 08:00 AM',
+    estimatedSize: '840 KB (PDF)',
+    badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',
+  },
+  {
+    id: 'tmpl-3',
+    name: 'Ward Stock Consumption & High-Turnover Distribution',
+    category: 'Transfers & Issues',
+    description: 'Departmental breakdown of hospital ward withdrawals, emergency refills, and recurring consumption peaks.',
+    frequency: 'Weekly',
+    lastRun: 'Apr 29, 2025 14:30 PM',
+    estimatedSize: '2.1 MB (CSV)',
+    badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+  },
+  {
+    id: 'tmpl-4',
+    name: 'Shortage, Damaged & Quarantine Disposition Log',
+    category: 'Quality & Damages',
+    description: 'Summary of damaged goods vouchers, supplier discrepancy investigations, and quarantined medical goods.',
+    frequency: 'Weekly',
+    lastRun: 'Apr 27, 2025 11:20 AM',
+    estimatedSize: '512 KB (PDF)',
+    badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
+  },
+  {
+    id: 'tmpl-5',
+    name: 'Kit Assembly Yield & BOM Consumption Reconciliation',
+    category: 'Kits & BOM',
+    description: 'Evaluates component inventory utilization across assembled kits, missing parts, and packing team throughput.',
+    frequency: 'Monthly',
+    lastRun: 'Apr 25, 2025 18:00 PM',
+    estimatedSize: '1.8 MB (CSV)',
+    badgeColor: 'bg-amber-50 text-amber-800 border-amber-200',
+  },
+  {
+    id: 'tmpl-6',
+    name: 'Inter-Facility Transfer Transit & Receiving Discrepancy Log',
+    category: 'Transfers & Issues',
+    description: 'Complete cross-depot dispatch and arrival logs, transit lead-times, and freight carrier performance audits.',
+    frequency: 'On-Demand',
+    lastRun: 'Apr 24, 2025 10:15 AM',
+    estimatedSize: '950 KB (PDF)',
+    badgeColor: 'bg-slate-50 text-slate-700 border-slate-200',
+  },
+];
 
 interface ReportTemplatesGridProps {
   onRunTemplate: (template: ManagerReportTemplate) => void;
@@ -33,7 +93,7 @@ export function ReportTemplatesGrid({ onRunTemplate }: ReportTemplatesGridProps)
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {MANAGER_REPORT_TEMPLATES.map((tmpl) => (
+        {OPERATIONAL_REPORT_TEMPLATES.map((tmpl) => (
           <div
             key={tmpl.id}
             className="rounded-2xl bg-white border border-slate-200/90 p-5 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
@@ -79,4 +139,3 @@ export function ReportTemplatesGrid({ onRunTemplate }: ReportTemplatesGridProps)
     </div>
   );
 }
-

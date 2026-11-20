@@ -28,12 +28,14 @@ import { StaffTaskItem } from '@/types/staff';
 
 interface ShiftTaskQueueProps {
   tasks: StaffTaskItem[];
+  operatorName?: string;
   onStartTask: (task: StaffTaskItem) => void;
   onCompleteTask: (taskId: string) => void;
 }
 
 export function ShiftTaskQueue({
   tasks,
+  operatorName = 'Floor Specialist',
   onStartTask,
   onCompleteTask,
 }: ShiftTaskQueueProps) {
@@ -81,7 +83,7 @@ export function ShiftTaskQueue({
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Work queue assigned to Mike Chen for morning shift (06:00 - 14:30).
+            Work queue assigned to {operatorName} for morning shift (06:00 - 14:30).
           </p>
         </div>
 

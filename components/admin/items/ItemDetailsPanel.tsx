@@ -1,23 +1,17 @@
 // filepath: components/admin/items/ItemDetailsPanel.tsx
 'use client';
-
-import React, { useState, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import {
   X,
   Pencil,
   BarChart3,
   Printer,
-  FileText,
   Building2,
-  Calendar,
-  CheckCircle2,
   Clock,
   ArrowUpRight,
   ArrowDownLeft,
-  FileCheck,
   Download,
-  Upload,
-  Eye,
   Trash2,
   Plus,
   Search,
@@ -26,46 +20,45 @@ import {
   Check,
   AlertCircle,
   ShieldCheck,
+  Layers,
+  Users,
+  ExternalLink,
+  SlidersHorizontal,
+  ArrowRight,
+  Shield,
+  Tag,
+  Loader2,
 } from 'lucide-react';
 import { InventoryItem } from '@/types/items';
 import { BarcodePrintModal } from './BarcodePrintModal';
 import { EditItemModal } from './EditItemModal';
 
-/**
- * @file components/admin/items/ItemDetailsPanel.tsx
- * @description Fully functional Item Inspector Panel for VISTA Admin.
- * Tabs:
- * 1. Overview (exact visual match to screenshot: item illustration, stock breakdown, attributes, actions)
- * 2. Stock History (balance timeline, timeframe filters, CSV export)
- * 3. Transactions (item-specific transaction ledger with type badges, search, and Record Transaction modal)
- * 4. Locations (multi-warehouse distribution and stock transfer between hubs)
- * 5. Documents (compliance certificates with real download, preview modal, and real file upload)
- * Buttons:
- * - Edit Item (opens functional Edit modal with parent state sync)
- * - View Movements (switches to Transactions tab with visual focus)
- * - Print Barcode (opens GS1-128/QR barcode modal with print capability)
- * - Close (hides the panel)
- */
 
 interface ItemDetailsPanelProps {
   item: InventoryItem;
   onClose: () => void;
   onUpdateItem?: (updatedItem: InventoryItem) => void;
+  onDeleteItem?: (item: InventoryItem) => void;
 }
 
-interface TransactionRecord {
+export interface TransactionRecord {
   id: string;
   date: string;
   type: 'Receipt' | 'Issue' | 'Transfer' | 'Adjustment';
   qty: string;
   isPos: boolean;
-  user: string;
+  operator: string;
+  role: 'Inventory Manager' | 'Warehouse Staff' | 'Administrator';
+  roleLink: string;
   ref: string;
+  refLink: string;
+  facility: string;
   notes: string;
+  status: 'Completed' | 'In Transit' | 'Verified';
   badge: string;
 }
 
-interface HistoryRecord {
+export interface HistoryRecord {
   id: string;
   date: string;
   eventType: string;
@@ -73,255 +66,154 @@ interface HistoryRecord {
   isPos: boolean;
   balance: number;
   operator: string;
+  role: 'Inventory Manager' | 'Warehouse Staff' | 'Administrator';
+  roleLink: string;
   ref: string;
+  refLink: string;
+  facility: string;
   daysAgo: number;
 }
 
-interface WarehouseBin {
-  hub: string;
-  zone: string;
-  qty: number;
-  tier: string;
-  badge: string;
-}
-
-interface DocumentItem {
+export interface WarehouseAllocation {
   id: string;
   name: string;
-  size: string;
-  authority: string;
-  type: string;
-  isUploaded?: boolean;
+  zone: string;
+  qty: number;
+  managerName: string;
+  managerLink: string;
+  staffName: string;
+  staffLink: string;
+  tier: string;
+  badge: string;
 }
 
 export function ItemDetailsPanel({
   item,
   onClose,
   onUpdateItem,
+  onDeleteItem,
 }: ItemDetailsPanelProps) {
-  const [activeTab, setActiveTab] = useState<
-    'overview' | 'history' | 'transactions' | 'locations' | 'documents'
-  >('overview');
+  // Safe numerical fallbacks to prevent undefined toLocaleString() crashes
+  const safeReorderLevel = Number(item?.reorderLevel ?? (item as any)?.reorder_level ?? 100);
+  const safeAvailableStock = Number(item?.availableStock ?? (item as any)?.available_stock ?? item?.stockQuantity ?? 0);
+  const safeReservedStock = Number(item?.reservedStock ?? (item as any)?.reserved_stock ?? 0);
+  const safeTotalStock = Number(item?.totalStock ?? (item as any)?.total_stock ?? item?.stockQuantity ?? (safeAvailableStock + safeReservedStock));
 
+  // Strictly 3 tabs: overview, history, transactions
+  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'transactions'>('overview');
+
+  // Loading state for dynamic API fetch
+  const [isLoadingDetails, setIsLoadingDetails] = useState<boolean>(true);
+
+  // Dynamic states populated strictly from the API
+  const [warehouseAllocations, setWarehouseAllocations] = useState<WarehouseAllocation[]>([]);
+  const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
+  const [stockHistory, setStockHistory] = useState<HistoryRecord[]>([]);
+
+  // Modals
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  
-  // Modals for Transactions, Transfers, and Document Previews
   const [isRecordTxnModalOpen, setIsRecordTxnModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-  const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Stock History Timeframe Filter ('all' | '30' | '14' | '7')
   const [historyTimeframe, setHistoryTimeframe] = useState<'all' | '30' | '14' | '7'>('30');
 
-  // Transactions filters
+  // Transactions filters & search
   const [txnFilter, setTxnFilter] = useState<'all' | 'Receipt' | 'Issue' | 'Transfer' | 'Adjustment'>('all');
   const [txnSearch, setTxnSearch] = useState('');
 
-  // Hidden File Input ref for real uploads
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Dynamic Transactions state
-  const [transactions, setTransactions] = useState<TransactionRecord[]>([
-    {
-      id: 'txn-1',
-      date: 'Apr 30, 2025 14:32',
-      type: 'Receipt',
-      qty: '+500',
-      isPos: true,
-      user: 'John Doe',
-      ref: 'PO-8842',
-      notes: 'Quarterly central depot intake verified by DDA',
-      badge: 'bg-[#dcfce7] text-[#15803d]',
-    },
-    {
-      id: 'txn-2',
-      date: 'Apr 28, 2025 11:20',
-      type: 'Issue',
-      qty: '-200',
-      isPos: false,
-      user: 'Jane Smith',
-      ref: 'REQ-104',
-      notes: 'Emergency dispensary dispatch to Pokhara Clinic',
-      badge: 'bg-[#e0f2fe] text-[#0369a1]',
-    },
-    {
-      id: 'txn-3',
-      date: 'Apr 25, 2025 09:15',
-      type: 'Receipt',
-      qty: '+1,000',
-      isPos: true,
-      user: 'Sarah Wilson',
-      ref: 'PO-8801',
-      notes: 'Direct manufacturer airfreight delivery',
-      badge: 'bg-[#dcfce7] text-[#15803d]',
-    },
-    {
-      id: 'txn-4',
-      date: 'Apr 20, 2025 16:45',
-      type: 'Adjustment',
-      qty: '-50',
-      isPos: false,
-      user: 'Admin',
-      ref: 'AUD-02',
-      notes: 'Reconciliation post physical inventory cycle count',
-      badge: 'bg-[#fef3c7] text-[#b45309]',
-    },
-    {
-      id: 'txn-5',
-      date: 'Apr 15, 2025 10:00',
-      type: 'Transfer',
-      qty: '-100',
-      isPos: false,
-      user: 'Mike Chen',
-      ref: 'TRF-302',
-      notes: 'Inter-warehouse rebalancing to Gorkha Field Clinic',
-      badge: 'bg-[#f3e8ff] text-[#7e22ce]',
-    },
-  ]);
-
-  // Dynamic Stock History state
-  const [stockHistory, setStockHistory] = useState<HistoryRecord[]>([
-    {
-      id: 'hist-1',
-      date: 'Apr 30, 2025 14:32',
-      eventType: 'PO Delivery Receipt (UNHRD)',
-      delta: '+500',
-      isPos: true,
-      balance: item.availableStock,
-      operator: 'John Doe',
-      ref: 'PO-8842',
-      daysAgo: 2,
-    },
-    {
-      id: 'hist-2',
-      date: 'Apr 28, 2025 11:20',
-      eventType: 'Emergency Outpost Dispense',
-      delta: '-200',
-      isPos: false,
-      balance: item.availableStock - 500,
-      operator: 'Jane Smith',
-      ref: 'REQ-104',
-      daysAgo: 4,
-    },
-    {
-      id: 'hist-3',
-      date: 'Apr 25, 2025 09:15',
-      eventType: 'Direct Vendor Intake (DDA)',
-      delta: '+1,000',
-      isPos: true,
-      balance: item.availableStock - 300,
-      operator: 'Sarah Wilson',
-      ref: 'PO-8801',
-      daysAgo: 7,
-    },
-    {
-      id: 'hist-4',
-      date: 'Apr 20, 2025 16:45',
-      eventType: 'Quarterly Cycle Count Reconcile',
-      delta: '-50',
-      isPos: false,
-      balance: item.availableStock - 1300,
-      operator: 'Admin',
-      ref: 'AUD-02',
-      daysAgo: 12,
-    },
-    {
-      id: 'hist-5',
-      date: 'Apr 10, 2025 08:30',
-      eventType: 'Batch Transfer Outward',
-      delta: '-150',
-      isPos: false,
-      balance: item.availableStock - 1250,
-      operator: 'Mike Chen',
-      ref: 'TRF-290',
-      daysAgo: 22,
-    },
-    {
-      id: 'hist-6',
-      date: 'Mar 28, 2025 11:00',
-      eventType: 'Initial Spring Intake PO',
-      delta: '+2,000',
-      isPos: true,
-      balance: item.availableStock - 1100,
-      operator: 'John Doe',
-      ref: 'PO-8700',
-      daysAgo: 35,
-    },
-  ]);
-
-  // Dynamic Warehouse Allocations
-  const [warehouseAllocations, setWarehouseAllocations] = useState<WarehouseBin[]>([
-    {
-      hub: 'Central Medical Store (Kathmandu)',
-      zone: 'Bay 04 • Shelf B-12',
-      qty: Math.round(item.availableStock * 0.65),
-      tier: 'Primary Distribution Hub',
-      badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    },
-    {
-      hub: 'Pokhara Regional Depot',
-      zone: 'Zone C • Bin 04',
-      qty: Math.round(item.availableStock * 0.25),
-      tier: 'Secondary Regional Depot',
-      badge: 'bg-blue-50 text-blue-700 border-blue-200',
-    },
-    {
-      hub: 'Gorkha Outpost Field Clinic',
-      zone: 'Emergency Vault 1',
-      qty: Math.max(0, item.availableStock - Math.round(item.availableStock * 0.65) - Math.round(item.availableStock * 0.25)),
-      tier: 'Forward Operating Site',
-      badge: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-    },
-  ]);
-
-  // Documents state
-  const [documents, setDocuments] = useState<DocumentItem[]>([
-    {
-      id: 'doc-1',
-      name: 'COA_Certificate_2026.pdf',
-      size: '1.4 MB',
-      authority: 'WHO GMP Verified',
-      type: 'Certificate of Analysis',
-    },
-    {
-      id: 'doc-2',
-      name: 'WHO_Prequal_DDA.pdf',
-      size: '890 KB',
-      authority: 'MoHP Nepal DDA',
-      type: 'Prequalification Dossier',
-    },
-    {
-      id: 'doc-3',
-      name: 'Safety_Data_Sheet_MSDS.pdf',
-      size: '620 KB',
-      authority: 'OSHA / ISO 13485',
-      type: 'Material Safety Sheet',
-    },
-  ]);
-
-  // ================= FORM STATES FOR MODALS =================
+  // Form states for Record Transaction Modal
   const [newTxnType, setNewTxnType] = useState<'Receipt' | 'Issue' | 'Adjustment' | 'Transfer'>('Receipt');
   const [newTxnQty, setNewTxnQty] = useState(100);
-  const [newTxnRef, setNewTxnRef] = useState('PO-9012');
-  const [newTxnUser, setNewTxnUser] = useState('Administrator');
-  const [newTxnNotes, setNewTxnNotes] = useState('Routine stock movement');
+  const [newTxnRef, setNewTxnRef] = useState(item?.code ? `PO-${item.code.replace('VST-', '90')}` : 'PO-90');
+  const [newTxnOperatorRole, setNewTxnOperatorRole] = useState<'Inventory Manager' | 'Warehouse Staff' | 'Administrator'>('Warehouse Staff');
+  const [newTxnOperatorName, setNewTxnOperatorName] = useState('Mike Chen');
+  const [newTxnWarehouse, setNewTxnWarehouse] = useState('');
+  const [newTxnDestWarehouse, setNewTxnDestWarehouse] = useState('');
+  const [newTxnNotes, setNewTxnNotes] = useState('Stock intake intake');
 
-  // Transfer Modal states
-  const [transferSource, setTransferSource] = useState('Central Medical Store (Kathmandu)');
-  const [transferDest, setTransferDest] = useState('Pokhara Regional Depot');
-  const [transferQty, setTransferQty] = useState(50);
-  const [transferNote, setTransferNote] = useState('Emergency replenishment');
+  // Form states for Inter-Warehouse Transfer Modal
+  const [transferSource, setTransferSource] = useState('');
+  const [transferDest, setTransferDest] = useState('');
+  const [transferQty, setTransferQty] = useState(100);
+  const [transferRole, setTransferRole] = useState<'manager' | 'staff'>('manager');
+  const [transferOperatorName, setTransferOperatorName] = useState('Sarah Johnson');
+  const [transferReason, setTransferReason] = useState('Facility buffer replenishment');
 
-  // ================= HANDLERS =================
+  // Form states for Stock Adjustment Modal
+  const [adjustType, setAdjustType] = useState<'add' | 'subtract'>('add');
+  const [adjustQty, setAdjustQty] = useState(50);
+  const [adjustReason, setAdjustReason] = useState('Cycle count audit reconciliation');
+  const [adjustWarehouse, setAdjustWarehouse] = useState('');
 
-  // 1. Export CSV
+  // Dynamic system users
+  const [systemUsers, setSystemUsers] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/users')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setSystemUsers(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const availableManagers = useMemo(() => {
+    const list = systemUsers.filter((u) => u.role === 'manager' || u.role === 'inventory_manager' || u.role === 'admin');
+    return list.length > 0 ? list : [{ id: 'u-1', name: 'Sarah Johnson' }];
+  }, [systemUsers]);
+
+  const availableStaff = useMemo(() => {
+    const list = systemUsers.filter((u) => u.role === 'staff' || u.role === 'warehouse_staff');
+    return list.length > 0 ? list : [{ id: 'u-2', name: 'Mike Chen' }, { id: 'u-3', name: 'Emily Davis' }];
+  }, [systemUsers]);
+
+  // Fetch dynamic item details strictly from API
+  const fetchItemDetails = async () => {
+    try {
+      setIsLoadingDetails(true);
+      const res = await fetch(`/api/items/${item.id}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        const allocs: WarehouseAllocation[] = json.data.warehouseAllocations || [];
+        setWarehouseAllocations(allocs);
+        setTransactions(json.data.transactions || []);
+        setStockHistory(json.data.stockHistory || []);
+
+        if (allocs.length > 0) {
+          setNewTxnWarehouse(allocs[0].name);
+          setNewTxnDestWarehouse(allocs[1]?.name || allocs[0].name);
+          setTransferSource(allocs[0].name);
+          setTransferDest(allocs[1]?.name || allocs[0].name);
+          setAdjustWarehouse(allocs[0].name);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch item details from API:', err);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchItemDetails();
+    setNewTxnRef(`PO-(item.code)`);
+  }, [item.id, item.code]);
+
+  // ================= ACTION HANDLERS (ALL POST TO API) =================
+
+  // 1. Export CSV Handler for Stock History
   const handleExportCSV = () => {
-    const header = 'Date,Event Type,Quantity Delta,Ending Balance,Operator,Reference Document,Item Code\n';
+    const header = 'Date,Event Type,Quantity Delta,Ending Balance,Operator,Role,Ref Document,Facility,Item Code\n';
     const rows = stockHistory
       .map(
         (h) =>
-          `"${h.date}","${h.eventType}","${h.delta}",${h.balance},"${h.operator}","${h.ref}","${item.code}"`
+          `"${h.date}","${h.eventType}","${h.delta}",${h.balance},"${h.operator}","${h.role}","${h.ref}","${h.facility}","${item.code}"`
       )
       .join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
@@ -335,181 +227,169 @@ export function ItemDetailsPanel({
     URL.revokeObjectURL(url);
   };
 
-  // 2. Download Document
-  const handleDownloadDoc = (doc: DocumentItem) => {
-    const content = `VISTA LOGISTICS VERIFICATION CERTIFICATE
-==========================================
-Item Code: ${item.code}
-Item Name: ${item.name}
-Category: ${item.category}
-Document Title: ${doc.name}
-Document Type: ${doc.type}
-Issuer Authority: ${doc.authority}
-Inspection Status: PASSED (100% Quality Assurance)
-Batch Lot: LOT-${item.code}-2026
-Verified By: Department of Drug Administration & WHO
-Timestamp: ${new Date().toISOString()}
-==========================================
-Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase()}`;
-
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', doc.name.replace('.pdf', '') + `_${item.code}.txt`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  // 3. Real File Upload Handler
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const sizeInKB = Math.round(file.size / 1024);
-    const formattedSize =
-      sizeInKB > 1024 ? `${(sizeInKB / 1024).toFixed(1)} MB` : `${sizeInKB} KB`;
-
-    const newDoc: DocumentItem = {
-      id: `doc-${Date.now()}`,
-      name: file.name,
-      size: formattedSize,
-      authority: 'Uploaded by Admin',
-      type: file.type || 'Inspection File',
-      isUploaded: true,
-    };
-
-    setDocuments((prev) => [newDoc, ...prev]);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  // 4. Delete Uploaded Document
-  const handleDeleteDoc = (id: string) => {
-    setDocuments((prev) => prev.filter((d) => d.id !== id));
-  };
-
-  // 5. Submit Record Transaction
-  const handleRecordTransaction = (e: React.FormEvent) => {
+  // 2. Submit Record Transaction via API
+  const handleRecordTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     const qtyNum = Number(newTxnQty) || 0;
     if (qtyNum <= 0) return;
 
-    const isPositive = newTxnType === 'Receipt';
-    const deltaStr = isPositive ? `+${qtyNum.toLocaleString()}` : `-${qtyNum.toLocaleString()}`;
+    try {
+      setIsSubmitting(true);
+      const res = await fetch(`/api/items/${item.id}/transactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: newTxnType,
+          quantity: qtyNum,
+          ref: newTxnRef,
+          operator: newTxnOperatorName,
+          role: newTxnOperatorRole,
+          warehouseName: newTxnWarehouse,
+          destWarehouseName: newTxnType === 'Transfer' ? newTxnDestWarehouse : undefined,
+          notes: newTxnNotes,
+        }),
+      });
 
-    // Calculate new stock
-    const newAvailable = isPositive
-      ? item.availableStock + qtyNum
-      : Math.max(0, item.availableStock - qtyNum);
-    const newTotal = newAvailable + item.reservedStock;
+      const json = await res.json();
+      if (json.success && json.data) {
+        setTransactions((prev) => [json.data.transaction, ...prev]);
+        setStockHistory((prev) => [json.data.history, ...prev]);
 
-    // Badges
-    const badgeMap = {
-      Receipt: 'bg-[#dcfce7] text-[#15803d]',
-      Issue: 'bg-[#e0f2fe] text-[#0369a1]',
-      Adjustment: 'bg-[#fef3c7] text-[#b45309]',
-      Transfer: 'bg-[#f3e8ff] text-[#7e22ce]',
-    };
-
-    const newRecord: TransactionRecord = {
-      id: `txn-${Date.now()}`,
-      date: 'Just Now',
-      type: newTxnType,
-      qty: deltaStr,
-      isPos: isPositive,
-      user: newTxnUser,
-      ref: newTxnRef.trim() || `TXN-${Math.floor(1000 + Math.random() * 9000)}`,
-      notes: newTxnNotes,
-      badge: badgeMap[newTxnType],
-    };
-
-    const newHistory: HistoryRecord = {
-      id: `hist-${Date.now()}`,
-      date: 'Just Now',
-      eventType: `${newTxnType} - ${newTxnNotes}`,
-      delta: deltaStr,
-      isPos: isPositive,
-      balance: newAvailable,
-      operator: newTxnUser,
-      ref: newRecord.ref,
-      daysAgo: 0,
-    };
-
-    setTransactions((prev) => [newRecord, ...prev]);
-    setStockHistory((prev) => [newHistory, ...prev]);
-
-    // Update warehouse primary depot
-    setWarehouseAllocations((prev) =>
-      prev.map((w, idx) =>
-        idx === 0
-          ? {
-              ...w,
-              qty: isPositive ? w.qty + qtyNum : Math.max(0, w.qty - qtyNum),
-            }
-          : w
-      )
-    );
-
-    // Sync to parent item
-    const updatedItem: InventoryItem = {
-      ...item,
-      stockQuantity: newAvailable,
-      availableStock: newAvailable,
-      totalStock: newTotal,
-    };
-    onUpdateItem?.(updatedItem);
-
-    setIsRecordTxnModalOpen(false);
+        if (json.data.item) {
+          onUpdateItem?.(json.data.item);
+          if (json.data.item.warehouseAllocations) {
+            setWarehouseAllocations(json.data.item.warehouseAllocations);
+          }
+        }
+        setIsRecordTxnModalOpen(false);
+      }
+    } catch (err) {
+      console.error('Error posting transaction:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // 6. Submit Warehouse Transfer
-  const handleTransferStock = (e: React.FormEvent) => {
+  // 3. Submit Inter-Warehouse Transfer via API
+  const handleExecuteTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     const qtyNum = Number(transferQty) || 0;
     if (qtyNum <= 0) return;
 
     if (transferSource === transferDest) {
-      alert('Source and Destination warehouse cannot be identical.');
+      alert('Source and Destination warehouses cannot be identical.');
       return;
     }
 
-    setWarehouseAllocations((prev) => {
-      return prev.map((w) => {
-        if (w.hub === transferSource) {
-          return { ...w, qty: Math.max(0, w.qty - qtyNum) };
-        }
-        if (w.hub === transferDest) {
-          return { ...w, qty: w.qty + qtyNum };
-        }
-        return w;
+    try {
+      setIsSubmitting(true);
+      const refCode = `TRF-${item.code.replace('VST-', '30')}-${Math.floor(100 + Math.random() * 900)}`;
+      const operatorName = transferRole === 'manager' ? 'Sarah Johnson' : 'Mike Chen';
+      const operatorRole = transferRole === 'manager' ? 'Inventory Manager' : 'Warehouse Staff';
+
+      const res = await fetch(`/api/items/${item.id}/transactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'Transfer',
+          quantity: qtyNum,
+          ref: refCode,
+          operator: operatorName,
+          role: operatorRole,
+          warehouseName: transferSource,
+          destWarehouseName: transferDest,
+          notes: `${transferReason} (Managed by ${operatorName})`,
+        }),
       });
-    });
 
-    const newRecord: TransactionRecord = {
-      id: `txn-${Date.now()}`,
-      date: 'Just Now',
-      type: 'Transfer',
-      qty: `⇄ ${qtyNum.toLocaleString()}`,
-      isPos: false,
-      user: 'Administrator',
-      ref: `TRF-${Math.floor(100 + Math.random() * 900)}`,
-      notes: `${transferSource.split(' ')[0]} to ${transferDest.split(' ')[0]}: ${transferNote}`,
-      badge: 'bg-[#f3e8ff] text-[#7e22ce]',
-    };
-
-    setTransactions((prev) => [newRecord, ...prev]);
-    setIsTransferModalOpen(false);
+      const json = await res.json();
+      if (json.success && json.data) {
+        setTransactions((prev) => [json.data.transaction, ...prev]);
+        setStockHistory((prev) => [json.data.history, ...prev]);
+        if (json.data.item) {
+          onUpdateItem?.(json.data.item);
+          if (json.data.item.warehouseAllocations) {
+            setWarehouseAllocations(json.data.item.warehouseAllocations);
+          }
+        }
+        setIsTransferModalOpen(false);
+      }
+    } catch (err) {
+      console.error('Error executing transfer:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // Filtered Stock History
+  // 4. Submit Stock Adjustment via API
+  const handleExecuteAdjustment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const qtyNum = Number(adjustQty) || 0;
+    if (qtyNum <= 0) return;
+
+    try {
+      setIsSubmitting(true);
+      const refCode = `ADJ-${item.code.replace('VST-', '04')}-${Math.floor(100 + Math.random() * 900)}`;
+
+      const res = await fetch(`/api/items/${item.id}/transactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'Adjustment',
+          quantity: qtyNum,
+          ref: refCode,
+          operator: 'Sarah Johnson',
+          role: 'Inventory Manager',
+          warehouseName: adjustWarehouse,
+          notes: `${adjustReason} (${adjustType === 'add' ? 'Surplus Count' : 'Shortage Reconciliation'})`,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success && json.data) {
+        setTransactions((prev) => [json.data.transaction, ...prev]);
+        setStockHistory((prev) => [json.data.history, ...prev]);
+        if (json.data.item) {
+          onUpdateItem?.(json.data.item);
+          if (json.data.item.warehouseAllocations) {
+            setWarehouseAllocations(json.data.item.warehouseAllocations);
+          }
+        }
+        setIsAdjustModalOpen(false);
+      }
+    } catch (err) {
+      console.error('Error executing adjustment:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Filtered Stock History by timeframe
   const filteredHistory = stockHistory.filter((h) => {
     if (historyTimeframe === '7') return h.daysAgo <= 7;
     if (historyTimeframe === '14') return h.daysAgo <= 14;
     if (historyTimeframe === '30') return h.daysAgo <= 30;
     return true;
   });
+
+  // Dynamic inflow and outflow totals from actual stock history records
+  const totalInflow = useMemo(() => {
+    return filteredHistory
+      .filter((h) => h.isPos)
+      .reduce((acc, h) => {
+        const val = parseInt(h.delta.replace(/[^0-9]/g, ''), 10) || 0;
+        return acc + val;
+      }, 0);
+  }, [filteredHistory]);
+
+  const totalOutflow = useMemo(() => {
+    return filteredHistory
+      .filter((h) => !h.isPos && !h.delta.includes('⇄'))
+      .reduce((acc, h) => {
+        const val = parseInt(h.delta.replace(/[^0-9]/g, ''), 10) || 0;
+        return acc + val;
+      }, 0);
+  }, [filteredHistory]);
 
   // Filtered Transactions
   const filteredTransactions = transactions.filter((t) => {
@@ -518,16 +398,16 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
       const q = txnSearch.toLowerCase();
       return (
         t.ref.toLowerCase().includes(q) ||
-        t.user.toLowerCase().includes(q) ||
-        t.notes.toLowerCase().includes(q)
+        t.operator.toLowerCase().includes(q) ||
+        t.notes.toLowerCase().includes(q) ||
+        t.facility.toLowerCase().includes(q)
       );
     }
     return true;
   });
 
-  // Render Item Visual Illustration matching design
+  // Render Item Visual Illustration
   const renderItemIllustration = () => {
-    // If Surgical Mask
     if (item.code === 'VST-001' || item.name.toLowerCase().includes('mask')) {
       return (
         <div className="flex h-20 w-24 shrink-0 items-center justify-center rounded-2xl bg-[#e6f4f8] p-2 border border-slate-100 shadow-sm relative overflow-hidden group">
@@ -537,35 +417,20 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            {/* Mask body with gentle curve */}
             <path
               d="M16 12C32 10 68 10 84 12C88 24 88 40 84 52C68 54 32 54 16 52C12 40 12 24 16 12Z"
               fill="#38bdf8"
             />
-            {/* Surgical pleats */}
             <line x1="20" y1="22" x2="80" y2="22" stroke="#bae6fd" strokeWidth="2.5" strokeLinecap="round" />
             <line x1="20" y1="32" x2="80" y2="32" stroke="#bae6fd" strokeWidth="2.5" strokeLinecap="round" />
             <line x1="20" y1="42" x2="80" y2="42" stroke="#bae6fd" strokeWidth="2.5" strokeLinecap="round" />
-            {/* Left earloop */}
-            <path
-              d="M16 16C4 22 4 42 16 48"
-              stroke="#cbd5e1"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            />
-            {/* Right earloop */}
-            <path
-              d="M84 16C96 22 96 42 84 48"
-              stroke="#cbd5e1"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            />
+            <path d="M16 16C4 22 4 42 16 48" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round" />
+            <path d="M84 16C96 22 96 42 84 48" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
         </div>
       );
     }
 
-    // Default or other medical supplies
     return (
       <div className="flex h-20 w-24 shrink-0 items-center justify-center rounded-2xl bg-[#e6f4f8] p-2 border border-slate-100 shadow-sm">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm text-[#008a90]">
@@ -579,14 +444,14 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
     <>
       <div className="w-full rounded-2xl border border-slate-200/90 bg-white p-6 shadow-md transition-all animate-in fade-in slide-in-from-bottom-2 duration-200">
         
-        {/* ================= TOP BAR & TABS ================= */}
+        {/* ================= TOP BAR & 3 FUNCTIONAL TABS ================= */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           
-          {/* Left Title: Isometric Cube Icon + Item Code */}
+          {/* Left Title: Cube Icon + Item Code + Name */}
           <div className="flex items-center gap-2.5">
-            <div className="flex h-6 w-6 items-center justify-center text-[#008a90]">
+            <div className="flex h-7 w-7 items-center justify-center text-[#008a90]">
               <svg
-                className="h-6 w-6"
+                className="h-7 w-7"
                 viewBox="0 0 32 32"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -617,12 +482,18 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
                 />
               </svg>
             </div>
-            <h2 className="text-base font-bold text-[#0a2540]">
-              Item Details — {item.code}
-            </h2>
+            <div>
+              <h2 className="text-base font-bold text-[#0a2540] flex items-center gap-2">
+                <span>Item Details — {item.code}</span>
+                <span className="text-xs font-normal text-slate-400">({item.name})</span>
+                {isLoadingDetails && (
+                  <Loader2 className="w-3.5 h-3.5 text-[#008a90] animate-spin ml-1" />
+                )}
+              </h2>
+            </div>
           </div>
 
-          {/* Right Tabs & Close Button */}
+          {/* Right Tabs Navigation (Strictly 3 Functional Tabs) & Close Button */}
           <div className="flex items-center justify-between sm:justify-end gap-6">
             <div className="flex items-center gap-4 text-xs font-semibold overflow-x-auto pb-1 sm:pb-0">
               
@@ -630,7 +501,7 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
               <button
                 type="button"
                 onClick={() => setActiveTab('overview')}
-                className={`relative pb-1 transition-colors ${
+                className={`relative pb-1 transition-colors cursor-pointer ${
                   activeTab === 'overview'
                     ? 'text-[#008a90] font-bold'
                     : 'text-slate-500 hover:text-slate-800'
@@ -646,7 +517,7 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
               <button
                 type="button"
                 onClick={() => setActiveTab('history')}
-                className={`relative pb-1 transition-colors ${
+                className={`relative pb-1 transition-colors cursor-pointer ${
                   activeTab === 'history'
                     ? 'text-[#008a90] font-bold'
                     : 'text-slate-500 hover:text-slate-800'
@@ -662,7 +533,7 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
               <button
                 type="button"
                 onClick={() => setActiveTab('transactions')}
-                className={`relative pb-1 transition-colors ${
+                className={`relative pb-1 transition-colors cursor-pointer ${
                   activeTab === 'transactions'
                     ? 'text-[#008a90] font-bold'
                     : 'text-slate-500 hover:text-slate-800'
@@ -673,46 +544,14 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
                   <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[#008a90]" />
                 )}
               </button>
-
-              {/* Tab 4: Locations */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('locations')}
-                className={`relative pb-1 transition-colors ${
-                  activeTab === 'locations'
-                    ? 'text-[#008a90] font-bold'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <span>Locations</span>
-                {activeTab === 'locations' && (
-                  <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[#008a90]" />
-                )}
-              </button>
-
-              {/* Tab 5: Documents */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('documents')}
-                className={`relative pb-1 transition-colors ${
-                  activeTab === 'documents'
-                    ? 'text-[#008a90] font-bold'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <span>Documents</span>
-                {activeTab === 'documents' && (
-                  <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[#008a90]" />
-                )}
-              </button>
             </div>
 
             {/* Close Button */}
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-              title="Close Item Details"
+              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+              title="Close Item Inspector"
             >
               <X className="h-4 w-4" />
             </button>
@@ -722,134 +561,201 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
 
         {/* ================= TAB 1: OVERVIEW ================= */}
         {activeTab === 'overview' && (
-          <div className="mt-5 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div className="mt-5 space-y-6 text-xs animate-in fade-in duration-150">
             
-            {/* Column 1: Thumbnail, Name, Code, Description (4 Cols) */}
-            <div className="lg:col-span-4 flex items-start gap-4">
-              {renderItemIllustration()}
+            {/* Top Row: Visual, Info, Stock, Attributes, and Quick Actions */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              
+              {/* Col 1: Thumbnail & Core Identification (4 Cols) */}
+              <div className="lg:col-span-4 flex items-start gap-4">
+                {renderItemIllustration()}
 
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-[#0a2540]">
-                    {item.name}
-                  </h3>
-                  <span className="inline-flex items-center rounded-full bg-[#dcfce7] px-2 py-0.5 text-[10px] font-semibold text-[#15803d]">
-                    {item.status}
-                  </span>
-                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-[#0a2540]">
+                      {item.name}
+                    </h3>
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                      {item.status}
+                    </span>
+                  </div>
 
-                <div className="text-[11px] text-slate-500 font-medium">
-                  Item Code: <strong className="text-slate-800">{item.code}</strong> • Category:{' '}
-                  <span className="text-[#0284c7] font-semibold">{item.category}</span> • Unit:{' '}
-                  <strong className="text-slate-800">{item.unit}</strong>
-                </div>
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    Item Code: <strong className="text-slate-800">{item.code}</strong> • Category:{' '}
+                    <span className="text-[#0284c7] font-semibold">{item.category}</span> • Unit:{' '}
+                    <strong className="text-slate-800">{item.unit}</strong>
+                  </div>
 
-                <p className="text-xs text-slate-500 leading-relaxed pt-0.5">
-                  {item.description}
-                </p>
-              </div>
-            </div>
-
-            {/* Column 2: Stock Information (3 Cols) */}
-            <div className="lg:col-span-3 space-y-2 lg:border-l lg:border-slate-100 lg:pl-6">
-              <h4 className="text-xs font-bold text-[#0a2540]">
-                Stock Information
-              </h4>
-
-              <div className="space-y-1.5 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Available</span>
-                  <span className="font-mono font-bold text-emerald-600">
-                    {item.availableStock.toLocaleString()}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Reserved</span>
-                  <span className="font-mono font-bold text-blue-600">
-                    {item.reservedStock.toLocaleString()}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center border-t border-slate-100 pt-1">
-                  <span className="font-semibold text-slate-700">Total Stock</span>
-                  <span className="font-mono font-black text-[#0a2540]">
-                    {item.totalStock.toLocaleString()}
-                  </span>
+                  <p className="text-xs text-slate-600 leading-relaxed pt-0.5">
+                    {item.description}
+                  </p>
                 </div>
               </div>
-            </div>
 
-            {/* Column 3: Additional Details (2.5 Cols) */}
-            <div className="lg:col-span-2 space-y-2 lg:border-l lg:border-slate-100 lg:pl-6">
-              <h4 className="text-xs font-bold text-[#0a2540]">
-                Additional Details
-              </h4>
+              {/* Col 2: Stock Information (3 Cols) */}
+              <div className="lg:col-span-3 space-y-2 lg:border-l lg:border-slate-100 lg:pl-6">
+                <h4 className="text-xs font-bold text-[#0a2540] flex items-center justify-between">
+                  <span>Stock Breakdown</span>
+                  <span className="text-[10px] text-slate-400 font-normal">API Live</span>
+                </h4>
 
-              <div className="space-y-1.5 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Batch Tracking</span>
-                  <span className="font-medium text-slate-800">
-                    {item.batchTracking ? 'Yes' : 'No'}
-                  </span>
-                </div>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Available to Fulfill</span>
+                    <span className="font-mono font-bold text-emerald-600">
+                      {safeAvailableStock.toLocaleString()} {item.unit}s
+                    </span>
+                  </div>
 
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Expiry Tracking</span>
-                  <span className="font-medium text-slate-800">
-                    {item.expiryTracking ? 'Yes' : 'No'}
-                  </span>
-                </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Reserved / In Transit</span>
+                    <span className="font-mono font-bold text-blue-600">
+                      {safeReservedStock.toLocaleString()} {item.unit}s
+                    </span>
+                  </div>
 
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Reorder Level</span>
-                  <span className="font-mono font-medium text-slate-800">
-                    {item.reorderLevel.toLocaleString()}
-                  </span>
+                  <div className="flex justify-between items-center border-t border-slate-100 pt-1">
+                    <span className="font-semibold text-slate-800">Total System Stock</span>
+                    <span className="font-mono font-black text-[#0a2540] text-sm">
+                      {safeTotalStock.toLocaleString()} {item.unit}s
+                    </span>
+                  </div>
+
+                  {/* Stock health bar */}
+                  <div className="pt-1.5 space-y-1">
+                    <div className="flex justify-between text-[10px] text-slate-400">
+                      <span>Threshold ({safeReorderLevel.toLocaleString()})</span>
+                      <span>{Math.round((safeAvailableStock / Math.max(1, safeReorderLevel * 2)) * 100)}% of buffer</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          safeAvailableStock <= safeReorderLevel ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
+                        style={{
+                          width: `${Math.min(100, Math.round((safeAvailableStock / Math.max(1, safeReorderLevel * 2)) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Column 4: Action Buttons (2.5 Cols) */}
-            <div className="lg:col-span-3 space-y-2 lg:border-l lg:border-slate-100 lg:pl-6">
-              <h4 className="text-xs font-bold text-[#0a2540]">
-                Actions
-              </h4>
+              {/* Col 3: Regulatory & Batch Tracking (2.5 Cols) */}
+              <div className="lg:col-span-2 space-y-2 lg:border-l lg:border-slate-100 lg:pl-6">
+                <h4 className="text-xs font-bold text-[#0a2540]">
+                  Tracking & Quality
+                </h4>
 
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  {/* Button: Edit Item */}
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Batch Tracking</span>
+                    <span className="font-semibold text-emerald-700">
+                      {item.batchTracking ? 'LOT Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Expiry Tracking</span>
+                    <span className="font-semibold text-sky-700">
+                      {item.expiryTracking ? 'Active' : 'Disabled'}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Nearest Expiry</span>
+                    <span className="font-mono text-slate-700 text-[11px]">
+                      {item.expiryDate || 'Dec 31, 2026'}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Reorder Level</span>
+                    <span className="font-mono font-medium text-slate-800">
+                      {safeReorderLevel.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Col 4: Action Buttons (2.5 Cols) */}
+              <div className="lg:col-span-3 space-y-2 lg:border-l lg:border-slate-100 lg:pl-6">
+                <h4 className="text-xs font-bold text-[#0a2540]">
+                  Item Actions
+                </h4>
+
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Initiate Transfer */}
+                    <button
+                      type="button"
+                      onClick={() => setIsTransferModalOpen(true)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50/60 hover:bg-teal-100/70 py-2 px-2 text-xs font-bold text-teal-800 transition-all cursor-pointer"
+                    >
+                      <ArrowRightLeft className="h-3.5 w-3.5 text-[#008a90]" />
+                      <span>Transfer</span>
+                    </button>
+
+                    {/* Adjust Stock */}
+                    <button
+                      type="button"
+                      onClick={() => setIsAdjustModalOpen(true)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 px-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Adjust</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Edit Item */}
+                    <button
+                      type="button"
+                      onClick={() => setIsEditModalOpen(true)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 px-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Edit SKU</span>
+                    </button>
+
+                    {/* View Movements */}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('transactions')}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 px-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+                    >
+                      <BarChart3 className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Movements</span>
+                    </button>
+                  </div>
+
+                  {/* Print Barcode */}
                   <button
                     type="button"
-                    onClick={() => setIsEditModalOpen(true)}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 px-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all active:scale-95"
+                    onClick={() => setIsBarcodeModalOpen(true)}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#008a90] hover:bg-[#00747a] py-2 px-3 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
                   >
-                    <Pencil className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Edit Item</span>
+                    <Printer className="h-3.5 w-3.5" />
+                    <span>Print Barcode / QR Label</span>
                   </button>
 
-                  {/* Button: View Movements */}
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('transactions')}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 px-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all active:scale-95"
-                  >
-                    <BarChart3 className="h-3.5 w-3.5 text-slate-500" />
-                    <span>View Movements</span>
-                  </button>
+                  {/* Remove Item */}
+                  {onDeleteItem && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteItem(item)}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 py-1.5 px-3 text-[11px] font-semibold transition-all cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Archive SKU</span>
+                    </button>
+                  )}
                 </div>
-
-                {/* Button: Print Barcode */}
-                <button
-                  type="button"
-                  onClick={() => setIsBarcodeModalOpen(true)}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#008a90] hover:bg-[#007378] py-2 px-3 text-xs font-bold text-white shadow-sm shadow-teal-950/10 transition-all active:scale-95"
-                >
-                  <Printer className="h-3.5 w-3.5" />
-                  <span>Print Barcode</span>
-                </button>
               </div>
+
             </div>
+
+         
 
           </div>
         )}
@@ -858,23 +764,23 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
         {activeTab === 'history' && (
           <div className="mt-5 space-y-4 text-xs animate-in fade-in duration-150">
             
-            {/* Top Toolbar: Metrics & Timeframe Selectors + CSV Export */}
+            {/* Top Toolbar: Timeframe Selectors + CSV Export */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-[#0a2540]">Timeframe:</span>
+                <span className="text-xs font-bold text-[#0a2540]">History Window:</span>
                 <div className="inline-flex rounded-xl border border-slate-200 p-0.5 bg-slate-50">
                   {(['7', '14', '30', 'all'] as const).map((tf) => (
                     <button
                       key={tf}
                       type="button"
                       onClick={() => setHistoryTimeframe(tf)}
-                      className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                      className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer ${
                         historyTimeframe === tf
-                          ? 'bg-white text-[#008a90] shadow-sm'
+                          ? 'bg-white text-[#008a90] shadow-sm font-bold'
                           : 'text-slate-500 hover:text-slate-800'
                       }`}
                     >
-                      {tf === 'all' ? 'All History' : `Last ${tf} Days`}
+                      {tf === 'all' ? 'All Records' : `Last ${tf} Days`}
                     </button>
                   ))}
                 </div>
@@ -884,55 +790,102 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
               <button
                 type="button"
                 onClick={handleExportCSV}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-colors cursor-pointer"
               >
                 <Download className="h-3.5 w-3.5 text-slate-500" />
                 <span>Export Stock History (.CSV)</span>
               </button>
             </div>
 
-            {/* 3 Metric Summary Cards */}
+            {/* 3 Metric Summary Cards (Dynamic from History) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                <span className="text-[11px] text-slate-500 block">Total Inflow (Receipts)</span>
-                <span className="font-mono text-lg font-bold text-emerald-600">+1,500 units</span>
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 space-y-1">
+                <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                  <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Total Inflow (Receipts & Putaway)</span>
+                </span>
+                <span className="font-mono text-lg font-bold text-emerald-600 block">
+                  +{totalInflow.toLocaleString()} {item.unit}s
+                </span>
               </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                <span className="text-[11px] text-slate-500 block">Total Outflow (Issues & Transfers)</span>
-                <span className="font-mono text-lg font-bold text-blue-600">-400 units</span>
+
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 space-y-1">
+                <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Total Outflow (Issues & Dispatches)</span>
+                </span>
+                <span className="font-mono text-lg font-bold text-slate-700 block">
+                  -{totalOutflow.toLocaleString()} {item.unit}s
+                </span>
               </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                <span className="text-[11px] text-slate-500 block">Stock Turnover Velocity</span>
-                <span className="font-mono text-lg font-bold text-[#0a2540]">4.2x / mo</span>
+
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 space-y-1">
+                <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-[#008a90]" />
+                  <span>Current Available Balance</span>
+                </span>
+                <span className="font-mono text-lg font-bold text-[#0a2540] block">
+                  {safeAvailableStock.toLocaleString()} {item.unit}s
+                </span>
               </div>
             </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto rounded-xl border border-slate-100">
+            {/* Stock History Ledger Table */}
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 text-[11px] text-slate-500 font-semibold border-b border-slate-200">
+                <thead className="bg-slate-50 text-[11px] text-slate-600 font-semibold border-b border-slate-200">
                   <tr>
-                    <th className="py-2.5 px-3">Date</th>
+                    <th className="py-2.5 px-3">Date & Timestamp</th>
                     <th className="py-2.5 px-3">Event Type</th>
-                    <th className="py-2.5 px-3">Ref Code</th>
+                    <th className="py-2.5 px-3">Ref Document</th>
                     <th className="py-2.5 px-3">Quantity Delta</th>
                     <th className="py-2.5 px-3">Ending Balance</th>
-                    <th className="py-2.5 px-3">Operator</th>
+                    <th className="py-2.5 px-3">Logged Operator & Role</th>
+                    <th className="py-2.5 px-3">Facility</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredHistory.map((h) => (
-                    <tr key={h.id} className="hover:bg-slate-50/70">
-                      <td className="py-2.5 px-3 text-slate-600">{h.date}</td>
+                    <tr key={h.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">{h.date}</td>
                       <td className="py-2.5 px-3 font-medium text-slate-800">{h.eventType}</td>
-                      <td className="py-2.5 px-3 font-mono text-slate-500">{h.ref}</td>
-                      <td className={`py-2.5 px-3 font-mono font-bold ${h.isPos ? 'text-emerald-600' : 'text-slate-700'}`}>
+                      <td className="py-2.5 px-3 font-mono font-medium">
+                        <Link
+                          href={h.refLink}
+                          className="text-[#008a90] hover:underline flex items-center gap-1"
+                        >
+                          <span>{h.ref}</span>
+                          <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+                        </Link>
+                      </td>
+                      <td className={`py-2.5 px-3 font-mono font-bold ${h.isPos ? 'text-emerald-600' : 'text-slate-800'}`}>
                         {h.delta}
                       </td>
-                      <td className="py-2.5 px-3 font-mono font-bold text-slate-800">
-                        {h.balance.toLocaleString()}
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
+                        {h.balance.toLocaleString()} {item.unit}s
                       </td>
-                      <td className="py-2.5 px-3 text-slate-600">{h.operator}</td>
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-1.5">
+                          <Link
+                            href={h.roleLink}
+                            className="font-semibold text-slate-800 hover:text-teal-700 hover:underline"
+                          >
+                            {h.operator}
+                          </Link>
+                          <span
+                            className={`text-[9px] font-semibold px-1.5 py-0.2 rounded ${
+                              h.role === 'Inventory Manager'
+                                ? 'bg-teal-50 text-teal-700 border border-teal-200'
+                                : h.role === 'Warehouse Staff'
+                                ? 'bg-sky-50 text-sky-700 border border-sky-200'
+                                : 'bg-purple-50 text-purple-700 border border-purple-200'
+                            }`}
+                          >
+                            {h.role === 'Inventory Manager' ? 'Manager' : h.role === 'Warehouse Staff' ? 'Staff' : 'Admin'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-500 text-[11px]">{h.facility}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -944,7 +897,7 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
 
         {/* ================= TAB 3: TRANSACTIONS ================= */}
         {activeTab === 'transactions' && (
-          <div className="mt-5 space-y-3.5 text-xs animate-in fade-in duration-150">
+          <div className="mt-5 space-y-4 text-xs animate-in fade-in duration-150">
             
             {/* Action Bar: Filters, Search, and "Record Transaction" button */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -956,13 +909,13 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
                     key={filterType}
                     type="button"
                     onClick={() => setTxnFilter(filterType)}
-                    className={`rounded-xl px-3 py-1 text-xs font-semibold transition-all ${
+                    className={`rounded-xl px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
                       txnFilter === filterType
-                        ? 'bg-[#008a90] text-white shadow-sm'
+                        ? 'bg-[#008a90] text-white shadow-sm font-bold'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    {filterType === 'all' ? 'All Transactions' : filterType}
+                    {filterType === 'all' ? 'All Movements' : filterType}
                   </button>
                 ))}
               </div>
@@ -975,7 +928,7 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
                     type="text"
                     value={txnSearch}
                     onChange={(e) => setTxnSearch(e.target.value)}
-                    placeholder="Search reference or user..."
+                    placeholder="Search ref, operator, notes..."
                     className="w-48 rounded-xl border border-slate-200 bg-slate-50/70 py-1.5 pl-8 pr-2.5 text-xs text-slate-800 focus:border-[#008a90] focus:bg-white focus:outline-none"
                   />
                 </div>
@@ -983,7 +936,7 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
                 <button
                   type="button"
                   onClick={() => setIsRecordTxnModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#008a90] hover:bg-[#00747a] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition-all active:scale-95"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#008a90] hover:bg-[#00747a] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition-all active:scale-95 cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span>Record Transaction</span>
@@ -992,187 +945,84 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
 
             </div>
 
-            {/* Transactions Ledger Table */}
-            <div className="overflow-x-auto rounded-xl border border-slate-100">
+            {/* Transactions Ledger Table with Deep Role Links */}
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 text-[11px] text-slate-500 font-semibold border-b border-slate-200">
+                <thead className="bg-slate-50 text-[11px] text-slate-600 font-semibold border-b border-slate-200">
                   <tr>
-                    <th className="py-2.5 px-3">Date</th>
+                    <th className="py-2.5 px-3">Date & Timestamp</th>
                     <th className="py-2.5 px-3">Type</th>
                     <th className="py-2.5 px-3">Quantity</th>
                     <th className="py-2.5 px-3">Reference Doc</th>
+                    <th className="py-2.5 px-3">Facility / Route</th>
+                    <th className="py-2.5 px-3">Authorized Operator & Role</th>
                     <th className="py-2.5 px-3">Notes & Reason</th>
-                    <th className="py-2.5 px-3 text-right">Logged By</th>
+                    <th className="py-2.5 px-3 text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredTransactions.map((txn) => (
-                    <tr key={txn.id} className="hover:bg-slate-50/70">
+                    <tr key={txn.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">{txn.date}</td>
                       <td className="py-2.5 px-3">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${txn.badge}`}>
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold border ${txn.badge}`}>
                           {txn.type}
                         </span>
                       </td>
                       <td className={`py-2.5 px-3 font-mono font-bold ${txn.isPos ? 'text-emerald-600' : 'text-slate-800'}`}>
                         {txn.qty}
                       </td>
-                      <td className="py-2.5 px-3 font-mono text-slate-700 font-medium">{txn.ref}</td>
-                      <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-xs truncate">{txn.notes}</td>
-                      <td className="py-2.5 px-3 text-right text-slate-700 font-medium">{txn.user}</td>
+                      <td className="py-2.5 px-3 font-mono">
+                        <Link
+                          href={txn.refLink}
+                          className="font-medium text-[#008a90] hover:underline flex items-center gap-1"
+                        >
+                          <span>{txn.ref}</span>
+                          <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+                        </Link>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-700 text-[11px] font-medium">{txn.facility}</td>
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-1.5">
+                          <Link
+                            href={txn.roleLink}
+                            className="font-semibold text-slate-800 hover:text-teal-700 hover:underline"
+                          >
+                            {txn.operator}
+                          </Link>
+                          <span
+                            className={`text-[9px] font-semibold px-1.5 py-0.2 rounded ${
+                              txn.role === 'Inventory Manager'
+                                ? 'bg-teal-50 text-teal-700 border border-teal-200'
+                                : txn.role === 'Warehouse Staff'
+                                ? 'bg-sky-50 text-sky-700 border border-sky-200'
+                                : 'bg-purple-50 text-purple-700 border border-purple-200'
+                            }`}
+                          >
+                            {txn.role === 'Inventory Manager' ? 'Manager' : txn.role === 'Warehouse Staff' ? 'Staff' : 'Admin'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-xs truncate" title={txn.notes}>
+                        {txn.notes}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <span
+                          className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-medium ${
+                            txn.status === 'Completed'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : txn.status === 'In Transit'
+                              ? 'bg-purple-50 text-purple-700'
+                              : 'bg-amber-50 text-amber-700'
+                          }`}
+                        >
+                          {txn.status}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-
-          </div>
-        )}
-
-        {/* ================= TAB 4: LOCATIONS ================= */}
-        {activeTab === 'locations' && (
-          <div className="mt-5 space-y-3.5 text-xs animate-in fade-in duration-150">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="font-bold text-[#0a2540] block">Multi-Warehouse Stock Distribution</span>
-                <span className="text-[11px] text-slate-500">Live storage footprint across regional depositories</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsTransferModalOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#008a90] hover:bg-slate-50 shadow-sm"
-              >
-                <ArrowRightLeft className="h-3.5 w-3.5" />
-                <span>Transfer Between Warehouses</span>
-              </button>
-            </div>
-
-            {/* Warehouse Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-              {warehouseAllocations.map((w, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 space-y-2.5 shadow-sm hover:border-teal-200 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#0a2540]">{w.hub}</span>
-                    <Building2 className="h-4 w-4 text-[#008a90]" />
-                  </div>
-
-                  <span className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-semibold border ${w.badge}`}>
-                    {w.tier}
-                  </span>
-
-                  <div className="text-[11px] text-slate-500">
-                    Bin Location: <strong className="text-slate-800">{w.zone}</strong>
-                  </div>
-
-                  <div className="flex justify-between items-baseline pt-2 border-t border-slate-200">
-                    <span className="text-[11px] text-slate-600">Stock Available:</span>
-                    <span className="font-mono font-bold text-base text-[#0a2540]">
-                      {w.qty.toLocaleString()} {item.unit}s
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTransferSource(w.hub);
-                      setIsTransferModalOpen(true);
-                    }}
-                    className="w-full mt-1 rounded-xl border border-slate-200 bg-white py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
-                  >
-                    Dispatch / Transfer from here
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ================= TAB 5: DOCUMENTS ================= */}
-        {activeTab === 'documents' && (
-          <div className="mt-5 space-y-3.5 text-xs animate-in fade-in duration-150">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="font-bold text-[#0a2540] block">Compliance & Regulatory Documents</span>
-                <span className="text-[11px] text-slate-500">Audited certificates, WHO prequalification and inspection sheets</span>
-              </div>
-
-              {/* Hidden Real File Input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                onChange={handleFileChange}
-                className="hidden"
-                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-              />
-
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#008a90] hover:bg-slate-50 shadow-sm transition-all active:scale-95"
-              >
-                <Upload className="h-3.5 w-3.5" />
-                <span>Upload New Document</span>
-              </button>
-            </div>
-
-            {/* Documents Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {documents.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 p-3 bg-white hover:border-teal-200 shadow-sm transition-colors"
-                >
-                  <div className="flex items-center gap-2.5 overflow-hidden">
-                    <FileText className="h-6 w-6 text-red-500 shrink-0" />
-                    <div className="truncate">
-                      <div className="font-bold text-slate-800 truncate" title={doc.name}>
-                        {doc.name}
-                      </div>
-                      <div className="text-[10px] text-slate-400">
-                        {doc.size} • {doc.authority}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    {/* Preview Button */}
-                    <button
-                      type="button"
-                      onClick={() => setPreviewDoc(doc)}
-                      className="rounded p-1 text-slate-400 hover:text-[#008a90] hover:bg-teal-50 transition-colors"
-                      title="Preview Document"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                    </button>
-
-                    {/* Download Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadDoc(doc)}
-                      className="rounded p-1 text-slate-400 hover:text-[#008a90] hover:bg-teal-50 transition-colors"
-                      title="Download Document"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </button>
-
-                    {/* Delete button (if uploaded) */}
-                    {doc.isUploaded && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteDoc(doc.id)}
-                        className="rounded p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        title="Delete Document"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
             </div>
 
           </div>
@@ -1211,7 +1061,7 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
                     Record Transaction — {item.code}
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Log incoming receipt, dispensary issue or adjustment
+                    Log receipt intake, dispensary issue, transfer, or adjustment
                   </p>
                 </div>
               </div>
@@ -1219,7 +1069,7 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
               <button
                 type="button"
                 onClick={() => setIsRecordTxnModalOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1228,16 +1078,23 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
             <form onSubmit={handleRecordTransaction} className="mt-4 space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-700">Transaction Type</label>
+                  <label className="font-semibold text-slate-700">Movement Type</label>
                   <select
                     value={newTxnType}
-                    onChange={(e) => setNewTxnType(e.target.value as any)}
+                    onChange={(e) => {
+                      const type = e.target.value as any;
+                      setNewTxnType(type);
+                      if (type === 'Receipt') setNewTxnRef(`PO-${item.code.replace('VST-', '90')}`);
+                      else if (type === 'Issue') setNewTxnRef(`REQ-${item.code.replace('VST-', '22')}`);
+                      else if (type === 'Transfer') setNewTxnRef(`TRF-${item.code.replace('VST-', '41')}`);
+                      else if (type === 'Adjustment') setNewTxnRef(`ADJ-${item.code.replace('VST-', '05')}`);
+                    }}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
                   >
                     <option value="Receipt">Receipt (Stock In +)</option>
                     <option value="Issue">Issue (Stock Out -)</option>
+                    <option value="Transfer">Transfer (Internal ⇄)</option>
                     <option value="Adjustment">Adjustment (Audit +/-)</option>
-                    <option value="Transfer">Transfer (Internal)</option>
                   </select>
                 </div>
 
@@ -1256,53 +1113,131 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-700">Ref Code / PO #</label>
+                  <label className="font-semibold text-slate-700">Reference Doc / PO / TRF</label>
                   <input
                     type="text"
                     required
                     value={newTxnRef}
                     onChange={(e) => setNewTxnRef(e.target.value)}
-                    placeholder="PO-9012 or REQ-44"
+                    placeholder="e.g. PO-9040 or TRF-410"
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-700">Authorized Operator</label>
-                  <input
-                    type="text"
-                    required
-                    value={newTxnUser}
-                    onChange={(e) => setNewTxnUser(e.target.value)}
+                  <label className="font-semibold text-slate-700">Authorized Operator Role</label>
+                  <select
+                    value={newTxnOperatorRole}
+                    onChange={(e) => {
+                      const role = e.target.value as any;
+                      setNewTxnOperatorRole(role);
+                      if (role === 'Inventory Manager') setNewTxnOperatorName('Sarah Johnson');
+                      else if (role === 'Warehouse Staff') setNewTxnOperatorName('Mike Chen');
+                      else setNewTxnOperatorName('System Administrator');
+                    }}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
-                  />
+                  >
+                    <option value="Warehouse Staff">Warehouse Staff (Floor)</option>
+                    <option value="Inventory Manager">Inventory Manager (Approval)</option>
+                    <option value="Administrator">Administrator (Super Admin)</option>
+                  </select>
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">Source Warehouse</label>
+                  <select
+                    value={newTxnWarehouse}
+                    onChange={(e) => setNewTxnWarehouse(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
+                  >
+                    {warehouseAllocations.map((w) => (
+                      <option key={w.id} value={w.name}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {newTxnType === 'Transfer' ? (
+                  <div className="space-y-1">
+                    <label className="font-semibold text-slate-700">Destination Hub</label>
+                    <select
+                      value={newTxnDestWarehouse}
+                      onChange={(e) => setNewTxnDestWarehouse(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
+                    >
+                      {warehouseAllocations.map((w) => (
+                        <option key={w.id} value={w.name}>
+                          {w.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <label className="font-semibold text-slate-700">Operator Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={newTxnOperatorName}
+                      onChange={(e) => setNewTxnOperatorName(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700">Transaction Notes</label>
+                <label className="font-semibold text-slate-700">Transaction Notes & Audit Rationale</label>
                 <input
                   type="text"
+                  required
                   value={newTxnNotes}
                   onChange={(e) => setNewTxnNotes(e.target.value)}
-                  placeholder="Reason for issuance or receipt intake"
+                  placeholder="Reason for issuance, transfer, or count adjustment"
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
                 />
+              </div>
+
+              {/* Dynamic Role Linkage Banner */}
+              <div className="rounded-xl border border-teal-200 bg-teal-50/60 p-2.5 text-[11px] text-teal-900 space-y-0.5">
+                <div className="font-bold flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-teal-700" />
+                  <span>Workflow & Role Action Routing</span>
+                </div>
+                <p className="text-teal-700 leading-relaxed">
+                  {newTxnType === 'Receipt' && (
+                    <>PO Receipt intakes are fulfilled on the floor by <Link href="/staff/receive" className="underline font-semibold text-teal-900">Staff Receiving</Link> and added to <Link href="/staff/stock" className="underline font-semibold text-teal-900">Warehouse Stock</Link>.</>
+                  )}
+                  {newTxnType === 'Transfer' && (
+                    <>Inter-warehouse transfers route to <Link href="/admin/transfers" className="underline font-semibold text-teal-900">Admin Transfers</Link> and notify the destination <Link href="/manager/approvals" className="underline font-semibold text-teal-900">Inventory Manager</Link>.</>
+                  )}
+                  {newTxnType === 'Issue' && (
+                    <>Fulfillment dispatches are executed via <Link href="/staff/issue" className="underline font-semibold text-teal-900">Staff Dispatch</Link> and logged in <Link href="/admin/requests" className="underline font-semibold text-teal-900">Requests</Link>.</>
+                  )}
+                  {newTxnType === 'Adjustment' && (
+                    <>Variance audits are recorded in <Link href="/admin/adjustments" className="underline font-semibold text-teal-900">Admin Adjustments</Link> and sent to <Link href="/manager/discrepancies" className="underline font-semibold text-teal-900">Manager Discrepancy Log</Link>.</>
+                  )}
+                </p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsRecordTxnModalOpen(false)}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#008a90] hover:bg-[#00747a] px-4 py-2 text-xs font-bold text-white shadow-sm"
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-[#008a90] hover:bg-[#00747a] px-4 py-2 text-xs font-bold text-white shadow-sm cursor-pointer disabled:opacity-60 flex items-center gap-1.5"
                 >
-                  Confirm & Post Ledger
+                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSubmitting ? 'Posting...' : 'Confirm & Post Ledger'}</span>
                 </button>
               </div>
             </form>
@@ -1310,7 +1245,7 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
         </div>
       )}
 
-      {/* ================= MODAL 4: WAREHOUSE TRANSFER MODAL ================= */}
+      {/* ================= MODAL 4: INTER-WAREHOUSE TRANSFER MODAL ================= */}
       {isTransferModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
@@ -1321,10 +1256,10 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[#0a2540]">
-                    Inter-Warehouse Stock Transfer
+                    Initiate Stock Transfer — {item.code}
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Rebalance {item.code} ({item.name}) across depositories
+                    Rebalance {item.name} across facilities with Manager approval
                   </p>
                 </div>
               </div>
@@ -1332,78 +1267,110 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
               <button
                 type="button"
                 onClick={() => setIsTransferModalOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleTransferStock} className="mt-4 space-y-3 text-xs">
+            <form onSubmit={handleExecuteTransfer} className="mt-4 space-y-3 text-xs">
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700">Source Depository</label>
+                <label className="font-semibold text-slate-700">Source Warehouse</label>
                 <select
                   value={transferSource}
                   onChange={(e) => setTransferSource(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
                 >
                   {warehouseAllocations.map((w) => (
-                    <option key={w.hub} value={w.hub}>
-                      {w.hub} (Avail: {w.qty})
+                    <option key={w.id} value={w.name}>
+                      {w.name} (Available: {w.qty.toLocaleString()} {item.unit}s)
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700">Destination Depository</label>
+                <label className="font-semibold text-slate-700">Destination Warehouse</label>
                 <select
                   value={transferDest}
                   onChange={(e) => setTransferDest(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
                 >
                   {warehouseAllocations.map((w) => (
-                    <option key={w.hub} value={w.hub}>
-                      {w.hub}
+                    <option key={w.id} value={w.name}>
+                      {w.name} (Current: {w.qty.toLocaleString()} {item.unit}s)
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700">Transfer Quantity</label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  value={transferQty}
-                  onChange={(e) => setTransferQty(Number(e.target.value))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs font-mono font-bold text-slate-800"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">Quantity to Transfer</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={transferQty}
+                    onChange={(e) => setTransferQty(Number(e.target.value))}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs font-mono font-bold text-slate-800"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">Role Authority</label>
+                  <select
+                    value={transferRole}
+                    onChange={(e) => {
+                      const r = e.target.value as any;
+                      setTransferRole(r);
+                      if (r === 'manager') setTransferOperatorName(availableManagers[0]?.name || 'Sarah Johnson');
+                      else setTransferOperatorName(availableStaff[0]?.name || 'Mike Chen');
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
+                  >
+                    <option value="manager">Inventory Manager ({availableManagers[0]?.name || 'Sarah Johnson'})</option>
+                    <option value="staff">Warehouse Staff ({availableStaff[0]?.name || 'Mike Chen'})</option>
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700">Dispatch Reason</label>
+                <label className="font-semibold text-slate-700">Transfer Reason & Priority</label>
                 <input
                   type="text"
-                  value={transferNote}
-                  onChange={(e) => setTransferNote(e.target.value)}
+                  required
+                  value={transferReason}
+                  onChange={(e) => setTransferReason(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
                 />
+              </div>
+
+              <div className="rounded-xl border border-purple-200 bg-purple-50/60 p-2.5 text-[11px] text-purple-900 space-y-0.5">
+                <div className="font-bold flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
+                  <span>Transfer Workflow Linkage</span>
+                </div>
+                <p className="text-purple-700 leading-relaxed">
+                  Executing creates an active transfer record in <Link href="/admin/transfers" className="underline font-semibold text-purple-900">Admin Transfers</Link> and alerts the destination <Link href="/manager/approvals" className="underline font-semibold text-purple-900">Inventory Manager</Link>.
+                </p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsTransferModalOpen(false)}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#008a90] hover:bg-[#00747a] px-4 py-2 text-xs font-bold text-white shadow-sm"
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-[#008a90] hover:bg-[#00747a] px-4 py-2 text-xs font-bold text-white shadow-sm cursor-pointer disabled:opacity-60 flex items-center gap-1.5"
                 >
-                  Execute Transfer
+                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSubmitting ? 'Transferring...' : 'Execute Transfer'}</span>
                 </button>
               </div>
             </form>
@@ -1411,81 +1378,116 @@ Authorized Digital Stamp: VISTA-SECURE-SIG-${Date.now().toString(36).toUpperCase
         </div>
       )}
 
-      {/* ================= MODAL 5: DOCUMENT PREVIEW MODAL ================= */}
-      {previewDoc && (
+      {/* ================= MODAL 5: STOCK ADJUSTMENT MODAL ================= */}
+      {isAdjustModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 sm:p-7 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                  <ShieldCheck className="h-5 w-5" />
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                  <SlidersHorizontal className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[#0a2540]">
-                    Document Verification Preview
+                    Stock Adjustment — {item.code}
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    {previewDoc.name}
+                    Reconcile physical inventory counts or quarantine damaged units
                   </p>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => setPreviewDoc(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                onClick={() => setIsAdjustModalOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3 text-xs">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                <span className="text-slate-500">Document Type</span>
-                <span className="font-bold text-[#0a2540]">{previewDoc.type}</span>
-              </div>
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                <span className="text-slate-500">Authority / Standard</span>
-                <span className="font-semibold text-emerald-700">{previewDoc.authority}</span>
-              </div>
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                <span className="text-slate-500">Item Association</span>
-                <span className="font-mono font-bold text-slate-800">{item.code} — {item.name}</span>
-              </div>
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                <span className="text-slate-500">Validation Status</span>
-                <span className="inline-flex items-center gap-1 text-emerald-600 font-bold">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>Digitally Signed & Validated</span>
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">File Footprint</span>
-                <span className="font-mono text-slate-700">{previewDoc.size}</span>
-              </div>
-            </div>
+            <form onSubmit={handleExecuteAdjustment} className="mt-4 space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">Adjustment Type</label>
+                  <select
+                    value={adjustType}
+                    onChange={(e) => setAdjustType(e.target.value as any)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
+                  >
+                    <option value="add">Surplus Count (+) Add Stock</option>
+                    <option value="subtract">Shortage/Damage (-) Deduct Stock</option>
+                  </select>
+                </div>
 
-            <div className="mt-5 flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setPreviewDoc(null)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Close Preview
-              </button>
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">Quantity Delta</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={adjustQty}
+                    onChange={(e) => setAdjustQty(Number(e.target.value))}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs font-mono font-bold text-slate-800"
+                  />
+                </div>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  handleDownloadDoc(previewDoc);
-                  setPreviewDoc(null);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#008a90] hover:bg-[#00747a] px-4 py-2 text-xs font-bold text-white shadow-sm"
-              >
-                <Download className="h-3.5 w-3.5" />
-                <span>Download Certified Copy</span>
-              </button>
-            </div>
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700">Depository Facility</label>
+                <select
+                  value={adjustWarehouse}
+                  onChange={(e) => setAdjustWarehouse(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
+                >
+                  {warehouseAllocations.map((w) => (
+                    <option key={w.id} value={w.name}>
+                      {w.name} (Current: {w.qty.toLocaleString()} {item.unit}s)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700">Audit Justification & Reason</label>
+                <input
+                  type="text"
+                  required
+                  value={adjustReason}
+                  onChange={(e) => setAdjustReason(e.target.value)}
+                  placeholder="Cycle count variance, damaged box write-off..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800"
+                />
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-2.5 text-[11px] text-amber-900 space-y-0.5">
+                <div className="font-bold flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Audit Trail Linkage</span>
+                </div>
+                <p className="text-amber-700 leading-relaxed">
+                  Adjustment will be recorded in <Link href="/admin/adjustments" className="underline font-semibold text-amber-900">Admin Adjustments</Link> and reported to the <Link href="/manager/discrepancies" className="underline font-semibold text-amber-900">Manager Discrepancy Log</Link>.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAdjustModalOpen(false)}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-[#008a90] hover:bg-[#00747a] px-4 py-2 text-xs font-bold text-white shadow-sm cursor-pointer disabled:opacity-60 flex items-center gap-1.5"
+                >
+                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSubmitting ? 'Submitting...' : 'Confirm Adjustment'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

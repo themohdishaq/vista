@@ -44,7 +44,8 @@ export type WarehouseType =
   | 'Regional Depot'
   | 'Logistics Hub'
   | 'Cold Chain Facility'
-  | 'Forward Clinic';
+  | 'Forward Clinic'
+  | 'Transit Point';
 
 export type WarehouseStatus = 'Operational' | 'High Capacity' | 'Maintenance';
 

@@ -3,11 +3,11 @@
 
 /**
  * @file app/staff/returns/page.tsx
- * @description Dedicated floor view for Recording Ward Returns and Internal Consumption.
+ * @description Dedicated floor view for Recording Ward Returns and Internal Consumption with live DB telemetry.
  * Fulfills Responsibility 5: "Record consumption and returned items."
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   RotateCcw,
   Plus,
@@ -15,12 +15,18 @@ import {
   Calendar,
   Building,
   Filter,
+  Search,
+  Download,
+  Clock,
+  Layers,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
 
-interface ReturnRecord {
+interface ReturnItem {
   id: string;
   ticketNo: string;
-  type: 'Ward Return' | 'Floor Consumption';
+  type: 'Ward Return' | 'Floor Consumption' | 'Expired Quarantine' | 'Damaged in Transit';
   source: string;
   itemCode: string;
   itemName: string;
@@ -28,84 +34,173 @@ interface ReturnRecord {
   unit: string;
   reason: string;
   recordedBy: string;
-  status: 'Restocked to Bin' | 'Quarantined' | 'Logged for Billing';
+  status: string;
   date: string;
 }
 
 export default function StaffReturnsPage() {
-  const [records, setRecords] = useState<ReturnRecord[]>([
-    {
-      id: 'ret-1',
-      ticketNo: 'RC-2025-048',
-      type: 'Ward Return',
-      source: 'Emergency Department',
-      itemCode: 'VST-001',
-      itemName: 'Surgical Mask 3-Ply',
-      quantity: 50,
-      unit: 'Box',
-      reason: 'Unopened excess from triage surge.',
-      recordedBy: 'Mike Chen',
-      status: 'Restocked to Bin',
-      date: 'Apr 29, 2025 16:20',
-    },
-    {
-      id: 'ret-2',
-      ticketNo: 'CS-2025-047',
-      type: 'Floor Consumption',
-      source: 'Internal Warehouse Floor',
-      itemCode: 'VST-009',
-      itemName: 'Hand Sanitizer 500ml',
-      quantity: 4,
-      unit: 'Bottle',
-      reason: 'Routine sanitation at packing stations.',
-      recordedBy: 'Mike Chen',
-      status: 'Logged for Billing',
-      date: 'Apr 28, 2025 14:15',
-    },
-  ]);
-
-  const [activeTab, setActiveTab] = useState<'All' | 'Returns' | 'Consumption'>('All');
+  const [records, setRecords] = useState<ReturnItem[]>([]);
+  const [activeTab, setActiveTab] = useState<'All' | 'Ward Return' | 'Floor Consumption'>('All');
+  const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Form State
   const [type, setType] = useState<'Ward Return' | 'Floor Consumption'>('Ward Return');
   const [source, setSource] = useState('Emergency Department');
+  const [items, setItems] = useState<Array<{ id: string; code: string; name: string; unit: string }>>([
+    { id: 'item-001', code: 'VST-001', name: 'Surgical Mask 3-Ply', unit: 'Box' },
+    { id: 'item-002', code: 'VST-002', name: 'Nitrile Examination Gloves', unit: 'Box' },
+    { id: 'item-003', code: 'VST-003', name: 'Sterile Elastic Bandage', unit: 'Pack' },
+    { id: 'item-009', code: 'VST-009', name: 'Hand Sanitizer 500ml', unit: 'Bottle' },
+  ]);
   const [itemCode, setItemCode] = useState('VST-001');
   const [itemName, setItemName] = useState('Surgical Mask 3-Ply');
   const [quantity, setQuantity] = useState('10');
+  const [unit, setUnit] = useState('Box');
+  const [condition, setCondition] = useState<'Intact / Sealed' | 'Opened / Partial' | 'Damaged / Compromised'>('Intact / Sealed');
   const [reason, setReason] = useState('Unopened excess returned from ward.');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const fetchReturns = async () => {
+    try {
+      const res = await fetch('/api/returns');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const mapped = json.data.map((r: any) => ({
+          id: r.id,
+          ticketNo: r.docNo || r.id,
+          type: r.type,
+          source: r.origin || r.warehouse || 'Clinical Ward',
+          itemCode: r.itemCode,
+          itemName: r.itemName,
+          quantity: Number(r.quantity) || 1,
+          unit: r.unit || 'Box',
+          reason: r.reason || 'Floor consumption/return',
+          recordedBy: r.reportedBy || 'Floor Specialist',
+          status: r.status,
+          date: r.reportedDate || (r.created_at ? new Date(r.created_at).toLocaleString() : 'Just now'),
+        }));
+        setRecords(mapped);
+      }
+    } catch (err) {
+      console.error('Failed to load returns:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchReturns();
+
+    // Load available items from stock
+    fetch('/api/stock')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const mapped = json.data.map((s: any) => ({
+            id: s.id || s.itemCode,
+            code: s.itemCode,
+            name: s.itemName,
+            unit: s.unit || 'Unit',
+          }));
+          setItems(mapped);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const handleRecord = (e: React.FormEvent) => {
+  const handleRecord = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newEntry: ReturnRecord = {
-      id: `ret-${Date.now()}`,
-      ticketNo: `${type === 'Ward Return' ? 'RC' : 'CS'}-2025-${Math.floor(100 + Math.random() * 900)}`,
-      type,
-      source,
-      itemCode,
-      itemName,
-      quantity: parseInt(quantity, 10) || 1,
-      unit: 'Box',
-      reason,
-      recordedBy: 'Mike Chen',
-      status: type === 'Ward Return' ? 'Restocked to Bin' : 'Logged for Billing',
-      date: 'Just now',
-    };
+    try {
+      const foundItem = items.find((i) => i.code === itemCode);
+      const res = await fetch('/api/returns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type,
+          origin: source,
+          warehouseId: 'wh-001',
+          warehouseName: 'Central Medical Store Kathmandu',
+          itemId: foundItem?.id || itemCode,
+          itemCode,
+          itemName,
+          quantity: parseInt(quantity, 10) || 1,
+          unit,
+          condition,
+          reason,
+        }),
+      });
 
-    setRecords([newEntry, ...records]);
-    setIsModalOpen(false);
-    showToast(`Recorded ${newEntry.type}: ${newEntry.itemName} (${newEntry.quantity} units).`);
+      const json = await res.json();
+      if (res.ok) {
+        showToast(`Recorded ${type}: ${itemName} (${quantity} units). Escalated to Manager.`);
+        setIsModalOpen(false);
+        fetchReturns();
+      } else {
+        showToast(json.message || 'Error recording return.');
+      }
+    } catch (err) {
+      console.error('Failed to submit return:', err);
+      showToast('Error communicating with server.');
+    }
   };
 
-  const filtered = records.filter((r) => {
-    if (activeTab === 'Returns') return r.type === 'Ward Return';
-    if (activeTab === 'Consumption') return r.type === 'Floor Consumption';
-    return true;
-  });
+  const handleItemSelect = (code: string) => {
+    setItemCode(code);
+    const found = items.find((it) => it.code === code);
+    if (found) {
+      setItemName(found.name);
+      setUnit(found.unit);
+    }
+  };
+
+  const filteredRecords = useMemo(() => {
+    return records.filter((r) => {
+      const matchTab = activeTab === 'All' || r.type === activeTab;
+      const q = searchTerm.toLowerCase();
+      const matchSearch =
+        !searchTerm ||
+        r.ticketNo.toLowerCase().includes(q) ||
+        r.source.toLowerCase().includes(q) ||
+        r.itemCode.toLowerCase().includes(q) ||
+        r.itemName.toLowerCase().includes(q) ||
+        r.reason.toLowerCase().includes(q);
+      return matchTab && matchSearch;
+    });
+  }, [records, activeTab, searchTerm]);
+
+  const handleExportCSV = () => {
+    if (filteredRecords.length === 0) return;
+    const headers = ['Ticket No', 'Type', 'Source / Dept', 'SKU', 'Item Name', 'Quantity', 'Unit', 'Reason', 'Status', 'Timestamp'];
+    const rows = filteredRecords.map((r) => [
+      r.ticketNo,
+      r.type,
+      `"${r.source.replace(/"/g, '""')}"`,
+      r.itemCode,
+      `"${r.itemName.replace(/"/g, '""')}"`,
+      r.quantity,
+      r.unit,
+      `"${r.reason.replace(/"/g, '""')}"`,
+      r.status,
+      `"${r.date}"`,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `VISTA-Returns-And-Usage-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const wardReturnsCount = records.filter((r) => r.type === 'Ward Return').length;
+  const consumptionCount = records.filter((r) => r.type === 'Floor Consumption').length;
+  const pendingCount = records.filter((r) => r.status === 'Pending Manager Authorization').length;
+  const restockedCount = records.filter((r) => r.status === 'Restocked').length;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -127,12 +222,12 @@ export default function StaffReturnsPage() {
         <div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200/80">
-              RETURNS & USAGE
+              RETURNS &amp; USAGE
             </span>
             <span className="text-slate-300">•</span>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
               <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-              <span>Ward Restocking & Internal Use</span>
+              <span>Ward Restocking &amp; Internal Floor Consumption</span>
             </div>
           </div>
           <h1 className="font-sans text-2xl font-black tracking-tight text-[#0a2540] mt-1">
@@ -143,32 +238,94 @@ export default function StaffReturnsPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Record Return / Usage</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="px-3.5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Record Return / Usage</span>
+          </button>
+        </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl w-fit">
-        {(['All', 'Returns', 'Consumption'] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === tab
-                ? 'bg-white text-[#0a2540] shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="rounded-2xl bg-white p-4 border border-slate-200/90 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500">Ward Returns</span>
+            <RotateCcw className="w-4 h-4 text-indigo-600" />
+          </div>
+          <p className="font-mono text-2xl font-black text-indigo-600 mt-1">{wardReturnsCount}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Returned unopened from wards</p>
+        </div>
+
+        <div className="rounded-2xl bg-white p-4 border border-slate-200/90 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500">Floor Consumption</span>
+            <Layers className="w-4 h-4 text-[#008a90]" />
+          </div>
+          <p className="font-mono text-2xl font-black text-[#008a90] mt-1">{consumptionCount}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Warehouse operational use</p>
+        </div>
+
+        <div className="rounded-2xl bg-white p-4 border border-slate-200/90 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500">Awaiting Manager</span>
+            <Clock className="w-4 h-4 text-amber-500" />
+          </div>
+          <p className="font-mono text-2xl font-black text-amber-600 mt-1">{pendingCount}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Requires manager sign-off</p>
+        </div>
+
+        <div className="rounded-2xl bg-white p-4 border border-slate-200/90 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500">Restocked to Bins</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+          </div>
+          <p className="font-mono text-2xl font-black text-emerald-600 mt-1">{restockedCount}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Inventory ledger credited</p>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/90 shadow-xs">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-full sm:w-auto">
+          {(['All', 'Ward Return', 'Floor Consumption'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeTab === tab
+                  ? 'bg-white text-[#0a2540] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {tab === 'All' ? 'All Transactions' : tab}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search ticket #, dept, or SKU..."
+            className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600"
+          />
+        </div>
       </div>
 
       {/* Table */}
@@ -180,57 +337,75 @@ export default function StaffReturnsPage() {
                 <th className="py-3 px-4">Ticket No</th>
                 <th className="py-3 px-4">Type</th>
                 <th className="py-3 px-4">Source / Department</th>
-                <th className="py-3 px-4">Item SKU & Name</th>
+                <th className="py-3 px-4">Item SKU &amp; Name</th>
                 <th className="py-3 px-4 text-right">Quantity</th>
-                <th className="py-3 px-4">Reason</th>
+                <th className="py-3 px-4">Reason / Notes</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Timestamp</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-sans">
-              {filtered.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-3.5 px-4 font-mono font-bold text-[#0a2540]">
-                    {item.ticketNo}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide ${
-                        item.type === 'Ward Return'
-                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                          : 'bg-teal-50 text-[#008a90] border-teal-200'
-                      }`}
-                    >
-                      {item.type}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 font-semibold text-slate-800">
-                    {item.source}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="font-mono text-[11px] text-[#008a90] font-bold block">
-                      {item.itemCode}
-                    </span>
-                    <span className="font-semibold text-slate-900">
-                      {item.itemName}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono font-black text-slate-900">
-                    {item.quantity} {item.unit}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate">
-                    {item.reason}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-500 text-xs font-medium">
-                    {item.date}
+              {filteredRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-xs text-slate-400 font-medium">
+                    No matching return or consumption records found. Use &ldquo;+ Record Return / Usage&rdquo; to log items.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredRecords.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-3.5 px-4 font-mono font-bold text-[#0a2540]">
+                      {item.ticketNo}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide ${
+                          item.type === 'Ward Return'
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                            : 'bg-teal-50 text-[#008a90] border-teal-200'
+                        }`}
+                      >
+                        {item.type}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 font-semibold text-slate-800">
+                      {item.source}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="font-mono text-[11px] text-[#008a90] font-bold block">
+                        {item.itemCode}
+                      </span>
+                      <span className="font-semibold text-slate-900">
+                        {item.itemName}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right font-mono font-black text-slate-900">
+                      {item.quantity} {item.unit}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate">
+                      {item.reason}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                          item.status === 'Restocked'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : item.status === 'Quarantined for Disposal'
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : item.status === 'Rejected'
+                            ? 'bg-slate-100 text-slate-700 border-slate-300'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-500 text-xs font-medium">
+                      {item.date}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -239,10 +414,20 @@ export default function StaffReturnsPage() {
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
-            <h3 className="font-sans text-base font-bold text-[#0a2540] mb-4">
-              Record Return or Internal Consumption
-            </h3>
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <h3 className="font-sans text-base font-bold text-[#0a2540]">
+                Record Return or Internal Consumption
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
             <form onSubmit={handleRecord} className="space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -252,7 +437,7 @@ export default function StaffReturnsPage() {
                   <select
                     value={type}
                     onChange={(e) => setType(e.target.value as any)}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-indigo-600 focus:outline-none"
                   >
                     <option value="Ward Return">Ward Return</option>
                     <option value="Floor Consumption">Floor Consumption</option>
@@ -267,43 +452,56 @@ export default function StaffReturnsPage() {
                     required
                     value={source}
                     onChange={(e) => setSource(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-indigo-600 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Item SKU & Description
+                  Item SKU &amp; Description
                 </label>
                 <select
                   value={itemCode}
-                  onChange={(e) => {
-                    setItemCode(e.target.value);
-                    if (e.target.value === 'VST-001') setItemName('Surgical Mask 3-Ply');
-                    else if (e.target.value === 'VST-002') setItemName('Nitrile Medical Gloves');
-                    else setItemName('Hand Sanitizer 500ml');
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
+                  onChange={(e) => handleItemSelect(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-indigo-600 focus:outline-none"
                 >
-                  <option value="VST-001">VST-001 • Surgical Mask 3-Ply</option>
-                  <option value="VST-002">VST-002 • Nitrile Medical Gloves</option>
-                  <option value="VST-009">VST-009 • Hand Sanitizer 500ml</option>
+                  {items.map((it) => (
+                    <option key={it.code} value={it.code}>
+                      {it.code} • {it.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Quantity
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 font-mono text-xs font-bold focus:border-[#008a90] focus:outline-none"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 font-mono text-xs font-bold focus:border-indigo-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Item Condition
+                  </label>
+                  <select
+                    value={condition}
+                    onChange={(e) => setCondition(e.target.value as any)}
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-indigo-600 focus:outline-none"
+                  >
+                    <option value="Intact / Sealed">Intact / Sealed</option>
+                    <option value="Opened / Partial">Opened / Partial</option>
+                    <option value="Damaged / Compromised">Damaged / Compromised</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -315,11 +513,15 @@ export default function StaffReturnsPage() {
                   required
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-indigo-600 focus:outline-none"
                 />
               </div>
 
-              <div className="pt-3 flex justify-end gap-2">
+              <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200/80 text-[11px] text-indigo-900">
+                Returns are routed to the Inventory Manager authorization desk for physical restock approval or quarantine disposal.
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -341,4 +543,3 @@ export default function StaffReturnsPage() {
     </div>
   );
 }
-

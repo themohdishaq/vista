@@ -33,6 +33,15 @@ export function StockByLocationTable({ items, onUpdateItem }: StockByLocationTab
   const [viewingItem, setViewingItem] = useState<LocationStockItem | null>(null);
   const [adjustingItem, setAdjustingItem] = useState<LocationStockItem | null>(null);
 
+  // Dynamic filter lists from data
+  const availableCategories = useMemo(() => {
+    return Array.from(new Set(items.map((i) => i.category).filter(Boolean)));
+  }, [items]);
+
+  const availableWarehouses = useMemo(() => {
+    return Array.from(new Set(items.map((i) => i.location).filter(Boolean)));
+  }, [items]);
+
   // Filter items
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -147,10 +156,9 @@ export function StockByLocationTable({ items, onUpdateItem }: StockByLocationTab
                 className="appearance-none rounded-xl border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none cursor-pointer"
               >
                 <option value="all">All Categories</option>
-                <option value="Medical Supplies">Medical Supplies</option>
-                <option value="Pharmaceuticals">Pharmaceuticals</option>
-                <option value="Equipment">Equipment</option>
-                <option value="Hygiene">Hygiene</option>
+                {availableCategories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             </div>
@@ -166,11 +174,9 @@ export function StockByLocationTable({ items, onUpdateItem }: StockByLocationTab
                 className="appearance-none rounded-xl border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none cursor-pointer"
               >
                 <option value="all">All Warehouses</option>
-                <option value="Main Warehouse">Main Warehouse</option>
-                <option value="East Warehouse">East Warehouse</option>
-                <option value="West Warehouse">West Warehouse</option>
-                <option value="Central Medical Store">Central Medical Store</option>
-                <option value="Pokhara Regional Depot">Pokhara Regional Depot</option>
+                {availableWarehouses.map((w) => (
+                  <option key={w} value={w}>{w}</option>
+                ))}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             </div>
@@ -208,109 +214,117 @@ export function StockByLocationTable({ items, onUpdateItem }: StockByLocationTab
             </thead>
 
             <tbody className="divide-y divide-slate-100">
-              {paginatedItems.map((item) => (
-                <tr
-                  key={item.id}
-                  className="hover:bg-slate-50/80 transition-colors"
-                >
-                  {/* Code */}
-                  <td className="py-3 px-4 font-mono font-bold text-[#0a2540]">
-                    {item.code}
-                  </td>
-
-                  {/* Name */}
-                  <td className="py-3 px-4 font-semibold text-slate-800 whitespace-nowrap">
-                    {item.name}
-                  </td>
-
-                  {/* Category */}
-                  <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
-                    {item.category}
-                  </td>
-
-                  {/* Unit */}
-                  <td className="py-3 px-4 text-slate-600 font-medium">
-                    {item.unit}
-                  </td>
-
-                  {/* Total Stock */}
-                  <td className="py-3 px-4 font-mono font-bold text-[#0a2540]">
-                    {item.totalStock.toLocaleString()}
-                  </td>
-
-                  {/* Available */}
-                  <td className="py-3 px-4 font-mono text-slate-800 font-medium">
-                    {item.available.toLocaleString()}
-                  </td>
-
-                  {/* Reserved */}
-                  <td className="py-3 px-4 font-mono text-slate-500">
-                    {item.reserved.toLocaleString()}
-                  </td>
-
-                  {/* In Transit */}
-                  <td className="py-3 px-4 font-mono text-slate-500">
-                    {item.inTransit.toLocaleString()}
-                  </td>
-
-                  {/* Location */}
-                  <td className="py-3 px-4 text-slate-700 font-medium whitespace-nowrap">
-                    {item.location}
-                  </td>
-
-                  {/* Status Pill */}
-                  <td className="py-3 px-4">
-                    <span
-                      className={`inline-flex items-center gap-1.5 font-semibold text-[11px] ${
-                        item.status === 'In Stock'
-                          ? 'text-emerald-700'
-                          : 'text-amber-700'
-                      }`}
-                    >
-                      <span
-                        className={`h-2 w-2 rounded-full ${
-                          item.status === 'In Stock'
-                            ? 'bg-emerald-500'
-                            : 'bg-amber-500'
-                        }`}
-                      />
-                      <span>{item.status}</span>
-                    </span>
-                  </td>
-
-                  {/* Actions */}
-                  <td className="py-3 px-4 text-right">
-                    <div className="inline-flex items-center gap-1 text-slate-400">
-                      <button
-                        type="button"
-                        onClick={() => setViewingItem(item)}
-                        title="View Location Breakdown"
-                        className="rounded p-1 hover:bg-slate-100 hover:text-[#008a90] transition-colors"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setAdjustingItem(item)}
-                        title="Adjust Stock"
-                        className="rounded p-1 hover:bg-slate-100 hover:text-slate-800 transition-colors"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setViewingItem(item)}
-                        title="More Information"
-                        className="rounded p-1 hover:bg-slate-100 hover:text-slate-800 transition-colors"
-                      >
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+              {paginatedItems.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-12 text-center text-xs text-slate-400 font-medium">
+                    No inventory stock records found for this location or category filter.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                paginatedItems.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="hover:bg-slate-50/80 transition-colors"
+                  >
+                    {/* Code */}
+                    <td className="py-3 px-4 font-mono font-bold text-[#0a2540]">
+                      {item.code}
+                    </td>
+
+                    {/* Name */}
+                    <td className="py-3 px-4 font-semibold text-slate-800 whitespace-nowrap">
+                      {item.name}
+                    </td>
+
+                    {/* Category */}
+                    <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
+                      {item.category}
+                    </td>
+
+                    {/* Unit */}
+                    <td className="py-3 px-4 text-slate-600 font-medium">
+                      {item.unit}
+                    </td>
+
+                    {/* Total Stock */}
+                    <td className="py-3 px-4 font-mono font-bold text-[#0a2540]">
+                      {item.totalStock.toLocaleString()}
+                    </td>
+
+                    {/* Available */}
+                    <td className="py-3 px-4 font-mono text-slate-800 font-medium">
+                      {item.available.toLocaleString()}
+                    </td>
+
+                    {/* Reserved */}
+                    <td className="py-3 px-4 font-mono text-slate-500">
+                      {item.reserved.toLocaleString()}
+                    </td>
+
+                    {/* In Transit */}
+                    <td className="py-3 px-4 font-mono text-slate-500">
+                      {item.inTransit.toLocaleString()}
+                    </td>
+
+                    {/* Location */}
+                    <td className="py-3 px-4 text-slate-700 font-medium whitespace-nowrap">
+                      {item.location}
+                    </td>
+
+                    {/* Status Pill */}
+                    <td className="py-3 px-4">
+                      <span
+                        className={`inline-flex items-center gap-1.5 font-semibold text-[11px] ${
+                          item.status === 'In Stock'
+                            ? 'text-emerald-700'
+                            : 'text-amber-700'
+                        }`}
+                      >
+                        <span
+                          className={`h-2 w-2 rounded-full ${
+                            item.status === 'In Stock'
+                              ? 'bg-emerald-500'
+                              : 'bg-amber-500'
+                          }`}
+                        />
+                        <span>{item.status}</span>
+                      </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="py-3 px-4 text-right">
+                      <div className="inline-flex items-center gap-1 text-slate-400">
+                        <button
+                          type="button"
+                          onClick={() => setViewingItem(item)}
+                          title="View Location Breakdown"
+                          className="rounded p-1 hover:bg-slate-100 hover:text-[#008a90] transition-colors"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setAdjustingItem(item)}
+                          title="Adjust Stock"
+                          className="rounded p-1 hover:bg-slate-100 hover:text-slate-800 transition-colors"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setViewingItem(item)}
+                          title="More Information"
+                          className="rounded p-1 hover:bg-slate-100 hover:text-slate-800 transition-colors"
+                        >
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -318,8 +332,11 @@ export function StockByLocationTable({ items, onUpdateItem }: StockByLocationTab
         {/* ================= PAGINATION FOOTER ================= */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 px-6 py-3.5 text-xs text-slate-500">
           <div>
-            Showing <span className="font-semibold text-slate-800">1-{paginatedItems.length}</span> of{' '}
-            <span className="font-semibold text-slate-800">245</span> items
+            Showing <span className="font-semibold text-slate-800">
+              {filteredItems.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-
+              {Math.min(currentPage * pageSize, filteredItems.length)}
+            </span> of{' '}
+            <span className="font-semibold text-slate-800">{filteredItems.length}</span> items
           </div>
 
           <div className="flex items-center gap-1">

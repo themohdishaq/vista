@@ -61,72 +61,84 @@ export function StockTrendChart({ data }: StockTrendChartProps) {
       </div>
 
       {/* shadcn Chart Container with Recharts AreaChart */}
-      <div className="mt-4 w-full">
-        <ChartContainer config={chartConfig} className="h-[210px] w-full">
-          <AreaChart
-            data={formattedData}
-            margin={{ top: 12, right: 12, left: -16, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient id="stockTrendGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#00c4b4" stopOpacity={0.28} />
-                <stop offset="95%" stopColor="#00c4b4" stopOpacity={0.0} />
-              </linearGradient>
-            </defs>
+      {data.length === 0 ? (
+        <div className="py-14 flex flex-col items-center justify-center text-center">
+          <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-[#008a90] mb-3">
+            <TrendingUp className="w-6 h-6" />
+          </div>
+          <p className="text-sm font-bold text-slate-800">No Stock Movement Data</p>
+          <p className="text-xs text-slate-400 mt-1 max-w-[260px]">
+            Dynamic trends will appear once inbound and outbound inventory movements occur.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 w-full">
+          <ChartContainer config={chartConfig} className="h-[210px] w-full">
+            <AreaChart
+              data={formattedData}
+              margin={{ top: 12, right: 12, left: -16, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="stockTrendGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#00c4b4" stopOpacity={0.28} />
+                  <stop offset="95%" stopColor="#00c4b4" stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
 
-            <CartesianGrid
-              strokeDasharray="3 3"
-              vertical={false}
-              stroke="#f1f5f9"
-            />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke="#f1f5f9"
+              />
 
-            <XAxis
-              dataKey="date"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tickFormatter={(val) => val}
-              className="font-mono text-[10px] fill-slate-400"
-            />
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(val) => val}
+                className="font-mono text-[10px] fill-slate-400"
+              />
 
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              domain={[0, 15000]}
-              ticks={[0, 5000, 10000, 15000]}
-              tickFormatter={(val) => (val === 0 ? '0' : `${val / 1000}K`)}
-              className="font-mono text-[10px] fill-slate-400"
-            />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                domain={[0, 15000]}
+                ticks={[0, 5000, 10000, 15000]}
+                tickFormatter={(val) => (val === 0 ? '0' : `${val / 1000}K`)}
+                className="font-mono text-[10px] fill-slate-400"
+              />
 
-            <ChartTooltip
-              cursor={{ stroke: '#008a90', strokeWidth: 1, strokeDasharray: '3 3' }}
-              content={<ChartTooltipContent indicator="dot" />}
-            />
+              <ChartTooltip
+                cursor={{ stroke: '#008a90', strokeWidth: 1, strokeDasharray: '3 3' }}
+                content={<ChartTooltipContent indicator="dot" />}
+              />
 
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke="#00a896"
-              strokeWidth={2.5}
-              fillOpacity={1}
-              fill="url(#stockTrendGrad)"
-              activeDot={{
-                r: 5,
-                fill: '#ffffff',
-                stroke: '#008a90',
-                strokeWidth: 2.5,
-              }}
-              dot={{
-                r: 3.5,
-                fill: '#ffffff',
-                stroke: '#008a90',
-                strokeWidth: 2,
-              }}
-            />
-          </AreaChart>
-        </ChartContainer>
-      </div>
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#00a896"
+                strokeWidth={2.5}
+                fillOpacity={1}
+                fill="url(#stockTrendGrad)"
+                activeDot={{
+                  r: 5,
+                  fill: '#ffffff',
+                  stroke: '#008a90',
+                  strokeWidth: 2.5,
+                }}
+                dot={{
+                  r: 3.5,
+                  fill: '#ffffff',
+                  stroke: '#008a90',
+                  strokeWidth: 2,
+                }}
+              />
+            </AreaChart>
+          </ChartContainer>
+        </div>
+      )}
 
       <div className="pt-2" />
     </div>

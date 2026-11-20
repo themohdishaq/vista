@@ -21,22 +21,60 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { BatchReallocationModal } from '@/components/manager/dashboard/BatchReallocationModal';
-import { INITIAL_LOCATION_STOCK_BALANCES, INITIAL_EXPIRING_BATCHES } from '@/lib/data/manager-seed-data';
 import { LocationStockBalance, ExpiringBatchItem } from '@/types/manager';
 
 export default function ManagerStockPage() {
-  const [balances, setBalances] = useState<LocationStockBalance[]>(INITIAL_LOCATION_STOCK_BALANCES);
+  const [balances, setBalances] = useState<LocationStockBalance[]>([]);
   const [selectedFacility, setSelectedFacility] = useState('All');
   const [search, setSearch] = useState('');
   const [reallocatingBatch, setReallocatingBatch] = useState<ExpiringBatchItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const facilities = ['All', 'Main Warehouse (Primary)', 'West Warehouse (Secondary)', 'East Warehouse', 'Cold Storage Depot'];
+  const fetchBalances = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/stock');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setBalances(data.data.map((s: any) => ({
+          id: s.id,
+          facility: s.location || 'Main Central Warehouse',
+          binLocation: 'General Bay',
+          itemCode: s.code,
+          itemName: s.name,
+          availableUnits: s.available,
+          reservedUnits: s.reserved,
+          unit: s.unit || 'Box',
+          batchNo: 'LOT-2025-01',
+          expiryDate: '2026-12-31',
+          status: s.status === 'In Stock' ? 'Optimal' : s.status === 'Low Stock' ? 'Low Stock' : 'Critical',
+        })));
+      }
+    } catch (e) {
+      console.error('Failed to fetch stock balances:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchBalances();
+  }, []);
+
+  const facilities = [
+    'All',
+    'Central Medical Store Kathmandu',
+    'Western Regional Medical Depot Pokhara',
+    'Eastern Distribution Center Biratnagar',
+    'Mid-Western Logistics Hub Nepalgunj',
+    'Far-Western Medical Hub Dhangadhi',
+  ];
 
   const filtered = balances.filter((b) => {
     const matchFac = selectedFacility === 'All' || b.facility === selectedFacility;

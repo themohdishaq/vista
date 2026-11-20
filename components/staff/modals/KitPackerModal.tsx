@@ -3,11 +3,11 @@
 
 /**
  * @file components/staff/modals/KitPackerModal.tsx
- * @description Kit assembly, packing list generator and verification modal for floor staff.
+ * @description Kit assembly, packing list generator and verification modal for floor staff with dynamic BOM support.
  * Fulfills Responsibility 8: "Prepare packing lists and kit records."
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Boxes,
   X,
@@ -17,29 +17,53 @@ import {
   CheckSquare,
   Square,
 } from 'lucide-react';
+import { KitRecord } from '@/types/kits';
 
 interface KitPackerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onRecordKitPacked: (kitCode: string, qty: number) => void;
+  selectedKit?: KitRecord | null;
+  onRecordKitPacked: (kitId: string, kitCode: string, qty: number, packingBay: string) => void;
 }
 
 export function KitPackerModal({
   isOpen,
   onClose,
+  selectedKit,
   onRecordKitPacked,
 }: KitPackerModalProps) {
-  const [kitCode, setKitCode] = useState('KIT-001');
-  const [kitName, setKitName] = useState('First Aid Kit Standard (Clinic)');
+  const [kitId, setKitId] = useState(selectedKit?.id || 'kit-001');
+  const [kitCode, setKitCode] = useState(selectedKit?.code || 'KIT-001');
+  const [kitName, setKitName] = useState(selectedKit?.name || 'First Aid Kit Standard (Clinic)');
   const [quantity, setQuantity] = useState('10');
-  const [packingBay, setPackingBay] = useState('Kit Packing Bay 2');
-  const [components, setComponents] = useState([
-    { name: 'Sterile Elastic Bandage 10cm', qtyRequired: 2, checked: true },
-    { name: 'Surgical Mask 3-Ply', qtyRequired: 5, checked: true },
-    { name: 'Nitrile Gloves (Large)', qtyRequired: 2, checked: true },
-    { name: 'Antiseptic Povidone Swabs', qtyRequired: 10, checked: false },
-    { name: 'Trauma Stainless Shears', qtyRequired: 1, checked: true },
-  ]);
+  const [packingBay, setPackingBay] = useState(selectedKit?.targetStation || 'Kit Packing Bay 2');
+  const [components, setComponents] = useState<Array<{ name: string; qtyRequired: number; unit: string; checked: boolean }>>([]);
+
+  useEffect(() => {
+    if (selectedKit) {
+      setKitId(selectedKit.id);
+      setKitCode(selectedKit.code);
+      setKitName(selectedKit.name);
+      setPackingBay(selectedKit.targetStation || 'Kit Packing Bay 2');
+      if (selectedKit.components && selectedKit.components.length > 0) {
+        setComponents(
+          selectedKit.components.map((c) => ({
+            name: `${c.itemName} (${c.itemCode})`,
+            qtyRequired: c.quantity,
+            unit: c.unit || 'Units',
+            checked: true,
+          }))
+        );
+      } else {
+        setComponents([
+          { name: 'Sterile Elastic Bandage 10cm', qtyRequired: 2, unit: 'Pack', checked: true },
+          { name: 'Surgical Mask 3-Ply', qtyRequired: 5, unit: 'Box', checked: true },
+          { name: 'Nitrile Gloves (Large)', qtyRequired: 2, unit: 'Box', checked: true },
+          { name: 'Antiseptic Povidone Swabs', qtyRequired: 10, unit: 'Pack', checked: true },
+        ]);
+      }
+    }
+  }, [selectedKit]);
 
   if (!isOpen) return null;
 
@@ -53,7 +77,7 @@ export function KitPackerModal({
     setComponents((prev) => prev.map((c) => ({ ...c, checked: true })));
   };
 
-  const allChecked = components.every((c) => c.checked);
+  const allChecked = components.length > 0 && components.every((c) => c.checked);
   const qtyNum = parseInt(quantity, 10) || 1;
 
   const handleDownloadPackingList = () => {
@@ -64,24 +88,24 @@ export function KitPackerModal({
 Kit Identifier: ${kitCode} - ${kitName}
 Total Kits Packed: ${qtyNum}
 Assembly Station: ${packingBay}
-Operator: Mike Chen (Inventory Staff)
+Operator: Floor Logistics Specialist
 Timestamp: ${new Date().toLocaleString()}
 
 BILL OF MATERIALS (BOM) PER KIT:
 ${components
   .map(
     (c, i) =>
-      `${i + 1}. [${c.checked ? 'VERIFIED' : 'PENDING'}] ${c.name} (${c.qtyRequired} per kit x ${qtyNum} = ${c.qtyRequired * qtyNum} total)`
+      `${i + 1}. [${c.checked ? 'VERIFIED' : 'PENDING'}] ${c.name} (${c.qtyRequired} ${c.unit} per kit x ${qtyNum} = ${c.qtyRequired * qtyNum} ${c.unit} total)`
   )
   .join('\n')}
 
 QUALITY ASSURANCE:
 [X] Lot numbers and expirations inspected (>12 months remaining)
 [X] Tamper-evident seals applied to all ${qtyNum} kit enclosures
-[X] Storage assigned to Dispatch Staging Area B
+[X] Storage assigned to Dispatch Staging Bay
 
-SUPERVISED BY: Jane Smith (Inventory Manager)
-PACKED BY: Mike Chen
+SUPERVISED BY: Facility Inventory Manager
+PACKED BY: Floor Specialist
 ===================================================
 `;
     const blob = new Blob([slip], { type: 'text/plain;charset=utf-8' });
@@ -95,7 +119,7 @@ PACKED BY: Mike Chen
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onRecordKitPacked(kitCode, qtyNum);
+    onRecordKitPacked(kitId, kitCode, qtyNum, packingBay);
     onClose();
   };
 
@@ -110,7 +134,7 @@ PACKED BY: Mike Chen
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">
-                Prepare Packing Lists & Kit Assembly
+                Assemble &amp; Pack: {kitCode}
               </h3>
               <p className="text-[11px] text-slate-300">
                 Responsibility 8 • Assemble BOM items, verify counts and generate packing list
@@ -131,26 +155,14 @@ PACKED BY: Mike Chen
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Select Kit Template
+                Kit Definition
               </label>
-              <select
-                value={kitCode}
-                onChange={(e) => {
-                  setKitCode(e.target.value);
-                  if (e.target.value === 'KIT-001') {
-                    setKitName('First Aid Kit Standard (Clinic)');
-                  } else if (e.target.value === 'KIT-002') {
-                    setKitName('Emergency Response Kit (ER)');
-                  } else {
-                    setKitName('Outpatient Dressing Kit');
-                  }
-                }}
-                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
-              >
-                <option value="KIT-001">KIT-001 • First Aid Kit Standard</option>
-                <option value="KIT-002">KIT-002 • Emergency Response Kit</option>
-                <option value="KIT-003">KIT-003 • Outpatient Dressing Kit</option>
-              </select>
+              <input
+                type="text"
+                readOnly
+                value={`${kitCode} • ${kitName}`}
+                className="w-full rounded-xl border border-slate-200 bg-slate-100 p-2.5 font-semibold text-xs text-slate-800"
+              />
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
@@ -162,7 +174,7 @@ PACKED BY: Mike Chen
                 required
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 font-mono text-xs font-bold text-center focus:border-[#008a90] focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 font-mono text-xs font-bold text-center focus:border-purple-600 focus:outline-none"
               />
             </div>
           </div>
@@ -176,7 +188,7 @@ PACKED BY: Mike Chen
               required
               value={packingBay}
               onChange={(e) => setPackingBay(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 font-mono text-xs focus:border-[#008a90] focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 font-mono text-xs focus:border-purple-600 focus:outline-none"
             />
           </div>
 
@@ -189,16 +201,16 @@ PACKED BY: Mike Chen
               <button
                 type="button"
                 onClick={checkAll}
-                className="text-[11px] font-semibold text-[#008a90] hover:underline cursor-pointer"
+                className="text-[11px] font-semibold text-purple-700 hover:underline cursor-pointer"
               >
                 Verify All Components
               </button>
             </div>
 
-            <div className="space-y-2 rounded-xl bg-slate-50 p-3 border border-slate-200/80">
+            <div className="space-y-2 rounded-xl bg-slate-50 p-3 border border-slate-200/80 max-h-48 overflow-y-auto">
               {components.map((comp, idx) => (
                 <div
-                  key={comp.name}
+                  key={comp.name + idx}
                   onClick={() => toggleComponent(idx)}
                   className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-all ${
                     comp.checked
@@ -215,7 +227,7 @@ PACKED BY: Mike Chen
                     <span className="font-medium">{comp.name}</span>
                   </div>
                   <span className="font-mono text-[11px] font-bold text-slate-500">
-                    {comp.qtyRequired * qtyNum} units total
+                    {comp.qtyRequired * qtyNum} {comp.unit}
                   </span>
                 </div>
               ))}
@@ -232,7 +244,7 @@ PACKED BY: Mike Chen
             <button
               type="button"
               onClick={handleDownloadPackingList}
-              className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#008a90] hover:text-[#00747a] cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-[11px] font-bold text-purple-700 hover:text-purple-800 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Download Packing Slip</span>
@@ -258,7 +270,7 @@ PACKED BY: Mike Chen
               }`}
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Register Kits & Complete Packing</span>
+              <span>Register Kits &amp; Deduct BOM Stock</span>
             </button>
           </div>
         </form>
@@ -266,4 +278,3 @@ PACKED BY: Mike Chen
     </div>
   );
 }
-

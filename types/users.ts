@@ -2,22 +2,20 @@
 /**
  * @file types/users.ts
  * @description Strict TypeScript interfaces for VISTA User Management Module:
- * - 4 Summary KPI Metric Cards (Total Users 248, Active Users 232, Inactive Users 16, Roles & Permissions 6)
- * - Role Distribution Donut Breakdown
- * - Manage Users by Role metrics
- * - User Activity Trend multi-series data (Active Logins, New Users, Inactive Users across 7D, 30D, 90D)
- * - User Record entity with role, department, permissions, and status
- * - Activity Log timeline items
+ * - Provisioning: Inventory Manager and Warehouse Staff created and managed by Administrator
+ * - Credentials: Password configuration for login access
+ * - Facility Assignment: Mapped to Administrator-created warehouses
+ * - Role Distribution & Analytics
  */
 
 export type UserRole =
-  | 'Administrator'
   | 'Inventory Manager'
+  | 'Warehouse Staff'
   | 'Inventory Staff'
-  | 'Auditor'
-  | 'Pharmacist';
+  | 'Administrator'
+  | 'Auditor';
 
-export type UserStatus = 'Active' | 'Inactive' | 'Suspended';
+export type UserStatus = 'Active' | 'Inactive' | 'Suspended' | 'Pending';
 
 export interface UserRecord {
   id: string;
@@ -25,12 +23,37 @@ export interface UserRecord {
   username: string;
   email: string;
   role: UserRole;
-  department: string;
   status: UserStatus;
   lastLogin: string;
   phone?: string;
+  warehouseId?: string;
   warehouseAccess?: string;
+  department?: string;
   permissionsCount?: number;
+  password?: string;
+  notificationPreferences?: Record<string, boolean>;
+  operationalPreferences?: Record<string, any>;
+  stationZone?: string;
+  shiftSchedule?: string;
+}
+
+export interface CreateUserInput {
+  fullName: string;
+  email: string;
+  password: string;
+  role: 'Inventory Manager' | 'Warehouse Staff';
+  warehouseId: string;
+  phone?: string;
+  status?: UserStatus;
+}
+
+export interface UpdateUserInput {
+  fullName?: string;
+  role?: 'Inventory Manager' | 'Warehouse Staff';
+  warehouseId?: string;
+  phone?: string;
+  status?: UserStatus;
+  password?: string;
 }
 
 export interface UsersKPICard {
@@ -64,13 +87,18 @@ export interface UserActivityPoint {
   inactiveUsers: number;
 }
 
+export interface ManageRoleItem {
+  role: UserRole;
+  count: number;
+  description: string;
+}
+
 export interface UserActivityLog {
   id: string;
-  type: 'added' | 'updated' | 'deactivated' | 'permissions';
+  type: 'added' | 'updated' | 'deactivated' | 'approved' | 'rejected' | 'permissions';
   title: string;
   targetUser: string;
   actor: string;
   timestamp: string;
   details?: string;
 }
-

@@ -5,12 +5,14 @@
  * Accurately models the exact 10 records and 4 KPI metric cards shown in the UI specification.
  */
 
-import { InventoryItem, ItemsKPIData } from '@/types/items';
+import { InventoryItem, ItemsKPIData } from
+
+'@/types/items';
 
 export const ITEMS_KPI_DATA: ItemsKPIData = {
   totalItems: {
     value: '2,480',
-    change: '↑ 12%',
+    change: '12%',
     isPositive: true,
     sparkline: [20, 22, 25, 24, 28, 32, 36, 40],
   },

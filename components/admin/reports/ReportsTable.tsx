@@ -92,7 +92,14 @@ export function ReportsTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {recentReports.map((report) => (
+              {recentReports.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
+                    No recent reports generated. Use &ldquo;Run Report&rdquo; to compile a new report.
+                  </td>
+                </tr>
+              ) : (
+                recentReports.map((report) => (
                 <tr
                   key={report.id}
                   className="hover:bg-slate-50/60 transition-colors"
@@ -140,7 +147,7 @@ export function ReportsTable({
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         )}
@@ -158,42 +165,50 @@ export function ReportsTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {scheduledReports.map((sch) => (
-                <tr
-                  key={sch.id}
-                  className="hover:bg-slate-50/60 transition-colors"
-                >
-                  <td className="py-3.5 px-6 font-semibold text-slate-800">
-                    {sch.name}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-50 text-[#008a90] border border-teal-200/60">
-                      {sch.frequency}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-500 max-w-[180px] truncate">
-                    {sch.recipients}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-600 font-mono text-[11px]">
-                    {sch.nextRun}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="inline-flex items-center gap-1.5 text-emerald-600 font-medium">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      {sch.status}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-6 text-right">
-                    <button
-                      onClick={() => onRunScheduledNow(sch)}
-                      className="px-2.5 py-1 text-xs font-semibold text-[#008a90] bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors inline-flex items-center gap-1"
-                    >
-                      <Play className="w-3 h-3 fill-current" />
-                      Run Now
-                    </button>
+              {scheduledReports.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
+                    No scheduled automated audits configured.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                scheduledReports.map((sch) => (
+                  <tr
+                    key={sch.id}
+                    className="hover:bg-slate-50/60 transition-colors"
+                  >
+                    <td className="py-3.5 px-6 font-semibold text-slate-800">
+                      {sch.name}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-50 text-[#008a90] border border-teal-200/60">
+                        {sch.frequency}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-500 max-w-[180px] truncate">
+                      {sch.recipients}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600 font-mono text-[11px]">
+                      {sch.nextRun}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="inline-flex items-center gap-1.5 text-emerald-600 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        {sch.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-6 text-right">
+                      <button
+                        onClick={() => onRunScheduledNow(sch)}
+                        className="px-2.5 py-1 text-xs font-semibold text-[#008a90] bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors inline-flex items-center gap-1"
+                      >
+                        <Play className="w-3 h-3 fill-current" />
+                        Run Now
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         )}
@@ -210,34 +225,42 @@ export function ReportsTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {savedReports.map((sav) => (
-                <tr
-                  key={sav.id}
-                  className="hover:bg-slate-50/60 transition-colors"
-                >
-                  <td className="py-3.5 px-6 font-semibold text-slate-800">
-                    {sav.name}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-600 font-medium">
-                    {sav.category}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-500 max-w-[220px] truncate">
-                    {sav.filtersSummary}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
-                    {sav.createdOn}
-                  </td>
-                  <td className="py-3.5 px-6 text-right">
-                    <button
-                      onClick={() => onRunSavedReport(sav)}
-                      className="px-2.5 py-1 text-xs font-semibold text-white bg-[#008a90] hover:bg-[#00747a] rounded-lg transition-colors inline-flex items-center gap-1"
-                    >
-                      <Play className="w-3 h-3 fill-current" />
-                      Generate
-                    </button>
+              {savedReports.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-slate-400 font-medium">
+                    No saved report templates found.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                savedReports.map((sav) => (
+                  <tr
+                    key={sav.id}
+                    className="hover:bg-slate-50/60 transition-colors"
+                  >
+                    <td className="py-3.5 px-6 font-semibold text-slate-800">
+                      {sav.name}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600 font-medium">
+                      {sav.category}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-500 max-w-[220px] truncate">
+                      {sav.filtersSummary}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
+                      {sav.createdOn}
+                    </td>
+                    <td className="py-3.5 px-6 text-right">
+                      <button
+                        onClick={() => onRunSavedReport(sav)}
+                        className="px-2.5 py-1 text-xs font-semibold text-white bg-[#008a90] hover:bg-[#00747a] rounded-lg transition-colors inline-flex items-center gap-1"
+                      >
+                        <Play className="w-3 h-3 fill-current" />
+                        Generate
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         )}

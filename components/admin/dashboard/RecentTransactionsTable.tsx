@@ -62,45 +62,57 @@ export function RecentTransactionsTable({ transactions }: RecentTransactionsTabl
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {transactions.map((txn) => {
-              const badgeStyle = getTypeBadge(txn.type);
-              return (
-                <tr key={txn.id} className="hover:bg-slate-50/70 transition-colors">
-                  {/* Date */}
-                  <td className="py-3 text-slate-500 font-medium whitespace-nowrap">
-                    {txn.date}
-                  </td>
+            {transactions.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="py-10 text-center text-slate-400">
+                  <Clock className="w-7 h-7 mx-auto mb-2 text-slate-300" />
+                  <p className="font-semibold text-slate-700 text-xs">No transactions recorded yet</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Real-time receipts, issues, transfers, and adjustments will appear here.
+                  </p>
+                </td>
+              </tr>
+            ) : (
+              transactions.map((txn) => {
+                const badgeStyle = getTypeBadge(txn.type);
+                return (
+                  <tr key={txn.id} className="hover:bg-slate-50/70 transition-colors">
+                    {/* Date */}
+                    <td className="py-3 text-slate-500 font-medium whitespace-nowrap">
+                      {txn.date}
+                    </td>
 
-                  {/* Type Badge */}
-                  <td className="py-3">
-                    <span
-                      className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${badgeStyle}`}
+                    {/* Type Badge */}
+                    <td className="py-3">
+                      <span
+                        className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${badgeStyle}`}
+                      >
+                        {txn.type}
+                      </span>
+                    </td>
+
+                    {/* Item Name */}
+                    <td className="py-3 font-semibold text-[#0a2540] whitespace-nowrap">
+                      {txn.item}
+                    </td>
+
+                    {/* Quantity */}
+                    <td
+                      className={`py-3 font-mono font-bold ${
+                        txn.isPositiveQty ? 'text-emerald-600' : 'text-slate-700'
+                      }`}
                     >
-                      {txn.type}
-                    </span>
-                  </td>
+                      {txn.quantity}
+                    </td>
 
-                  {/* Item Name */}
-                  <td className="py-3 font-semibold text-[#0a2540] whitespace-nowrap">
-                    {txn.item}
-                  </td>
-
-                  {/* Quantity */}
-                  <td
-                    className={`py-3 font-mono font-bold ${
-                      txn.isPositiveQty ? 'text-emerald-600' : 'text-slate-700'
-                    }`}
-                  >
-                    {txn.quantity}
-                  </td>
-
-                  {/* Operator / User */}
-                  <td className="py-3 text-right text-slate-600 font-medium whitespace-nowrap">
-                    {txn.by}
-                  </td>
-                </tr>
-              );
-            })}
+                    {/* Operator / User */}
+                    <td className="py-3 text-right text-slate-600 font-medium whitespace-nowrap">
+                      {txn.by}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

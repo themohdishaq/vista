@@ -64,7 +64,12 @@ export function DiscrepancyShortageTable({
 
       {/* Discrepancy Items List */}
       <div className="mt-3 space-y-3">
-        {discrepancies.map((d) => (
+        {discrepancies.length === 0 ? (
+          <div className="py-8 text-center text-xs text-slate-400 font-medium">
+            No active discrepancy or shortage reports logged for this facility.
+          </div>
+        ) : (
+          discrepancies.map((d) => (
           <div
             key={d.id}
             className="p-3 rounded-xl border border-slate-200/80 bg-white hover:bg-slate-50/50 transition-colors space-y-2"
@@ -125,7 +130,7 @@ export function DiscrepancyShortageTable({
               </button>
             </div>
           </div>
-        ))}
+        )))}
       </div>
     </div>
   );

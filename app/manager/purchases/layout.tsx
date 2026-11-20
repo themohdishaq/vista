@@ -14,4 +14,3 @@ export default function ManagerPurchasesLayout({
 }) {
   return <div className="w-full">{children}</div>;
 }
-

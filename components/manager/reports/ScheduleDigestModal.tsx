@@ -10,7 +10,7 @@ import {
   Building2,
   CheckCircle2,
 } from 'lucide-react';
-import { ManagerScheduledAudit } from '@/lib/data/manager-reports-data';
+import { ManagerScheduledAudit } from '@/types/manager';
 
 interface ScheduleDigestModalProps {
   isOpen: boolean;

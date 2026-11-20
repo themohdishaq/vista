@@ -37,6 +37,7 @@ import {
   LogOut,
   MapPin,
   Clock,
+  Settings,
 } from 'lucide-react';
 
 interface StaffSidebarProps {
@@ -73,8 +74,14 @@ const STAFF_NAV_SECTIONS = [
     items: [
       { title: 'Returns & Consumption', href: '/staff/returns', icon: RotateCcw },
       { title: 'Damaged & Expired', href: '/staff/damages', icon: AlertTriangle },
-      { title: 'Report Discrepancies', href: '/staff/discrepancies', icon: ShieldAlert },
-      { title: 'Record Local Purchases', href: '/staff/purchases', icon: Receipt },
+      { title: 'Shortages & Discrepancies', href: '/staff/discrepancies', icon: ShieldAlert },
+      { title: 'Local Spot Purchases', href: '/staff/purchases', icon: Receipt },
+    ],
+  },
+  {
+    group: 'SYSTEM & PREFERENCES',
+    items: [
+      { title: 'Settings & Profile', href: '/staff/settings', icon: Settings },
     ],
   },
 ];
@@ -84,6 +91,30 @@ export function StaffSidebar({
   onCloseMobile,
 }: StaffSidebarProps) {
   const pathname = usePathname();
+  const [currentUser, setCurrentUser] = React.useState<{ name: string; email: string } | null>(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data?.authenticated && data?.user) {
+          setCurrentUser({ name: data.user.name, email: data.user.email });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const userName = currentUser?.name || 'Mike Chen';
+  const userInitials = userName
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   const sidebarContent = (
     <div className="flex h-full flex-col justify-between overflow-y-auto px-4 py-5">
@@ -221,26 +252,36 @@ export function StaffSidebar({
       {/* Footer: Staff User Card */}
       <div className="pt-4 border-t border-slate-800/80">
         <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-teal-400 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-2xs">
-              MC
+          <Link
+            href="/staff/settings"
+            className="flex items-center gap-2.5 min-w-0 group hover:opacity-90 transition-opacity flex-1"
+            title="Manage Settings & Profile"
+          >
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-teal-400 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+              {userInitials}
             </div>
             <div className="min-w-0 flex-1">
-              <span className="text-xs font-bold text-white block leading-tight truncate">
-                Mike Chen
+              <span className="text-xs font-bold text-white block leading-tight truncate group-hover:text-sky-300 transition-colors">
+                {userName}
               </span>
               <span className="text-[10px] text-sky-400 block leading-tight">
                 Inventory Specialist
               </span>
             </div>
-          </div>
-          <Link
-            href="/login"
-            className="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+          </Link>
+          <button
+            type="button"
+            onClick={async () => {
+              try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+              if (typeof window !== 'undefined') {
+                window.location.replace('/login');
+              }
+            }}
+            className="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
             title="Sign Out"
           >
             <LogOut className="w-4 h-4" />
-          </Link>
+          </button>
         </div>
         <div className="mt-2 text-center text-[10px] text-slate-500 font-mono">
           VISTA Floor v1.0.0 • Assigned: Zone A

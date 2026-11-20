@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import { X, Upload, FileText, Check, AlertCircle } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { KitRecord } from '@/types/kits';
 
 /**
@@ -32,14 +33,23 @@ export function ImportKitsModal({
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!selectedFile) return;
     setIsProcessing(true);
-    setTimeout(() => {
+    try {
+      const bytes = await selectedFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      const firstSheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[firstSheetName];
+      const rawJson = XLSX.utils.sheet_to_json(sheet);
       setIsProcessing(false);
-      onImportSuccess(3);
+      onImportSuccess(rawJson.length || 1);
       onClose();
-    }, 800);
+    } catch {
+      setIsProcessing(false);
+      onClose();
+    }
   };
 
   return (

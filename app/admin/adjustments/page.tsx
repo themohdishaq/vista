@@ -14,28 +14,102 @@
  * - Interactive Modals: NewAdjustmentModal & AuditTrailModal
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar, ChevronDown, Plus, SlidersHorizontal, ArrowLeftRight } from 'lucide-react';
 import { AdjustmentsStatGrid } from '@/components/admin/adjustments/AdjustmentsStatGrid';
-import { AdjustmentsByReasonChart } from '@/components/admin/adjustments/AdjustmentsByReasonChart';
-import { AdjustmentsTrendChart } from '@/components/admin/adjustments/AdjustmentsTrendChart';
 import { AdjustmentsTable } from '@/components/admin/adjustments/AdjustmentsTable';
 import { AdjustmentDetailsCard } from '@/components/admin/adjustments/AdjustmentDetailsCard';
 import { NewAdjustmentModal } from '@/components/admin/adjustments/NewAdjustmentModal';
 import { AuditTrailModal } from '@/components/admin/adjustments/AuditTrailModal';
-import {
-  ADJUSTMENTS_KPI_DATA,
-  INITIAL_STOCK_ADJUSTMENTS,
-} from '@/lib/data/adjustments-seed-data';
-import { StockAdjustmentRecord } from '@/types/adjustments';
+import { StockAdjustmentRecord, AdjustmentKPIData } from '@/types/adjustments';
 
 export default function AdjustmentsPage() {
   const [dateRange, setDateRange] = useState('Apr 1 – Apr 30, 2025');
-  const [adjustments, setAdjustments] = useState<StockAdjustmentRecord[]>(
-    INITIAL_STOCK_ADJUSTMENTS
-  );
+  const [adjustments, setAdjustments] = useState<StockAdjustmentRecord[]>([]);
   const [selectedAdjustment, setSelectedAdjustment] =
-    useState<StockAdjustmentRecord | null>(INITIAL_STOCK_ADJUSTMENTS[0]);
+    useState<StockAdjustmentRecord | null>(null);
+
+  useEffect(() => {
+    fetch('/api/movements')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          const mapped: StockAdjustmentRecord[] = json.data.map((m: any) => ({
+            id: m.id,
+            dateTime: m.dateTime || new Date().toLocaleString(),
+            referenceNumber: m.movementNumber || m.id,
+            itemCode: m.itemCode,
+            itemName: m.itemName,
+            category: 'Supplies',
+            type: m.quantity >= 0 ? 'Increase' : 'Decrease',
+            quantity: m.quantity,
+            quantityDisplay: m.quantity > 0 ? `+${m.quantity}` : `${m.quantity}`,
+            reason: (m.notes?.includes('Count')
+              ? 'Stock Count'
+              : m.notes?.includes('Damage')
+              ? 'Damage'
+              : m.notes?.includes('Expiry')
+              ? 'Expiry'
+              : 'System Correction') as any,
+            internalRef: m.referenceId || 'ADJ-REF',
+            warehouse: m.warehouse,
+            location: m.location || 'Bay 1',
+            performedBy: m.performedBy || 'System Admin',
+            performedByRole: 'Administrator',
+            status: 'Completed',
+            notes: m.notes || 'Verified ledger entry.',
+            documentName: 'Audit Report.pdf',
+          }));
+          setAdjustments(mapped);
+          if (mapped.length > 0) {
+            setSelectedAdjustment(mapped[0]);
+          }
+        }
+      })
+      .catch((err) => console.error('Failed to fetch adjustments:', err));
+  }, []);
+
+  const dynamicKpiData: AdjustmentKPIData = useMemo(() => {
+    const total = adjustments.length;
+    const qtyAdjusted = adjustments.reduce((acc, a) => acc + Math.abs(a.quantity || 0), 0);
+    const positive = adjustments
+      .filter((a) => a.type === 'Increase')
+      .reduce((acc, a) => acc + a.quantity, 0);
+    const negative = adjustments
+      .filter((a) => a.type === 'Decrease')
+      .reduce((acc, a) => acc + Math.abs(a.quantity), 0);
+
+    return {
+      totalAdjustments: {
+        value: total.toString(),
+        label: 'Total Adjustments',
+        change: '+0.0%',
+        isPositive: true,
+        sparkline: [total, total, total],
+      },
+      quantityAdjusted: {
+        value: qtyAdjusted.toLocaleString(),
+        label: 'Quantity Adjusted',
+        change: '+0.0%',
+        isPositive: true,
+        sparkline: [qtyAdjusted, qtyAdjusted, qtyAdjusted],
+      },
+      positiveAdjustments: {
+        value: positive.toLocaleString(),
+        label: 'Positive Adjustments',
+        change: '+0.0%',
+        isPositive: true,
+        sparkline: [positive, positive, positive],
+      },
+      negativeAdjustments: {
+        value: negative.toLocaleString(),
+        label: 'Negative Adjustments',
+        change: '+0.0%',
+        isPositive: false,
+        sparkline: [negative, negative, negative],
+      },
+    };
+  }, [adjustments]);
 
   // Modals
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -107,22 +181,9 @@ export default function AdjustmentsPage() {
       </div>
 
       {/* ================= ROW 1: 4 KPI CARDS ================= */}
-      <AdjustmentsStatGrid data={ADJUSTMENTS_KPI_DATA} />
+      <AdjustmentsStatGrid data={dynamicKpiData} />
 
-      {/* ================= ROW 2: 2 VISUALIZATION CARDS ================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left: Adjustments by Reason Donut Chart (5 Cols on LG) */}
-        <div className="lg:col-span-5">
-          <AdjustmentsByReasonChart />
-        </div>
-
-        {/* Right: Adjustments Trend Dual-Series Area Chart (7 Cols on LG) */}
-        <div className="lg:col-span-7">
-          <AdjustmentsTrendChart />
-        </div>
-
-      </div>
+  
 
       {/* ================= ROW 3: SPLIT TABLE & INSPECTOR PANEL ================= */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">

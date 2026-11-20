@@ -79,19 +79,26 @@ export function RecentActivitiesFeed({
 
       {/* Activity List matching screenshot */}
       <div className="mt-3 space-y-3.5 flex-1 flex flex-col justify-around">
-        {activities.map((act) => (
-          <div key={act.id} className="flex items-start gap-3">
-            {getIcon(act.type)}
-            <div className="min-w-0 flex-1">
-              <h4 className="font-semibold text-slate-800 text-xs leading-snug">
-                {act.title}
-              </h4>
-              <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
-                {act.timestamp}
-              </p>
-            </div>
+        {activities.length === 0 ? (
+          <div className="py-8 text-center text-slate-400">
+            <Clock className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+            <p className="text-xs font-medium text-slate-500">No user activities logged yet</p>
           </div>
-        ))}
+        ) : (
+          activities.map((act) => (
+            <div key={act.id} className="flex items-start gap-3">
+              {getIcon(act.type)}
+              <div className="min-w-0 flex-1">
+                <h4 className="font-semibold text-slate-800 text-xs leading-snug">
+                  {act.title}
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                  {act.timestamp}
+                </p>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -75,64 +75,80 @@ export function InventoryOverviewChart({
       </div>
 
       {/* Donut Chart & Legend Row */}
-      <div className="mt-4 flex flex-col sm:flex-row items-center justify-around gap-6">
-        
-        {/* shadcn Chart Container with Recharts Donut Pie */}
-        <div className="relative flex h-[190px] w-[190px] items-center justify-center">
-          <ChartContainer
-            config={chartConfig}
-            className="mx-auto aspect-square h-[190px] w-[190px]"
+      {segments.length === 0 ? (
+        <div className="py-10 flex flex-col items-center justify-center text-center">
+          <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-[#008a90] mb-3">
+            <BarChart2 className="w-6 h-6" />
+          </div>
+          <p className="text-sm font-bold text-slate-800">No Inventory Stock Logged</p>
+          <p className="text-xs text-slate-400 mt-1 max-w-[260px]">
+            Add master items and record incoming batches to view real-time valuation and allocations.
+          </p>
+          <Link
+            href="/admin/items"
+            className="mt-3.5 px-3.5 py-1.5 rounded-xl bg-[#008a90] hover:bg-[#00747a] text-white text-xs font-semibold shadow-xs transition-colors"
           >
-            <PieChart>
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideLabel />}
-              />
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={56}
-                outerRadius={80}
-                strokeWidth={3}
-                stroke="#ffffff"
-                paddingAngle={2}
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ChartContainer>
+            + Add Master Item
+          </Link>
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col sm:flex-row items-center justify-around gap-6">
+          {/* shadcn Chart Container with Recharts Donut Pie */}
+          <div className="relative flex h-[190px] w-[190px] items-center justify-center">
+            <ChartContainer
+              config={chartConfig}
+              className="mx-auto aspect-square h-[190px] w-[190px]"
+            >
+              <PieChart>
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel />}
+                />
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={56}
+                  outerRadius={80}
+                  strokeWidth={3}
+                  stroke="#ffffff"
+                  paddingAngle={2}
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ChartContainer>
 
-          {/* Centered Donut Label */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-            <span className="text-2xl font-black tracking-tight text-[#0a2540]">
-              {totalValue}
-            </span>
-            <span className="text-[10px] font-medium text-slate-400">
-              Total Stock Value
-            </span>
+            {/* Centered Donut Label */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+              <span className="text-2xl font-black tracking-tight text-[#0a2540]">
+                {totalValue}
+              </span>
+              <span className="text-[10px] font-medium text-slate-400">
+                Total Stock Value
+              </span>
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div className="space-y-3.5 min-w-[140px]">
+            {segments.map((seg) => (
+              <div key={seg.label} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: seg.color }}
+                  />
+                  <span className="font-medium text-slate-600">{seg.label}</span>
+                </div>
+                <span className="font-bold text-[#0a2540]">{seg.percentage}%</span>
+              </div>
+            ))}
           </div>
         </div>
-
-        {/* Legend */}
-        <div className="space-y-3.5 min-w-[140px]">
-          {segments.map((seg) => (
-            <div key={seg.label} className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: seg.color }}
-                />
-                <span className="font-medium text-slate-600">{seg.label}</span>
-              </div>
-              <span className="font-bold text-[#0a2540]">{seg.percentage}%</span>
-            </div>
-          ))}
-        </div>
-
-      </div>
+      )}
 
       <div className="pt-2" />
     </div>

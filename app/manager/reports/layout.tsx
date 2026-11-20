@@ -14,4 +14,3 @@ export default function ManagerReportsLayout({
 }) {
   return <div className="w-full">{children}</div>;
 }
-

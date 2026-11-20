@@ -49,7 +49,12 @@ export function BatchExpiryMonitor({
 
       {/* Batches List */}
       <div className="mt-3 space-y-3">
-        {batches.slice(0, 3).map((b) => (
+        {batches.length === 0 ? (
+          <div className="py-8 text-center text-xs text-slate-400 font-medium">
+            No batches expiring within the 30-day window.
+          </div>
+        ) : (
+          batches.slice(0, 3).map((b) => (
           <div
             key={b.id}
             className="p-3 rounded-xl border border-slate-200/80 bg-white hover:bg-slate-50/50 transition-colors space-y-2"
@@ -88,7 +93,7 @@ export function BatchExpiryMonitor({
               </button>
             </div>
           </div>
-        ))}
+        )))}
       </div>
     </div>
   );

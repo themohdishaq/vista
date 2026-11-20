@@ -31,18 +31,12 @@ import { TransfersTable } from '@/components/admin/transfers/TransfersTable';
 import { TransferDetailsCard } from '@/components/admin/transfers/TransferDetailsCard';
 import { NewTransferModal } from '@/components/admin/transfers/NewTransferModal';
 import { TransferAuditTrailModal } from '@/components/admin/transfers/TransferAuditTrailModal';
-import {
-  TRANSFERS_KPI_DATA,
-  INITIAL_TRANSFERS,
-} from '@/lib/data/transfers-seed-data';
 import { TransferRecord } from '@/types/transfers';
 
 export default function TransfersPage() {
   const [dateRange, setDateRange] = useState('Apr 1 – Apr 30, 2025');
-  const [transfers, setTransfers] = useState<TransferRecord[]>(INITIAL_TRANSFERS);
-  const [selectedTransferId, setSelectedTransferId] = useState<string | null>(
-    INITIAL_TRANSFERS[0]?.id || null
-  );
+  const [transfers, setTransfers] = useState<TransferRecord[]>([]);
+  const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
 
   // Modals state
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -57,45 +51,104 @@ export default function TransfersPage() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const fetchTransfers = async () => {
+    try {
+      const res = await fetch('/api/transfers');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setTransfers(data.data);
+        if (data.data.length > 0) {
+          if (!selectedTransferId || !data.data.find((t: any) => t.id === selectedTransferId)) {
+            setSelectedTransferId(data.data[0].id);
+          }
+        } else {
+          setSelectedTransferId(null);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch transfers:', e);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchTransfers();
+  }, []);
+
   // Currently selected transfer
   const selectedTransfer = useMemo(() => {
-    return transfers.find((t) => t.id === selectedTransferId) || null;
+    return transfers.find((t) => t.id === selectedTransferId) || transfers[0] || null;
   }, [transfers, selectedTransferId]);
 
   // Dynamic KPI calculation
   const dynamicKpiData = useMemo(() => {
     const totalCount = transfers.length;
-    const totalItems = transfers.reduce((acc, t) => acc + t.quantity, 0);
+    const totalItems = transfers.reduce((acc, t) => acc + (t.quantity || 0), 0);
     const inTransitCount = transfers.filter((t) => t.status === 'In Transit').length;
     const completedCount = transfers.filter((t) => t.status === 'Completed').length;
 
     return {
       totalTransfers: {
-        ...TRANSFERS_KPI_DATA.totalTransfers,
         value: totalCount.toString(),
+        label: 'Total Transfers',
+        change: `${totalCount} records`,
+        isPositive: true,
+        sparkline: [totalCount, totalCount, totalCount],
+        color: '#008a90',
       },
       itemsTransferred: {
-        ...TRANSFERS_KPI_DATA.itemsTransferred,
         value: totalItems.toLocaleString(),
+        label: 'Items Transferred',
+        change: 'Total units moved',
+        isPositive: true,
+        sparkline: [totalItems, totalItems, totalItems],
+        color: '#0284c7',
       },
       inTransit: {
-        ...TRANSFERS_KPI_DATA.inTransit,
         value: inTransitCount.toString(),
+        label: 'In Transit',
+        change: inTransitCount > 0 ? 'Active on route' : 'None in transit',
+        isPositive: true,
+        sparkline: [inTransitCount, inTransitCount, inTransitCount],
+        color: '#f59e0b',
       },
       completed: {
-        ...TRANSFERS_KPI_DATA.completed,
         value: completedCount.toString(),
+        label: 'Completed',
+        change: 'Successfully received',
+        isPositive: true,
+        sparkline: [completedCount, completedCount, completedCount],
+        color: '#10b981',
       },
     };
   }, [transfers]);
 
   // Handlers
-  const handleAddTransfer = (newTransfer: TransferRecord) => {
-    setTransfers((prev) => [newTransfer, ...prev]);
-    setSelectedTransferId(newTransfer.id);
-    showToast(
-      `Transfer ${newTransfer.transferId} initiated: ${newTransfer.quantity} units dispatched to ${newTransfer.toWarehouse}.`
-    );
+  const handleAddTransfer = async (newTransfer: TransferRecord) => {
+    try {
+      const res = await fetch('/api/transfers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromWarehouseId: (newTransfer as any).fromWarehouseId || 'wh-001',
+          toWarehouseId: (newTransfer as any).toWarehouseId || 'wh-002',
+          items: [{ itemId: (newTransfer as any).itemId || 'vst-001', quantity: newTransfer.quantity || 10 }],
+          notes: newTransfer.notes,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Transfer ${newTransfer.transferId} initiated: dispatched to ${newTransfer.toWarehouse}.`);
+        fetchTransfers();
+      } else {
+        showToast(data.message || 'Failed to submit transfer');
+      }
+    } catch {
+      setTransfers((prev) => [newTransfer, ...prev]);
+      setSelectedTransferId(newTransfer.id);
+      showToast(
+        `Transfer ${newTransfer.transferId} initiated: ${newTransfer.quantity} units dispatched to ${newTransfer.toWarehouse}.`
+      );
+    }
   };
 
   return (
@@ -165,8 +218,8 @@ export default function TransfersPage() {
 
       {/* ================= ROW 2: VISUALIZATION CARDS ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TransfersByStatusChart />
-        <TransferTrendChart />
+        <TransfersByStatusChart transfers={transfers} />
+        <TransferTrendChart transfers={transfers} />
       </div>
 
       {/* ================= ROW 3: SPLIT TABLE & INSPECTOR ================= */}

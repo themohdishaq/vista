@@ -35,21 +35,13 @@ import { StockRequestDetailsCard } from '@/components/admin/requests/StockReques
 import { CreateStockRequestModal } from '@/components/admin/requests/CreateStockRequestModal';
 import { ApprovalHistoryModal } from '@/components/admin/requests/ApprovalHistoryModal';
 import { RelatedItemsModal } from '@/components/admin/requests/RelatedItemsModal';
-import {
-  STOCK_REQUESTS_KPI_DATA,
-  INITIAL_STOCK_REQUESTS,
-} from '@/lib/data/requests-seed-data';
 import { StockRequestRecord } from '@/types/requests';
 
 export default function StockRequestsPage() {
   const [dateRange, setDateRange] = useState('Apr 1 – Apr 30, 2025');
   const [warehouseFilter, setWarehouseFilter] = useState('all');
-  const [requests, setRequests] = useState<StockRequestRecord[]>(
-    INITIAL_STOCK_REQUESTS
-  );
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
-    INITIAL_STOCK_REQUESTS[0]?.id || null
-  );
+  const [requests, setRequests] = useState<StockRequestRecord[]>([]);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -66,9 +58,47 @@ export default function StockRequestsPage() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const fetchRequests = async () => {
+    try {
+      const res = await fetch('/api/requests');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setRequests(data.data);
+        if (data.data.length > 0) {
+          if (!selectedRequestId || !data.data.find((r: any) => r.id === selectedRequestId)) {
+            setSelectedRequestId(data.data[0].id);
+          }
+        } else {
+          setSelectedRequestId(null);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch requests:', e);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  const handleApproveRequest = async (record: StockRequestRecord) => {
+    try {
+      const res = await fetch(`/api/requests/${record.id}/approve`, { method: 'PATCH' });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Stock request ${record.requestId} approved.`);
+        fetchRequests();
+      } else {
+        showToast(data.message || 'Failed to approve request');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Approval error');
+    }
+  };
+
   // Currently selected request
   const selectedRequest = useMemo(() => {
-    return requests.find((r) => r.id === selectedRequestId) || null;
+    return requests.find((r) => r.id === selectedRequestId) || requests[0] || null;
   }, [requests, selectedRequestId]);
 
   // Distinct warehouses for header dropdown
@@ -85,20 +115,36 @@ export default function StockRequestsPage() {
 
     return {
       totalRequests: {
-        ...STOCK_REQUESTS_KPI_DATA.totalRequests,
         value: total.toString(),
+        label: 'Total Requests',
+        change: `${total} logged`,
+        isPositive: true,
+        sparkline: [total, total, total],
+        color: '#008a90',
       },
       approved: {
-        ...STOCK_REQUESTS_KPI_DATA.approved,
         value: approvedCount.toString(),
+        label: 'Approved',
+        change: `${approvedCount} signed off`,
+        isPositive: true,
+        sparkline: [approvedCount, approvedCount, approvedCount],
+        color: '#10b981',
       },
       pendingReview: {
-        ...STOCK_REQUESTS_KPI_DATA.pendingReview,
         value: pendingCount.toString(),
+        label: 'Pending Review',
+        change: `${pendingCount} awaiting approval`,
+        isPositive: pendingCount === 0,
+        sparkline: [pendingCount, pendingCount, pendingCount],
+        color: '#f59e0b',
       },
       rejected: {
-        ...STOCK_REQUESTS_KPI_DATA.rejected,
         value: rejectedCount.toString(),
+        label: 'Rejected',
+        change: `${rejectedCount} declined`,
+        isPositive: rejectedCount === 0,
+        sparkline: [rejectedCount, rejectedCount, rejectedCount],
+        color: '#ef4444',
       },
     };
   }, [requests]);
@@ -245,8 +291,8 @@ export default function StockRequestsPage() {
 
       {/* ================= ROW 2: VISUALIZATION CARDS ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RequestsByTypeChart />
-        <RequestTrendChart />
+        <RequestsByTypeChart requests={headerFilteredRequests} />
+        <RequestTrendChart requests={headerFilteredRequests} />
       </div>
 
       {/* ================= ROW 3: SPLIT TABLE & INSPECTOR ================= */}
@@ -272,6 +318,7 @@ export default function StockRequestsPage() {
               onClose={() => setSelectedRequestId(null)}
               onViewApprovalHistory={(r) => setHistoryTarget(r)}
               onViewRelatedItems={(r) => setRelatedItemsTarget(r)}
+              onApproveReject={handleApproveRequest}
             />
           </div>
         )}

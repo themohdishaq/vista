@@ -19,7 +19,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Home,
   Box,
@@ -38,6 +38,7 @@ import {
   Users,
   Settings,
   X,
+  LogOut,
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -45,7 +46,19 @@ interface AdminSidebarProps {
   onCloseMobile?: () => void;
 }
 
-const NAV_SECTIONS = [
+interface NavItem {
+  title: string;
+  href: string;
+  icon: any;
+  badge?: string;
+}
+
+interface NavSection {
+  group: string;
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
   {
     group: 'INVENTORY',
     items: [
@@ -66,7 +79,7 @@ const NAV_SECTIONS = [
   {
     group: 'OPERATIONS',
     items: [
-      { title: 'Stock Requests', href: '/admin/requests', icon: ClipboardCheck, badge: '12' },
+      { title: 'Stock Requests', href: '/admin/requests', icon: ClipboardCheck},
 
       { title: 'Returns & Consumption', href: '/admin/returns', icon: RotateCcw },
 
@@ -90,6 +103,42 @@ const NAV_SECTIONS = [
 
 export function AdminSidebar({ mobileOpen = false, onCloseMobile }: AdminSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [currentUser, setCurrentUser] = React.useState<{ name: string; email: string } | null>(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data?.authenticated && data?.user) {
+          setCurrentUser({ name: data.user.name, email: data.user.email });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const userName = currentUser?.name || 'Administrator';
+  const userInitials = userName
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
+    if (typeof window !== 'undefined') {
+      window.location.replace('/login');
+    } else {
+      router.replace('/login');
+    }
+  };
 
   const isDashboardActive = pathname === '/admin' || pathname === '/admin/dashboard';
 
@@ -231,9 +280,38 @@ export function AdminSidebar({ mobileOpen = false, onCloseMobile }: AdminSidebar
           </div>
         </div>
 
-        {/* Footer: Version */}
-        <div className="border-t border-slate-800/80 px-4 py-3 text-center">
-          <span className="font-mono text-[11px] text-slate-400">v1.0.0</span>
+        {/* Footer: User Profile Pill & Signout */}
+        <div className="pt-3 pb-3 border-t border-slate-800/80 px-4">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/60 border border-slate-800">
+            <Link
+              href="/admin/settings"
+              className="flex items-center gap-2.5 min-w-0 group hover:opacity-90 transition-opacity flex-1"
+              title="Manage Settings & Profile"
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#008a90] to-teal-400 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                {userInitials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-bold text-white block leading-tight truncate group-hover:text-[#00c4b4] transition-colors">
+                  {userName}
+                </span>
+                <span className="text-[10px] text-[#00c4b4] block leading-tight">
+                  Super Admin
+                </span>
+              </div>
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="mt-2 text-center text-[10px] text-slate-500 font-mono">
+            VISTA Portal v1.0.0 • Admin Workspace
+          </div>
         </div>
       </aside>
     </>

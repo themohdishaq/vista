@@ -3,11 +3,11 @@
 
 /**
  * @file components/staff/modals/SubmitRequestModal.tsx
- * @description Floor replenishment request modal for warehouse staff.
+ * @description Floor replenishment request modal for warehouse staff with dynamic item lookup.
  * Fulfills Responsibility 2: "Submit stock requests."
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   PlusSquare,
   X,
@@ -31,14 +31,58 @@ export function SubmitRequestModal({
   onSubmitRequest,
 }: SubmitRequestModalProps) {
   const [requestType, setRequestType] = useState('Bin Replenishment');
+  const [items, setItems] = useState<Array<{ id: string; code: string; name: string; unit: string; bin: string }>>([
+    { id: 'item-001', code: 'VST-001', name: 'Surgical Mask 3-Ply', unit: 'Box', bin: 'Bin A-01' },
+    { id: 'item-002', code: 'VST-002', name: 'Nitrile Examination Gloves', unit: 'Box', bin: 'Bin A-02' },
+    { id: 'item-003', code: 'VST-003', name: 'Sterile Elastic Bandage', unit: 'Pack', bin: 'Bin A-03' },
+    { id: 'item-004', code: 'VST-004', name: 'Disposable Syringe 5ml', unit: 'Box', bin: 'Bin A-04' },
+    { id: 'item-009', code: 'VST-009', name: 'Hand Sanitizer 500ml', unit: 'Bottle', bin: 'Bin A-06' },
+  ]);
   const [binCode, setBinCode] = useState(targetBin ? targetBin.binCode : 'Bin A-06');
   const [itemCode, setItemCode] = useState(targetBin ? targetBin.itemCode : 'VST-009');
   const [itemName, setItemName] = useState(targetBin ? targetBin.itemName : 'Hand Sanitizer 500ml');
   const [quantity, setQuantity] = useState('500');
   const [priority, setPriority] = useState<'Urgent' | 'Normal'>('Normal');
-  const [reason, setReason] = useState('Bin below minimum safety threshold (280/500 units).');
+  const [reason, setReason] = useState('Bin below minimum safety threshold.');
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/stock')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            const mapped = json.data.map((s: any) => ({
+              id: s.id || s.itemCode,
+              code: s.itemCode,
+              name: s.itemName,
+              unit: s.unit || 'Unit',
+              bin: s.location || 'Zone A',
+            }));
+            setItems(mapped);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (targetBin) {
+      setBinCode(targetBin.binCode);
+      setItemCode(targetBin.itemCode);
+      setItemName(targetBin.itemName);
+    }
+  }, [targetBin]);
 
   if (!isOpen) return null;
+
+  const handleItemChange = (code: string) => {
+    setItemCode(code);
+    const found = items.find((i) => i.code === code);
+    if (found) {
+      setItemName(found.name);
+      setBinCode(found.bin);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +95,7 @@ export function SubmitRequestModal({
       quantity: parseInt(quantity, 10) || 1,
       priority,
       reason,
-      requestedBy: 'Mike Chen (Inventory Staff)',
+      requestedBy: 'Floor Specialist',
       date: new Date().toLocaleDateString('en-US'),
     };
 
@@ -124,28 +168,14 @@ export function SubmitRequestModal({
             </label>
             <select
               value={itemCode}
-              onChange={(e) => {
-                setItemCode(e.target.value);
-                if (e.target.value === 'VST-001') {
-                  setItemName('Surgical Mask 3-Ply');
-                  setBinCode('Bin A-01');
-                } else if (e.target.value === 'VST-002') {
-                  setItemName('Nitrile Medical Gloves');
-                  setBinCode('Bin A-02');
-                } else if (e.target.value === 'VST-003') {
-                  setItemName('Sterile Elastic Bandage');
-                  setBinCode('Bin A-03');
-                } else if (e.target.value === 'VST-009') {
-                  setItemName('Hand Sanitizer 500ml');
-                  setBinCode('Bin A-06');
-                }
-              }}
+              onChange={(e) => handleItemChange(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
             >
-              <option value="VST-009">VST-009 • Hand Sanitizer 500ml (Bin A-06 - Low!)</option>
-              <option value="VST-001">VST-001 • Surgical Mask 3-Ply (Bin A-01)</option>
-              <option value="VST-002">VST-002 • Nitrile Medical Gloves (Bin A-02)</option>
-              <option value="VST-003">VST-003 • Sterile Elastic Bandage (Bin A-03)</option>
+              {items.map((it) => (
+                <option key={it.code} value={it.code}>
+                  {it.code} • {it.name} ({it.bin})
+                </option>
+              ))}
             </select>
           </div>
 
@@ -215,4 +245,3 @@ export function SubmitRequestModal({
     </div>
   );
 }
-

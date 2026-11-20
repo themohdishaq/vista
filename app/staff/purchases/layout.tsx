@@ -14,4 +14,3 @@ export default function StaffPurchasesLayout({
 }) {
   return <div className="w-full">{children}</div>;
 }
-

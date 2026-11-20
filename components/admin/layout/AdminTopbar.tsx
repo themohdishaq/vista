@@ -12,6 +12,7 @@
  */
 
 import React from 'react';
+import Link from 'next/link';
 import { Search, Bell, Menu } from 'lucide-react';
 
 interface AdminTopbarProps {
@@ -61,19 +62,23 @@ export function AdminTopbar({ onOpenMobileSidebar }: AdminTopbarProps) {
         </button>
 
         {/* User Profile Pill */}
-        <div className="flex items-center gap-3 pl-2 border-l border-slate-200">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#073b4c] font-mono text-xs font-bold text-white shadow-sm ring-2 ring-slate-100">
+        <Link
+          href="/admin/settings"
+          className="flex items-center gap-3 pl-2 border-l border-slate-200 group hover:opacity-85 transition-opacity"
+          title="Admin Settings & Profile"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#073b4c] font-mono text-xs font-bold text-white shadow-sm ring-2 ring-slate-100 group-hover:scale-105 transition-transform">
             AD
           </div>
           <div className="hidden sm:flex flex-col text-left">
-            <span className="text-xs font-bold text-[#0a2540] leading-tight">
+            <span className="text-xs font-bold text-[#0a2540] leading-tight group-hover:text-[#008a90] transition-colors">
               Administrator
             </span>
             <span className="text-[11px] text-slate-400 leading-tight">
-              Admin
+              Settings &amp; Profile
             </span>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   );

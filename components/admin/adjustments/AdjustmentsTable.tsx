@@ -260,7 +260,14 @@ export function AdjustmentsTable({
           </thead>
 
           <tbody className="divide-y divide-slate-100">
-            {paginatedAdjustments.map((adj) => {
+            {paginatedAdjustments.length === 0 ? (
+              <tr>
+                <td colSpan={11} className="py-12 text-center text-xs text-slate-400 font-medium">
+                  No stock adjustment records found.
+                </td>
+              </tr>
+            ) : (
+              paginatedAdjustments.map((adj) => {
               const isChecked = selectedIds.includes(adj.id);
               const isSelectedRow = selectedAdjustment?.id === adj.id;
 
@@ -371,7 +378,7 @@ export function AdjustmentsTable({
                   </td>
                 </tr>
               );
-            })}
+            }))}
           </tbody>
         </table>
       </div>
@@ -379,8 +386,11 @@ export function AdjustmentsTable({
       {/* ================= PAGINATION FOOTER ================= */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 px-6 py-3.5 text-xs text-slate-500">
         <div>
-          Showing <span className="font-semibold text-slate-800">1-{paginatedAdjustments.length}</span> of{' '}
-          <span className="font-semibold text-slate-800">48</span> adjustments
+          Showing <span className="font-semibold text-slate-800">
+            {filteredAdjustments.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-
+            {Math.min(currentPage * pageSize, filteredAdjustments.length)}
+          </span> of{' '}
+          <span className="font-semibold text-slate-800">{filteredAdjustments.length}</span> adjustments
         </div>
 
         <div className="flex items-center gap-1">

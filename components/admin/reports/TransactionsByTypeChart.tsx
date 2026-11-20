@@ -10,66 +10,90 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
-import { TRANSACTIONS_BY_TYPE_DATA } from '@/lib/data/reports-seed-data';
+import { TransactionTypeSlice } from '@/types/reports';
 
-export function TransactionsByTypeChart() {
-  const data = TRANSACTIONS_BY_TYPE_DATA;
-  const totalCount = data.reduce((acc, curr) => acc + curr.count, 0);
+interface TransactionsByTypeChartProps {
+  data?: TransactionTypeSlice[];
+  isLoading?: boolean;
+}
+
+export function TransactionsByTypeChart({
+  data = [],
+  isLoading = false,
+}: TransactionsByTypeChartProps) {
+  const totalCount = data.reduce((acc, curr) => acc + (curr.count || 0), 0);
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between">
       {/* Header */}
-      <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-        <div className="w-7 h-7 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-[#008a90]">
-          <RefreshCw className="w-4 h-4" />
+      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-[#008a90]">
+            <RefreshCw className="w-4 h-4" />
+          </div>
+          <h3 className="font-bold text-slate-800 text-sm">
+            Transactions by Type
+          </h3>
         </div>
-        <h3 className="font-bold text-slate-800 text-sm">
-          Transactions by Type
-        </h3>
+        <span className="text-[11px] font-semibold text-slate-400">
+          Live Distribution
+        </span>
       </div>
 
       {/* Donut and Legend */}
-      <div className="mt-3 flex items-center justify-between gap-4 h-56">
+      <div className="mt-3 flex items-center justify-between gap-4 h-56 relative">
+        {isLoading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-2xs">
+            <RefreshCw className="w-4 h-4 animate-spin text-[#008a90]" />
+          </div>
+        )}
+
         {/* Donut with Center Text */}
         <div className="relative h-44 w-44 shrink-0 mx-auto">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Tooltip
-                formatter={(value: any, name: any) => [
-                  `${Number(value).toLocaleString()} transactions (${data.find((d) => d.name === name)?.percentage}%)`,
-                  name,
-                ]}
-                contentStyle={{
-                  backgroundColor: '#ffffff',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                  fontSize: '12px',
-                }}
-              />
-              <Pie
-                data={data}
-                dataKey="count"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={50}
-                outerRadius={70}
-                paddingAngle={3}
-                startAngle={90}
-                endAngle={-270}
-              >
-                {data.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={entry.color}
-                    stroke="#ffffff"
-                    strokeWidth={2}
-                  />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+          {data.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-xs text-slate-400">
+              No data
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Tooltip
+                  formatter={(value: any, name: any) => [
+                    `${Number(value).toLocaleString()} transactions (${data.find((d) => d.name === name)?.percentage || 0}%)`,
+                    name,
+                  ]}
+                  contentStyle={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                    fontSize: '12px',
+                  }}
+                />
+                <Pie
+                  data={data}
+                  dataKey="count"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={70}
+                  paddingAngle={3}
+                  startAngle={90}
+                  endAngle={-270}
+                >
+                  {data.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.color}
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                    />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          )}
 
           {/* Centered Metric */}
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
@@ -108,4 +132,3 @@ export function TransactionsByTypeChart() {
     </div>
   );
 }
-

@@ -65,21 +65,21 @@ export function QuickActionsGrid({
               Quick Actions
             </h2>
             <p className="text-[11px] text-slate-400">
-              Interactive inventory workflows with test simulation
+              Direct inventory operational workflows
             </p>
           </div>
         </div>
 
-        {/* Dynamic Test Button */}
-        {onQuickSimulate && (
+        {/* Dynamic Refresh Button */}
+        {onResetData && (
           <button
             type="button"
-            onClick={onQuickSimulate}
+            onClick={onResetData}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-[#008a90] text-xs font-bold border border-teal-200/80 shadow-2xs transition-all active:scale-95 cursor-pointer"
-            title="Randomly inject sample dummy inventory transaction"
+            title="Refresh live data"
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#008a90]" />
-            <span className="hidden sm:inline">1-Click Test</span>
+            <RotateCcw className="w-3.5 h-3.5 text-[#008a90]" />
+            <span className="hidden sm:inline">Refresh Data</span>
           </button>
         )}
       </div>
@@ -106,24 +106,12 @@ export function QuickActionsGrid({
         ))}
       </div>
 
-      {/* Footer controls: Reset & Status */}
+      {/* Footer controls: Status */}
       <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
         <span className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Interactive dummy data engine active</span>
+          <span>Real-time database sync active</span>
         </span>
-
-        {onResetData && (
-          <button
-            type="button"
-            onClick={onResetData}
-            className="flex items-center gap-1 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer font-medium"
-            title="Reset transactions and stats back to default seed data"
-          >
-            <RotateCcw className="w-3 h-3" />
-            <span>Reset Demo</span>
-          </button>
-        )}
       </div>
     </div>
   );

@@ -14,7 +14,7 @@ import {
 import {
   ManagerReportTemplate,
   ManagerGeneratedReport,
-} from '@/lib/data/manager-reports-data';
+} from '@/types/manager';
 
 interface GenerateReportModalProps {
   isOpen: boolean;

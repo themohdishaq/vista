@@ -25,7 +25,7 @@ export function MovementsStatGrid({ data }: MovementsStatGridProps) {
       id: 'total-movements',
       label: data.totalMovements.label,
       value: data.totalMovements.value,
-      change: data.totalMovements.change,
+      
       isPositive: data.totalMovements.isPositive,
       bg: 'bg-[#e1f7f5] text-[#008a90]',
       stroke: '#008a90',

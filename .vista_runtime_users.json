@@ -1,0 +1,30 @@
+[
+  {
+    "id": "usr-1795158113629",
+    "fullName": "staff vista",
+    "username": "staf.vista@vista.com",
+    "email": "staf.vista@vista.com",
+    "role": "Warehouse Staff",
+    "status": "Active",
+    "lastLogin": "Never",
+    "phone": "03477631929",
+    "warehouseId": "wh-1795156075701",
+    "warehouseAccess": "[WH-006] Ottawo Warehouse",
+    "permissionsCount": 18,
+    "password": "staf.vista@vista.com"
+  },
+  {
+    "id": "usr-1795155294213",
+    "fullName": "ishaq",
+    "username": "ishaq.manager@vista.com",
+    "email": "ishaq.manager@vista.com",
+    "role": "Inventory Manager",
+    "status": "Active",
+    "lastLogin": "Never",
+    "phone": "03477631929",
+    "warehouseId": "wh-1",
+    "warehouseAccess": "[WH-001] Main Central Warehouse",
+    "permissionsCount": 36,
+    "password": "ishaq.manager@vista.com"
+  }
+]

@@ -17,7 +17,7 @@
  * - Modals: NewReturnModal, NewConsumptionModal, and ReturnAuditTrailModal
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   RotateCcw,
   Calendar,
@@ -40,21 +40,57 @@ import { NewReturnModal } from '@/components/admin/returns/NewReturnModal';
 import { NewConsumptionModal } from '@/components/admin/returns/NewConsumptionModal';
 import { ReturnAuditTrailModal } from '@/components/admin/returns/ReturnAuditTrailModal';
 
-import {
-  RETURNS_KPI_DATA,
-  RETURNS_BY_REASON_DATA,
-  CONSUMPTION_TREND_DATA,
-  INITIAL_RETURNS_RECORDS,
-} from '@/lib/data/returns-seed-data';
 import { ReturnRecord } from '@/types/returns';
 
 export default function ReturnsPage() {
   const [dateRange, setDateRange] = useState('Apr 1 – Apr 30, 2025');
   const [selectedWarehouse, setSelectedWarehouse] = useState('All Warehouses');
-  const [records, setRecords] = useState<ReturnRecord[]>(INITIAL_RETURNS_RECORDS);
-  const [selectedRecordId, setSelectedRecordId] = useState<string | null>(
-    INITIAL_RETURNS_RECORDS[0]?.id || null
-  );
+  const [records, setRecords] = useState<ReturnRecord[]>([]);
+  const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/movements')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          const mapped: ReturnRecord[] = json.data.map((m: any, idx: number) => {
+            const isReturn = m.type === 'RECEIPT' || m.quantity > 0;
+            return {
+              id: m.id,
+              rmaNumber: m.referenceId || `RMA-${idx + 100}`,
+              date: m.dateTime || new Date().toLocaleDateString(),
+              type: isReturn ? 'Return' : 'Consumption',
+              sourceLocation: m.warehouse || 'Central Facility',
+              destinationFacility: m.warehouse || 'Main Depot',
+              reason: m.notes || (isReturn ? 'Excess Stock' : 'Clinical Consumption'),
+              totalItems: 1,
+              quantity: Math.abs(m.quantity || 0),
+              estimatedValue: Math.abs(m.quantity || 0) * 15,
+              status: 'Approved',
+              requestedBy: m.performedBy || 'Staff Specialist',
+              items: [
+                {
+                  id: `ret-item-${idx}`,
+                  code: m.itemCode,
+                  name: m.itemName,
+                  category: 'Medical Supplies',
+                  lotNumber: m.batchNumber || 'LOT-GENERAL',
+                  quantity: Math.abs(m.quantity || 0),
+                  unit: 'Units',
+                  unitCost: 15,
+                  condition: 'Good / Unopened',
+                },
+              ],
+            };
+          });
+          setRecords(mapped);
+          if (mapped.length > 0) {
+            setSelectedRecordId(mapped[0].id);
+          }
+        }
+      })
+      .catch((err) => console.error('Failed to load returns records:', err));
+  }, []);
 
   // Modals state
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
@@ -91,64 +127,34 @@ export default function ReturnsPage() {
 
     return {
       totalReturns: {
-        ...RETURNS_KPI_DATA.totalReturns,
         value: totalReturnsCount.toString(),
+        label: 'Total Returns',
+        change: '+0.0%',
+        isPositive: true,
+        sparkline: [totalReturnsCount, totalReturnsCount, totalReturnsCount],
       },
       totalConsumption: {
-        ...RETURNS_KPI_DATA.totalConsumption,
-        value: totalConsumptionUnits > 0 ? totalConsumptionUnits.toLocaleString() : '1,240',
+        value: totalConsumptionUnits.toLocaleString(),
+        label: 'Total Consumption',
+        change: '+0.0%',
+        isPositive: true,
+        sparkline: [totalConsumptionUnits, totalConsumptionUnits, totalConsumptionUnits],
       },
       returnValue: {
-        ...RETURNS_KPI_DATA.returnValue,
-        value: `$${(totalReturnValue || 12480).toLocaleString()}`,
+        value: `$${totalReturnValue.toLocaleString()}`,
+        label: 'Return Value',
+        change: '+0.0%',
+        isPositive: true,
+        sparkline: [totalReturnValue, totalReturnValue, totalReturnValue],
       },
       consumptionValue: {
-        ...RETURNS_KPI_DATA.consumptionValue,
-        value: `$${(totalConsumptionValue || 48920).toLocaleString()}`,
+        value: `$${totalConsumptionValue.toLocaleString()}`,
+        label: 'Consumption Value',
+        change: '+0.0%',
+        isPositive: true,
+        sparkline: [totalConsumptionValue, totalConsumptionValue, totalConsumptionValue],
       },
     };
-  }, [records]);
-
-  // Dynamic reason breakdown calculation
-  const dynamicReasonData = useMemo(() => {
-    const returnsOnly = records.filter((r) => r.type === 'Return');
-    if (returnsOnly.length === 0) return RETURNS_BY_REASON_DATA;
-
-    const damagedCount = returnsOnly.filter((r) => r.reason === 'Damaged').length;
-    const expiredCount = returnsOnly.filter((r) => r.reason === 'Expired').length;
-    const duplicateCount = returnsOnly.filter((r) => r.reason === 'Duplicate').length;
-    const otherCount = returnsOnly.filter(
-      (r) => r.reason !== 'Damaged' && r.reason !== 'Expired' && r.reason !== 'Duplicate'
-    ).length;
-
-    const total = returnsOnly.length;
-
-    return [
-      {
-        name: 'Damaged',
-        percentage: Number(((damagedCount / total) * 100).toFixed(1)),
-        count: damagedCount,
-        color: '#008a90',
-      },
-      {
-        name: 'Expired',
-        percentage: Number(((expiredCount / total) * 100).toFixed(1)),
-        count: expiredCount,
-        color: '#38bdf8',
-      },
-      {
-        name: 'Duplicate',
-        percentage: Number(((duplicateCount / total) * 100).toFixed(1)),
-        count: duplicateCount,
-        color: '#f59e0b',
-      },
-      {
-        name: 'Other',
-        percentage: Number(((otherCount / total) * 100).toFixed(1)),
-        count: otherCount,
-        color: '#a855f7',
-      },
-    ];
   }, [records]);
 
   // Handler for adding a new return record
@@ -393,7 +399,7 @@ export default function ReturnsPage() {
       <ReturnsStatGrid data={dynamicKpiData} />
 
       {/* Row 2: 2 Visualization Cards */}
-      <ReturnsByReasonChart />
+      <ReturnsByReasonChart records={records} />
 
 
       {/* Row 3: Split Table and Inspector Layout */}

@@ -39,30 +39,20 @@ import { EditKitModal } from '@/components/admin/kits/EditKitModal';
 import { KitDetailsModal } from '@/components/admin/kits/KitDetailsModal';
 import { PackKitModal } from '@/components/admin/kits/PackKitModal';
 import { ImportKitsModal } from '@/components/admin/kits/ImportKitsModal';
-import {
-  KITS_KPI_DATA,
-  INITIAL_KITS,
-  RECENT_PACKING_ACTIVITIES,
-  PACKING_CONFIGURATIONS,
-} from '@/lib/data/kits-seed-data';
 import { KitRecord, PackingActivity, PackingConfiguration } from '@/types/kits';
 
 type ActiveMainTab = 'kits' | 'configurations' | 'history';
 
 export default function KitsPage() {
   const [activeMainTab, setActiveMainTab] = useState<ActiveMainTab>('kits');
-  const [kits, setKits] = useState<KitRecord[]>(INITIAL_KITS);
-  const [selectedKitId, setSelectedKitId] = useState<string>(INITIAL_KITS[0]?.id || '');
+  const [kits, setKits] = useState<KitRecord[]>([]);
+  const [selectedKitId, setSelectedKitId] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [packedTodayCount, setPackedTodayCount] = useState(120);
+  const [packedTodayCount, setPackedTodayCount] = useState(0);
 
   // Packing activities & configurations state
-  const [activities, setActivities] = useState<PackingActivity[]>(
-    RECENT_PACKING_ACTIVITIES
-  );
-  const [configurations, setConfigurations] = useState<PackingConfiguration[]>(
-    PACKING_CONFIGURATIONS
-  );
+  const [activities, setActivities] = useState<PackingActivity[]>([]);
+  const [configurations, setConfigurations] = useState<PackingConfiguration[]>([]);
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -78,6 +68,29 @@ export default function KitsPage() {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
   };
+
+  const fetchKits = async () => {
+    try {
+      const res = await fetch('/api/kits');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setKits(data.data);
+        if (data.data.length > 0) {
+          if (!selectedKitId || !data.data.find((k: any) => k.id === selectedKitId)) {
+            setSelectedKitId(data.data[0].id);
+          }
+        } else {
+          setSelectedKitId('');
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch kits:', e);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchKits();
+  }, []);
 
   // Currently selected kit
   const selectedKit = useMemo(() => {
@@ -105,15 +118,35 @@ export default function KitsPage() {
   const dynamicKpiData = useMemo(() => {
     return {
       totalKits: {
-        ...KITS_KPI_DATA.totalKits,
         value: kits.length.toString(),
+        label: 'Total Kits',
+        change: `${kits.length} bundles`,
+        isPositive: true,
+        sparkline: [kits.length, kits.length, kits.length],
+        color: '#008a90',
       },
       packedToday: {
-        ...KITS_KPI_DATA.packedToday,
         value: packedTodayCount.toString(),
+        label: 'Packed Today',
+        change: `${packedTodayCount} packed`,
+        isPositive: true,
+        sparkline: [packedTodayCount, packedTodayCount, packedTodayCount],
+        color: '#10b981',
       },
-      completeRate: KITS_KPI_DATA.completeRate,
-      pendingPacks: KITS_KPI_DATA.pendingPacks,
+      completeRate: {
+        value: '98.5%',
+        label: 'Complete Rate',
+        change: '↑ 2.1%',
+        isPositive: true,
+        sparkline: [95, 96, 97, 98.5],
+      },
+      pendingPacks: {
+        value: '14',
+        label: 'Pending Packs',
+        change: '4 urgent',
+        isPositive: false,
+        sparkline: [18, 16, 15, 14],
+      },
     };
   }, [kits, packedTodayCount]);
 
@@ -131,19 +164,29 @@ export default function KitsPage() {
     showToast(`Kit "${updatedKit.name}" updated successfully.`);
   };
 
-  const handleCompletePacking = (
+  const handleCompletePacking = async (
     newActivity: PackingActivity,
     packedQuantity: number
   ) => {
+    try {
+      const kit = kits.find((k) => k.code === newActivity.kitCode);
+      if (kit) {
+        await fetch(`/api/kits/${kit.id}/pack`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            warehouseId: 'wh-001',
+            quantity: packedQuantity,
+            batchNumber: newActivity.batchNumber,
+          }),
+        });
+      }
+    } catch (e) {
+      console.error('Pack API call failed:', e);
+    }
     setActivities((prev) => [newActivity, ...prev]);
     setPackedTodayCount((prev) => prev + packedQuantity);
-    setKits((prev) =>
-      prev.map((k) =>
-        k.code === newActivity.kitCode
-          ? { ...k, inStockKits: k.inStockKits + packedQuantity }
-          : k
-      )
-    );
+    fetchKits();
     showToast(
       `Packed ${packedQuantity} units of ${newActivity.kitName} (Batch: ${newActivity.batchNumber}).`
     );

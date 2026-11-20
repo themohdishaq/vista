@@ -159,3 +159,39 @@ export interface OperationalSummaryStats {
   quarantineStockUnits: number;
 }
 
+export interface ManagerReportTemplate {
+  id: string;
+  name: string;
+  category: 'Reconciliation' | 'Expiry & Batches' | 'Transfers & Issues' | 'Quality & Damages' | 'Kits & BOM';
+  description: string;
+  frequency: 'Daily' | 'Weekly' | 'Monthly' | 'On-Demand';
+  lastRun: string;
+  estimatedSize: string;
+  badgeColor: string;
+}
+
+export interface ManagerGeneratedReport {
+  id: string;
+  reportCode: string;
+  name: string;
+  category: string;
+  facility: string;
+  generatedAt: string;
+  generatedBy: string;
+  format: 'PDF' | 'CSV' | 'XLSX';
+  recordCount: number;
+  status: 'Completed' | 'Processing' | 'Failed';
+  downloadUrl: string;
+}
+
+export interface ManagerScheduledAudit {
+  id: string;
+  auditName: string;
+  schedule: string;
+  facility: string;
+  recipients: string;
+  status: 'Active' | 'Paused';
+  nextRun: string;
+}
+
+

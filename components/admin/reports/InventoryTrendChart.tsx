@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, RefreshCw } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -12,21 +12,35 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import {
-  INVENTORY_TREND_7D,
-  INVENTORY_TREND_30D,
-  INVENTORY_TREND_90D,
-} from '@/lib/data/reports-seed-data';
+import { InventoryTrendPoint } from '@/types/reports';
 
-export function InventoryTrendChart() {
+interface InventoryTrendChartProps {
+  trend7D?: InventoryTrendPoint[];
+  trend30D?: InventoryTrendPoint[];
+  trend90D?: InventoryTrendPoint[];
+  isLoading?: boolean;
+}
+
+export function InventoryTrendChart({
+  trend7D = [],
+  trend30D = [],
+  trend90D = [],
+  isLoading = false,
+}: InventoryTrendChartProps) {
   const [timeRange, setTimeRange] = useState<'7D' | '30D' | '90D'>('30D');
 
   const chartData =
     timeRange === '7D'
-      ? INVENTORY_TREND_7D
+      ? trend7D
       : timeRange === '90D'
-      ? INVENTORY_TREND_90D
-      : INVENTORY_TREND_30D;
+      ? trend90D
+      : trend30D;
+
+  const maxVal = Math.max(
+    ...chartData.map((d) => Math.max(d.totalStock || 0, d.available || 0)),
+    1000
+  );
+  const roundedMax = Math.ceil((maxVal * 1.15) / 5000) * 5000;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between">
@@ -66,7 +80,7 @@ export function InventoryTrendChart() {
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-3 py-1 rounded-md font-semibold transition-all ${
+              className={`px-3 py-1 rounded-md font-semibold transition-all cursor-pointer ${
                 timeRange === range
                   ? 'bg-[#008a90] text-white shadow-2xs'
                   : 'text-slate-500 hover:text-slate-800'
@@ -79,95 +93,108 @@ export function InventoryTrendChart() {
       </div>
 
       {/* Chart Canvas */}
-      <div className="h-64 w-full mt-4">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={chartData}
-            margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#008a90" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#008a90" stopOpacity={0.0} />
-              </linearGradient>
-              <linearGradient id="colorAvail" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#38bdf8" stopOpacity={0.0} />
-              </linearGradient>
-              <linearGradient id="colorRes" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.0} />
-              </linearGradient>
-            </defs>
+      <div className="h-64 w-full mt-4 relative">
+        {isLoading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-2xs">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+              <RefreshCw className="w-4 h-4 animate-spin text-[#008a90]" />
+              <span>Calculating live trends...</span>
+            </div>
+          </div>
+        )}
 
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+        {chartData.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-xs text-slate-400">
+            No stock trend data available.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#008a90" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#008a90" stopOpacity={0.0} />
+                </linearGradient>
+                <linearGradient id="colorAvail" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#38bdf8" stopOpacity={0.0} />
+                </linearGradient>
+                <linearGradient id="colorRes" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
 
-            <XAxis
-              dataKey="date"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: '#64748b', fontSize: 11 }}
-              dy={8}
-            />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
 
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: '#64748b', fontSize: 11 }}
-              tickFormatter={(v) => (v === 0 ? '0' : `${v / 1000}K`)}
-              domain={[0, 45000]}
-              ticks={[0, 10000, 20000, 30000, 40000]}
-            />
+              <XAxis
+                dataKey="date"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: '#64748b', fontSize: 11 }}
+                dy={8}
+              />
 
-            <Tooltip
-              formatter={(val: any, name: any) => [
-                `${Number(val).toLocaleString()} units`,
-                name === 'totalStock'
-                  ? 'Total Stock'
-                  : name === 'available'
-                  ? 'Available'
-                  : 'Reserved',
-              ]}
-              contentStyle={{
-                backgroundColor: '#ffffff',
-                borderRadius: '12px',
-                border: '1px solid #e2e8f0',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                fontSize: '12px',
-              }}
-            />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: '#64748b', fontSize: 11 }}
+                tickFormatter={(v) => (v === 0 ? '0' : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : `${v}`)}
+                domain={[0, roundedMax]}
+              />
 
-            <Area
-              type="monotone"
-              dataKey="totalStock"
-              stroke="#008a90"
-              strokeWidth={2.5}
-              fill="url(#colorTotal)"
-              dot={{ r: 3.5, fill: '#008a90', strokeWidth: 2, stroke: '#ffffff' }}
-              activeDot={{ r: 6 }}
-            />
-            <Area
-              type="monotone"
-              dataKey="available"
-              stroke="#38bdf8"
-              strokeWidth={2.5}
-              fill="url(#colorAvail)"
-              dot={{ r: 3.5, fill: '#38bdf8', strokeWidth: 2, stroke: '#ffffff' }}
-              activeDot={{ r: 6 }}
-            />
-            <Area
-              type="monotone"
-              dataKey="reserved"
-              stroke="#f59e0b"
-              strokeWidth={2.5}
-              fill="url(#colorRes)"
-              dot={{ r: 3.5, fill: '#f59e0b', strokeWidth: 2, stroke: '#ffffff' }}
-              activeDot={{ r: 6 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+              <Tooltip
+                formatter={(val: any, name: any) => [
+                  `${Number(val).toLocaleString()} units`,
+                  name === 'totalStock'
+                    ? 'Total Stock'
+                    : name === 'available'
+                    ? 'Available'
+                    : 'Reserved',
+                ]}
+                contentStyle={{
+                  backgroundColor: '#ffffff',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                  fontSize: '12px',
+                }}
+              />
+
+              <Area
+                type="monotone"
+                dataKey="totalStock"
+                stroke="#008a90"
+                strokeWidth={2.5}
+                fill="url(#colorTotal)"
+                dot={{ r: 3.5, fill: '#008a90', strokeWidth: 2, stroke: '#ffffff' }}
+                activeDot={{ r: 6 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="available"
+                stroke="#38bdf8"
+                strokeWidth={2.5}
+                fill="url(#colorAvail)"
+                dot={{ r: 3.5, fill: '#38bdf8', strokeWidth: 2, stroke: '#ffffff' }}
+                activeDot={{ r: 6 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="reserved"
+                stroke="#f59e0b"
+                strokeWidth={2.5}
+                fill="url(#colorRes)"
+                dot={{ r: 3.5, fill: '#f59e0b', strokeWidth: 2, stroke: '#ffffff' }}
+                activeDot={{ r: 6 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );
 }
-

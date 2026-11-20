@@ -11,7 +11,7 @@
  * - Printable pick slip generation
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Boxes,
   CheckCircle2,
@@ -39,22 +39,31 @@ interface PickItem {
 }
 
 interface ActiveTaskWorkstationProps {
+  activeOrder?: {
+    orderRef: string;
+    department: string;
+    priority: string;
+    items: PickItem[];
+  } | null;
+  operatorName?: string;
   onTaskCompleted: (orderRef: string, itemsCount: number) => void;
   onOpenIssueModal: (orderRef: string) => void;
 }
 
 export function ActiveTaskWorkstation({
+  activeOrder,
+  operatorName = 'Floor Specialist',
   onTaskCompleted,
   onOpenIssueModal,
 }: ActiveTaskWorkstationProps) {
-  const [pickList, setPickList] = useState<PickItem[]>([
+  const defaultPickList: PickItem[] = [
     {
       id: 'p-1',
       itemCode: 'VST-001',
       name: 'Surgical Mask 3-Ply',
       binLocation: 'Bin A-01',
-      batchNo: 'LOT-2024-001',
-      expiry: 'May 14, 2025',
+      batchNo: 'LOT-SM-2026A',
+      expiry: 'Dec 31, 2026',
       qtyRequested: 50,
       qtyPicked: 50,
       unit: 'Box',
@@ -65,14 +74,22 @@ export function ActiveTaskWorkstation({
       itemCode: 'VST-002',
       name: 'Nitrile Medical Gloves (Large)',
       binLocation: 'Bin A-02',
-      batchNo: 'LOT-2024-042',
-      expiry: 'May 18, 2025',
+      batchNo: 'LOT-GL-2026B',
+      expiry: 'Dec 31, 2026',
       qtyRequested: 50,
       qtyPicked: 50,
       unit: 'Box',
       scanned: false,
     },
-  ]);
+  ];
+
+  const [pickList, setPickList] = useState<PickItem[]>(defaultPickList);
+
+  useEffect(() => {
+    if (activeOrder && activeOrder.items && activeOrder.items.length > 0) {
+      setPickList(activeOrder.items);
+    }
+  }, [activeOrder]);
 
   const [scanStatus, setScanStatus] = useState<string | null>(null);
 
@@ -86,15 +103,18 @@ export function ActiveTaskWorkstation({
 
   const simulateScanAll = () => {
     setPickList((prev) => prev.map((item) => ({ ...item, scanned: true })));
-    setScanStatus('All 2 items scanned & verified with barcode scanner!');
+    setScanStatus(`All ${pickList.length} items scanned & verified with barcode scanner!`);
     setTimeout(() => setScanStatus(null), 3000);
   };
 
   const allScanned = pickList.every((item) => item.scanned);
   const totalItems = pickList.reduce((acc, curr) => acc + curr.qtyRequested, 0);
+  const orderReference = activeOrder?.orderRef || 'REQ-2026-001';
+  const destinationWard = activeOrder?.department || 'Emergency Trauma Ward';
+  const orderPriority = activeOrder?.priority || 'URGENT';
 
   const handleCompletePick = () => {
-    onTaskCompleted('SR-2025-048', totalItems);
+    onTaskCompleted(orderReference, totalItems);
   };
 
   const handlePrintSlip = () => {
@@ -102,23 +122,19 @@ export function ActiveTaskWorkstation({
 ===================================================
      VISTA PORTAL - WAREHOUSE PICK & ISSUE SLIP
 ===================================================
-Pick Order: SR-2025-048
+Pick Order: ${orderReference}
 Date: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
-Operator: Mike Chen (Inventory Staff - Zone A)
-Destination Ward: Emergency Department (ED)
-Priority: URGENT
+Operator: ${operatorName} (Inventory Staff - Zone A)
+Destination Ward: ${destinationWard}
+Priority: ${orderPriority}
 
 ITEMS PICKED:
-1. [VST-001] Surgical Mask 3-Ply
-   Location: Bin A-01 | Batch: LOT-2024-001 | Exp: May 14, 2025
-   Quantity: 50 Box [VERIFIED]
+${pickList.map((item, idx) => `${idx + 1}. [${item.itemCode}] ${item.name}
+   Location: ${item.binLocation} | Batch: ${item.batchNo} | Exp: ${item.expiry}
+   Quantity: ${item.qtyPicked} ${item.unit} [VERIFIED]`).join('\n\n')}
 
-2. [VST-002] Nitrile Medical Gloves (Large)
-   Location: Bin A-02 | Batch: LOT-2024-042 | Exp: May 18, 2025
-   Quantity: 50 Box [VERIFIED]
-
-TOTAL UNITS DISPENSED: 100 Box
-DISPENSED BY: Mike Chen
+TOTAL UNITS DISPENSED: ${totalItems} Units
+DISPENSED BY: ${operatorName}
 RECEIVED AT WARD BY: ______________________
 ===================================================
 `;

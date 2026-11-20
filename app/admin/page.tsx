@@ -25,14 +25,16 @@ import { QuickTransferModal } from '@/components/admin/dashboard/modals/QuickTra
 import { QuickRequestModal } from '@/components/admin/dashboard/modals/QuickRequestModal';
 import { QuickReportsDigestModal } from '@/components/admin/dashboard/modals/QuickReportsDigestModal';
 
-import {
-  ADMIN_STATS,
-  INVENTORY_OVERVIEW_SEGMENTS,
-  STOCK_TREND_DATA,
-  RECENT_TRANSACTIONS,
-  QUICK_ACTIONS,
-} from '@/lib/data/admin-seed-data';
-import { StatKPI, TransactionItem } from '@/types/admin';
+import { StatKPI, TransactionItem, InventorySegment, StockTrendPoint, QuickActionItem } from '@/types/admin';
+
+const ADMIN_QUICK_ACTIONS: QuickActionItem[] = [
+  { id: 'add-item', title: 'Add Item', iconName: 'Package', href: '/admin/items/new' },
+  { id: 'record-receipt', title: 'Record Receipt', iconName: 'Inbox', href: '/admin/receiving' },
+  { id: 'record-issue', title: 'Record Issue', iconName: 'Upload', href: '/admin/issuing' },
+  { id: 'create-transfer', title: 'Create Transfer', iconName: 'ArrowLeftRight', href: '/admin/transfers/new' },
+  { id: 'request-stock', title: 'Request Stock', iconName: 'ClipboardCheck', href: '/admin/requests/new' },
+  { id: 'view-reports', title: 'View Reports', iconName: 'BarChart3', href: '/admin/reports' },
+];
 
 /**
  * @file app/admin/page.tsx
@@ -46,8 +48,16 @@ import { StatKPI, TransactionItem } from '@/types/admin';
  */
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<StatKPI[]>(ADMIN_STATS);
-  const [transactions, setTransactions] = useState<TransactionItem[]>(RECENT_TRANSACTIONS);
+  const [stats, setStats] = useState<StatKPI[]>([
+    { id: 'total-items', title: 'Total Items', value: '0', change: 'Live DB count', isPositive: true, color: 'teal', sparklinePoints: [0, 0, 0] },
+    { id: 'total-stock', title: 'Total Stock Units', value: '0', change: 'Live balance', isPositive: true, color: 'blue', sparklinePoints: [0, 0, 0] },
+    { id: 'stock-movements', title: 'Stock Movements', value: '0', change: 'Live ledger', isPositive: true, color: 'cyan', sparklinePoints: [0, 0, 0] },
+    { id: 'active-warehouses', title: 'Active Warehouses', value: '0', change: 'Operational', isPositive: true, color: 'teal', sparklinePoints: [0, 0, 0] },
+  ]);
+  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
+  const [inventorySegments, setInventorySegments] = useState<InventorySegment[]>([]);
+  const [stockTrendData, setStockTrendData] = useState<StockTrendPoint[]>([]);
+  const [totalStockVal, setTotalStockVal] = useState<string>('$0');
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -55,6 +65,83 @@ export default function AdminDashboardPage() {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
   };
+
+  const fetchDashboardData = async () => {
+    try {
+      const [itemsRes, whRes, movRes, stockRes] = await Promise.all([
+        fetch('/api/items').then((r) => r.json()).catch(() => ({})),
+        fetch('/api/warehouses').then((r) => r.json()).catch(() => ({})),
+        fetch('/api/movements').then((r) => r.json()).catch(() => ({})),
+        fetch('/api/stock').then((r) => r.json()).catch(() => ({})),
+      ]);
+
+      const itemCount = Array.isArray(itemsRes.data) ? itemsRes.data.length : 0;
+      const whCount = Array.isArray(whRes.data) ? whRes.data.length : 0;
+      const movList = Array.isArray(movRes.data) ? movRes.data : [];
+      const stockList = Array.isArray(stockRes.data) ? stockRes.data : [];
+      const totalUnits = stockList.reduce((acc: number, s: any) => acc + (s.totalStock || 0), 0);
+      const totalAvailable = stockList.reduce((acc: number, s: any) => acc + (s.available || 0), 0);
+      const totalReserved = stockList.reduce((acc: number, s: any) => acc + (s.reserved || 0), 0);
+      const totalInTransit = stockList.reduce((acc: number, s: any) => acc + (s.inTransit || 0), 0);
+      const totalBlocked = stockList.reduce((acc: number, s: any) => acc + (s.blocked || 0), 0);
+
+      setStats([
+        { id: 'total-items', title: 'Total Items', value: itemCount.toLocaleString(), change: `${itemCount} catalog items`, isPositive: true, color: 'teal', sparklinePoints: [itemCount, itemCount, itemCount] },
+        { id: 'total-stock', title: 'Total Stock Units', value: totalUnits.toLocaleString(), change: 'Across all hubs', isPositive: true, color: 'blue', sparklinePoints: [totalUnits, totalUnits, totalUnits] },
+        { id: 'stock-movements', title: 'Stock Movements', value: movList.length.toLocaleString(), change: `${movList.length} total logged`, isPositive: true, color: 'cyan', sparklinePoints: [movList.length, movList.length, movList.length] },
+        { id: 'active-warehouses', title: 'Active Warehouses', value: whCount.toString(), change: `${whCount} operational hubs`, isPositive: true, color: 'teal', sparklinePoints: [whCount, whCount, whCount] },
+      ]);
+
+      if (totalUnits > 0) {
+        setInventorySegments([
+          { label: 'Available', percentage: Math.round((totalAvailable / totalUnits) * 100) || 0, color: '#008a90' },
+          { label: 'Reserved', percentage: Math.round((totalReserved / totalUnits) * 100) || 0, color: '#0284c7' },
+          { label: 'In Transit', percentage: Math.round((totalInTransit / totalUnits) * 100) || 0, color: '#10b981' },
+          { label: 'Blocked', percentage: Math.round((totalBlocked / totalUnits) * 100) || 0, color: '#94a3b8' },
+        ]);
+        const estimatedVal = totalUnits * 12;
+        setTotalStockVal(estimatedVal >= 1000 ? `$${(estimatedVal / 1000).toFixed(1)}K` : `$${estimatedVal}`);
+      } else {
+        setInventorySegments([]);
+        setTotalStockVal('$0');
+      }
+
+      if (movList.length > 0) {
+        const pointsMap = new Map<string, number>();
+        movList.forEach((m: any) => {
+          const d = m.dateTime ? m.dateTime.split(',')[0] : 'Recent';
+          pointsMap.set(d, (pointsMap.get(d) || 0) + Math.abs(m.quantity || 1));
+        });
+        const points = Array.from(pointsMap.entries()).slice(-6).map(([date, val]) => ({
+          date,
+          value: val / 1000,
+        }));
+        setStockTrendData(points);
+      } else {
+        setStockTrendData([]);
+      }
+
+      if (movList.length > 0) {
+        setTransactions(movList.slice(0, 8).map((m: any) => ({
+          id: m.id,
+          date: m.dateTime || 'Recently',
+          type: m.type as any,
+          item: m.itemName || m.itemCode,
+          quantity: Math.abs(m.quantity).toLocaleString(),
+          isPositiveQty: m.quantity > 0,
+          by: m.performedBy || 'System',
+        })));
+      } else {
+        setTransactions([]);
+      }
+    } catch (e) {
+      console.error('Failed to load dynamic dashboard:', e);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
   // Helper to increment numeric strings like "12,450" -> "12,451"
   const incrementStatValue = (currentVal: string, delta = 1) => {
@@ -160,74 +247,10 @@ export default function AdminDashboardPage() {
     showToast(`Requisition ${req.requisitionCode} logged for ${req.department} (${req.urgency}).`);
   };
 
-  // 1-Click Test Simulation
-  const handleQuickSimulate = () => {
-    const sampleSimulations = [
-      {
-        item: 'Rapid COVID-19 Antigen Test Kit',
-        type: 'Receipt' as const,
-        qty: '+850',
-        pos: true,
-        desc: 'Inbound emergency batch delivery received at Main Warehouse.',
-      },
-      {
-        item: 'Nitrile Exam Gloves (Large)',
-        type: 'Issue' as const,
-        qty: '-300',
-        pos: false,
-        desc: 'Ward dispensing to Surgical Wing 2.',
-      },
-      {
-        item: 'Insulin Glargine 100U/ml',
-        type: 'Transfer' as const,
-        qty: '-120',
-        pos: false,
-        desc: 'Inter-warehouse cold chain transport to East Warehouse.',
-      },
-      {
-        item: 'Sterile Gauze Bandage 4x4',
-        type: 'Adjustment' as const,
-        qty: '+100',
-        pos: true,
-        desc: 'Bin count verification audit adjustment.',
-      },
-    ];
-
-    const pick = sampleSimulations[Math.floor(Math.random() * sampleSimulations.length)];
-    const now = new Date();
-    const dateFormatted = `${now.toLocaleString('default', { month: 'short' })} ${now.getDate()}, ${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    const newTxn: TransactionItem = {
-      id: `SIM-${Date.now().toString().slice(-4)}`,
-      date: dateFormatted,
-      type: pick.type,
-      item: pick.item,
-      quantity: pick.qty,
-      isPositiveQty: pick.pos,
-      by: 'Demo Simulator',
-    };
-
-    setTransactions((prev) => [newTxn, ...prev]);
-    setStats((prev) =>
-      prev.map((s) => {
-        if (s.id === 'stock-movements') {
-          return {
-            ...s,
-            value: incrementStatValue(s.value, 1),
-            change: '↑ 12.8%',
-          };
-        }
-        return s;
-      })
-    );
-    showToast(`⚡ Simulation Run: ${pick.desc} (${pick.qty} ${pick.item})`);
-  };
-
-  // Reset to Baseline Demo Data
+  // Reload Live Database Data
   const handleResetData = () => {
-    setStats(ADMIN_STATS);
-    setTransactions(RECENT_TRANSACTIONS);
-    showToast('Dashboard baseline data reset successfully.');
+    fetchDashboardData();
+    showToast('Dashboard reloaded with live database records.');
   };
 
   return (
@@ -254,7 +277,7 @@ export default function AdminDashboardPage() {
             Welcome back, Administrator!
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-slate-500">
-            Here&apos;s what&apos;s happening with your inventory today. Test and monitor live operations via Quick Actions.
+            Real-time executive oversight across your facilities and live inventory ledgers.
           </p>
         </div>
 
@@ -262,12 +285,12 @@ export default function AdminDashboardPage() {
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           <button
             type="button"
-            onClick={handleQuickSimulate}
+            onClick={handleResetData}
             className="flex items-center gap-1.5 rounded-xl border border-teal-200/90 bg-[#e1f7f5] hover:bg-[#d4f2f0] px-3.5 py-2 text-xs font-bold text-[#008a90] shadow-2xs transition-colors cursor-pointer"
-            title="Inject random realistic dummy transaction into dashboard"
+            title="Refresh dynamic telemetry directly from database"
           >
-            <Sparkles className="h-3.5 w-3.5 text-[#008a90]" />
-            <span>Simulate Dummy Flow</span>
+            <RotateCcw className="h-3.5 w-3.5 text-[#008a90]" />
+            <span>Refresh Live Data</span>
           </button>
 
           <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors cursor-pointer">
@@ -285,12 +308,12 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         <div className="lg:col-span-5">
           <InventoryOverviewChart
-            segments={INVENTORY_OVERVIEW_SEGMENTS}
-            totalValue="$12.5K"
+            segments={inventorySegments}
+            totalValue={totalStockVal}
           />
         </div>
         <div className="lg:col-span-7">
-          <StockTrendChart data={STOCK_TREND_DATA} />
+          <StockTrendChart data={stockTrendData} />
         </div>
       </div>
 
@@ -301,9 +324,9 @@ export default function AdminDashboardPage() {
         </div>
         <div className="lg:col-span-5">
           <QuickActionsGrid
-            actions={QUICK_ACTIONS}
+            actions={ADMIN_QUICK_ACTIONS}
             onActionClick={(actionId) => setActiveModal(actionId)}
-            onQuickSimulate={handleQuickSimulate}
+            onQuickSimulate={handleResetData}
             onResetData={handleResetData}
           />
         </div>

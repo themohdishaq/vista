@@ -11,20 +11,20 @@ import {
   ShieldAlert,
   UserCheck,
 } from 'lucide-react';
-import { ALL_USER_ACTIVITIES_EXTENDED } from '@/lib/data/users-seed-data';
+import { UserActivityLog } from '@/types/users';
 
 interface AllActivitiesModalProps {
   isOpen: boolean;
   onClose: () => void;
+  activities?: UserActivityLog[];
 }
 
 export function AllActivitiesModal({
   isOpen,
   onClose,
+  activities = [],
 }: AllActivitiesModalProps) {
   if (!isOpen) return null;
-
-  const activities = ALL_USER_ACTIVITIES_EXTENDED;
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -62,66 +62,71 @@ export function AllActivitiesModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+      <div className="bg-white rounded-2xl max-w-xl w-full border border-slate-200 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-[#008a90]">
+        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-teal-50 text-[#008a90] flex items-center justify-center">
               <Clock className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-800 text-base">
-                User Management Audit Log
+              <h3 className="font-bold text-slate-900 text-sm">
+                System Audit History
               </h3>
               <p className="text-xs text-slate-500">
-                Complete timeline of user additions, modifications, and access state changes
+                Complete log of user accounts, roles and permission modifications
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 p-1.5 rounded-lg transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Activity list */}
-        <div className="p-6 overflow-y-auto space-y-4 text-xs">
-          {activities.map((act) => (
-            <div
-              key={act.id}
-              className="p-3.5 rounded-xl border border-slate-200/80 bg-white hover:bg-slate-50/50 transition-colors flex items-start gap-3.5"
-            >
-              {getIcon(act.type)}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className="font-bold text-slate-900 text-xs">
+        {/* Body list */}
+        <div className="p-5 overflow-y-auto space-y-4 flex-1">
+          {activities.length === 0 ? (
+            <div className="py-12 text-center text-slate-400">
+              <Clock className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+              <p className="font-semibold text-slate-700 text-xs">No audit logs recorded yet</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Activity records will populate as administrators create, approve, and modify users.
+              </p>
+            </div>
+          ) : (
+            activities.map((act) => (
+              <div
+                key={act.id}
+                className="flex items-start gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50/80 transition-colors"
+              >
+                {getIcon(act.type)}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-slate-800 text-xs">
                     {act.title}
                   </h4>
-                  <span className="text-[11px] font-mono text-slate-400 shrink-0">
-                    {act.timestamp}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Action taken by: <strong className="text-slate-700">{act.actor}</strong>
-                </p>
-                {act.details && (
-                  <p className="text-xs text-slate-600 mt-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  <p className="text-[11px] text-slate-500 mt-0.5">
                     {act.details}
                   </p>
-                )}
+                  <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-400 font-mono">
+                    <span>{act.timestamp}</span>
+                    <span>•</span>
+                    <span>By: {act.actor}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+            className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
           >
             Close
           </button>
@@ -130,4 +135,3 @@ export function AllActivitiesModal({
     </div>
   );
 }
-

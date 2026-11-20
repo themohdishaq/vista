@@ -1,20 +1,51 @@
 // filepath: components/admin/returns/ReturnsByReasonChart.tsx
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { RETURNS_BY_REASON_DATA } from '@/lib/data/returns-seed-data';
+import { ReturnRecord } from '@/types/returns';
 
-/**
- * @file components/admin/returns/ReturnsByReasonChart.tsx
- * @description Donut Chart for "Returns by Reason" matching design specification:
- * - Center text: 48 / Total
- * - Slices: Damaged (37.5%), Expired (29.2%), Duplicate (18.8%), Other (14.6%)
- * - Clean right-hand legend with bold percentages
- */
+interface ReturnsByReasonChartProps {
+  records?: ReturnRecord[];
+}
 
-export function ReturnsByReasonChart() {
-  const data = RETURNS_BY_REASON_DATA;
+const REASON_COLORS: Record<string, string> = {
+  'Damaged': '#ef4444',
+  'Expired': '#f59e0b',
+  'Duplicate': '#3b82f6',
+  'Excess Stock': '#008a90',
+  'Other': '#94a3b8',
+};
+
+export function ReturnsByReasonChart({ records = [] }: ReturnsByReasonChartProps) {
+  const { data, totalCount } = useMemo(() => {
+    const returnsOnly = records.filter((r) => r.type === 'Return');
+    const total = returnsOnly.length;
+    if (total === 0) {
+      return {
+        data: [{ name: 'No Returns Recorded', count: 1, percentage: 100, color: '#e2e8f0' }],
+        totalCount: 0,
+      };
+    }
+
+    const map = new Map<string, number>();
+    for (const r of returnsOnly) {
+      const reason = r.reason || 'Other';
+      map.set(reason, (map.get(reason) || 0) + 1);
+    }
+
+    const formatted = Array.from(map.entries()).map(([name, count]) => {
+      const percentage = (count / total) * 100;
+      return {
+        name,
+        count,
+        percentage,
+        color: REASON_COLORS[name] || '#94a3b8',
+      };
+    });
+
+    return { data: formatted, totalCount: total };
+  }, [records]);
 
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
@@ -86,7 +117,7 @@ export function ReturnsByReasonChart() {
           {/* Centered Metric */}
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-2xl font-black text-[#0a2540] tracking-tight">
-              48
+              {totalCount.toLocaleString()}
             </span>
             <span className="text-xs font-semibold text-slate-500">
               Total
