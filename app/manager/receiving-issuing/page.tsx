@@ -29,7 +29,7 @@ interface MovementVoucher {
   quantity: number;
   quantityDisplay: string;
   warehouse: string;
-  entity: string; // Supplier or Destination Ward
+  entity: string; // Supplier or Destination Unit
   date: string;
   status: string;
   performedBy: string;
@@ -62,11 +62,11 @@ export default function ManagerReceivingIssuingPage() {
               voucherNo: m.reference || m.id,
               type: m.type as any,
               itemCode: m.itemCode || 'SKU',
-              itemName: m.itemName || 'Medical Item',
+              itemName: m.itemName || 'Field Inventory Item',
               quantity: Math.abs(m.quantity || 0),
               quantityDisplay: m.quantityDisplay || `${m.quantity}`,
-              warehouse: m.warehouse || 'Central Medical Store Kathmandu',
-              entity: m.type === 'Receipt' ? 'MedGlobal Pharma Dist.' : (m.notes || 'Clinical Ward Dispatch'),
+              warehouse: m.warehouse || 'Central Facility',
+              entity: m.type === 'Receipt' ? 'Global Industrial Dist.' : (m.notes || 'Field Unit Dispatch'),
               date: m.dateTime || 'Recently',
               status: m.status || 'Verified',
               performedBy: m.performedBy || 'Floor Specialist',
@@ -109,7 +109,7 @@ export default function ManagerReceivingIssuingPage() {
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Receiving-Issuing-${Date.now()}.csv`;
+    link.download = `FIM-Receiving-Issuing-${Date.now()}.csv`;
     link.click();
     showToast('Exported dock vouchers manifest.');
   };
@@ -145,7 +145,7 @@ export default function ManagerReceivingIssuingPage() {
               Receiving &amp; Issuing Verification
             </h1>
             <p className="text-xs text-slate-500">
-              Manager oversight for inbound receiving dock verification and outbound clinical ward dispatches
+              Manager oversight for inbound receiving dock verification and outbound field unit dispatches
             </p>
           </div>
         </div>
@@ -174,7 +174,7 @@ export default function ManagerReceivingIssuingPage() {
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Search voucher, SKU, ward, supplier..."
+            placeholder="Search voucher, SKU, destination, supplier..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#008a90]/20"

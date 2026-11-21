@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Kit Supervision & Packing | VISTA Manager',
+  title: 'Kit Supervision & Packing | Field Inventory Manager',
   description:
     'Supervise BOM assembly, inspect packing progress, assign lead packers, and authorize dispatch.',
 };

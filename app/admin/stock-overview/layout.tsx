@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Stock Overview | VISTA Portal',
+  title: 'Stock Overview | Field Inventory Management',
   description:
     'Real-time inventory levels, stock by category, bin allocations, and multi-warehouse balances.',
 };

@@ -15,7 +15,7 @@ export function AboutHeroSection() {
           {/* Pre-title Badge */}
           <div className="flex items-center gap-2">
             <span className="text-xs sm:text-sm font-bold tracking-widest text-[#00c4b4] uppercase">
-              — ABOUT VISTA —
+              — ABOUT FIELD INVENTORY MANAGEMENT —
             </span>
           </div>
 
@@ -27,7 +27,7 @@ export function AboutHeroSection() {
 
           {/* Subtitle */}
           <p className="text-sm sm:text-lg text-slate-200/95 font-normal leading-relaxed max-w-2xl">
-            VISTA (Vendor Inventory, Shipment & Tracking Application) was purpose-built to deliver hospital-grade inventory control, real-time batch traceability, and audit-ready governance across modern supply chains.
+            Field Inventory Management was purpose-built to deliver hospital-grade inventory control, real-time batch traceability, and audit-ready governance across modern supply chains.
           </p>
 
         </div>

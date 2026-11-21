@@ -18,13 +18,13 @@ export async function POST(request: Request) {
 
     const contentType = request.headers.get('content-type') || '';
     let parsedRows: any[] = [];
-    let targetWarehouseId = 'wh-001';
+    let targetWarehouseId: string | undefined = undefined;
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const file = formData.get('file') as File | null;
       const wh = formData.get('warehouseId') as string | null;
-      if (wh) targetWarehouseId = wh;
+      if (wh && wh !== 'wh-001') targetWarehouseId = wh;
 
       if (!file) {
         return NextResponse.json({ success: false, message: 'No file uploaded.' }, { status: 400 });

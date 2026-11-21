@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Log Damaged & Expired Items | VISTA Staff',
+  title: 'Log Damaged & Expired Items | Field Inventory Staff',
   description:
     'Quarantine damaged, expired, or non-compliant stock for supervisory review.',
 };

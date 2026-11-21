@@ -43,7 +43,7 @@ export function AllMovementsModal({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `VISTA_Stock_Movement_Leaderboard_${Date.now()}.csv`);
+    link.setAttribute('download', `FIM_Stock_Movement_Leaderboard_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

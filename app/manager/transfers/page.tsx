@@ -152,7 +152,7 @@ export default function ManagerTransfersPage() {
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Transfers-Ledger-${Date.now()}.csv`;
+    link.download = `FIM-Transfers-Ledger-${Date.now()}.csv`;
     link.click();
     showToast('Exported inter-location transfers ledger.');
   };

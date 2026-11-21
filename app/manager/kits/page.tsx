@@ -57,7 +57,7 @@ export default function ManagerKitsPage() {
         k.kitCode === kitCode ? { ...k, progressPercentage: 100, missingItemsCount: 0 } : k
       )
     );
-    showToast(`Approved QA inspection for kit assembly [${kitCode}]. Ready for clinic dispatch.`);
+    showToast(`Approved QA inspection for kit assembly [${kitCode}]. Ready for field dispatch.`);
   };
 
   const handleExportPackingList = () => {
@@ -72,14 +72,14 @@ export default function ManagerKitsPage() {
       `"${k.dueTime || 'End of Shift'}"`,
       `"${k.bottleneckItem || 'None'}"`,
       k.priority || 'Normal',
-      `"${k.destinationWard || 'Hospital Central'}"`,
+      `"${k.destinationWard || 'Regional Operations'}"`,
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Kits-Packing-Manifest-${Date.now()}.csv`;
+    link.download = `FIM-Kits-Packing-Manifest-${Date.now()}.csv`;
     link.click();
     showToast('Exported kit packing lists.');
   };
@@ -117,7 +117,7 @@ export default function ManagerKitsPage() {
             Manage Kits, Sub-Kits &amp; Packing Lists
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Supervise medical kit assemblies, verify bill-of-materials integrity, inspect packing progress and authorize dispatch.
+            Supervise field equipment kit assemblies, verify bill-of-materials integrity, inspect packing progress and authorize dispatch.
           </p>
         </div>
 
@@ -163,7 +163,7 @@ export default function ManagerKitsPage() {
               </div>
 
               <h3 className="font-bold text-slate-900 text-sm">{kit.kitName}</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Destination: {kit.destinationWard || 'Hospital Wards'}</p>
+              <p className="text-xs text-slate-500 mt-0.5">Destination: {kit.destinationWard || 'Field Units'}</p>
 
               {/* Progress Bar */}
               <div className="mt-4 space-y-1.5">

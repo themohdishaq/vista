@@ -46,7 +46,7 @@ export function TransferDetailsCard({
   // Real client-side text/PDF report download
   const handleDownloadReport = () => {
     const content = `=====================================================
-VISTA OFFICIAL INVENTORY TRANSFER REPORT
+FIELD INVENTORY MANAGEMENT TRANSFER REPORT
 =====================================================
 Transfer Voucher ID:   ${transfer.transferId}
 Internal Ref:          ${transfer.reference}
@@ -83,7 +83,7 @@ ${transfer.timeline
 
 =====================================================
 DIGITAL AUTHENTICATION KEY:
-VISTA-TRANSFER-SECURE-${transfer.transferId}-${Date.now().toString(36).toUpperCase()}
+FIM-TRANSFER-SECURE-${transfer.transferId}-${Date.now().toString(36).toUpperCase()}
 =====================================================`;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });

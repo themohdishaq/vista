@@ -44,10 +44,11 @@ export type WarehouseType =
   | 'Regional Depot'
   | 'Logistics Hub'
   | 'Cold Chain Facility'
+  | 'Forward Depot'
   | 'Forward Clinic'
   | 'Transit Point';
 
-export type WarehouseStatus = 'Operational' | 'High Capacity' | 'Maintenance';
+export type WarehouseStatus = 'Operational' | 'High Capacity' | 'Maintenance' | 'Inactive' | 'Deactivated';
 
 export interface StorageZone {
   id: string;
@@ -77,6 +78,7 @@ export interface WarehouseFacility {
   manager: string;               // e.g. "Ramesh Sharma"
   managerRole: string;           // e.g. "Facility Director"
   managerPhone: string;          // e.g. "+977 1 4256789"
+  managerEmail?: string;         // e.g. "manager@vista.com"
   totalBins: number;             // e.g. 204
   usedBins: number;              // e.g. 168
   occupancyRate: number;         // e.g. 82.4

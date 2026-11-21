@@ -88,7 +88,7 @@ export function isRoleAuthorizedForRoute(role: string | undefined, pathname: str
 export function getAdminConfig() {
   const clean = (val?: string) => (val || '').trim().replace(/^["']|["']$/g, '');
 
-  let adminEmail = clean(process.env.ADMIN_EMAIL || 'admin@vista.com').toLowerCase();
+  let adminEmail = clean(process.env.ADMIN_EMAIL || 'admin@fieldinventory.com').toLowerCase();
   let adminPassword = clean(process.env.ADMIN_PASSWORD);
   const adminKeypass = clean(process.env.ADMIN_KEYPASS);
 
@@ -120,9 +120,9 @@ export function isAdminIdentifier(input: string, adminEmail?: string): boolean {
   if (!input) return false;
   const clean = (val?: string) => (val || '').trim().toLowerCase().replace(/^["']|["']$/g, '');
   const cleanInput = clean(input);
-  const cleanAdmin = clean(adminEmail || process.env.ADMIN_EMAIL || 'admin@vista.com');
+  const cleanAdmin = clean(adminEmail || process.env.ADMIN_EMAIL || 'admin@fieldinventory.com');
 
-  if (cleanInput === cleanAdmin) return true;
+  if (cleanInput === cleanAdmin || cleanInput === 'admin@fieldinventory.com' || cleanInput === 'admin@vista.com') return true;
   if (cleanInput === 'admin' || cleanInput === 'administrator') return true;
   if (cleanAdmin.includes('@') && cleanInput === cleanAdmin.split('@')[0]) return true;
 
@@ -211,7 +211,8 @@ export async function verifyCredentials(credentials: LoginCredentials): Promise<
          u.status,
          u.assigned_warehouse_id,
          u.rejection_reason,
-         w.name as warehouse_name
+         w.name as warehouse_name,
+         w.code as warehouse_code
        FROM users u
        LEFT JOIN warehouses w ON u.assigned_warehouse_id = w.id
        WHERE (LOWER(u.email) = $1 OR LOWER(u.username) = $1)
@@ -264,8 +265,8 @@ export async function verifyCredentials(credentials: LoginCredentials): Promise<
             name: runtimeUser.fullName,
             email: runtimeUser.email,
             role,
-            assignedWarehouseId: runtimeUser.warehouseId || 'wh-001',
-            warehouseName: runtimeUser.warehouseAccess || 'Main Central Warehouse',
+            assignedWarehouseId: runtimeUser.warehouseId || null,
+            warehouseName: runtimeUser.warehouseAccess || (runtimeUser.warehouseId ? 'Assigned Facility' : 'Unassigned Facility'),
           },
           message: `${runtimeUser.fullName} (${runtimeUser.role}) authenticated successfully.`,
           redirectTo,
@@ -339,7 +340,9 @@ export async function verifyCredentials(credentials: LoginCredentials): Promise<
         email: dbUser.email,
         role,
         assignedWarehouseId: dbUser.assigned_warehouse_id,
-        warehouseName: dbUser.warehouse_name,
+        warehouseName: dbUser.warehouse_name
+          ? `${dbUser.warehouse_code ? `[${dbUser.warehouse_code}] ` : ''}${dbUser.warehouse_name}`
+          : null,
       },
       message: `${dbUser.full_name} (${dbUser.role}) authenticated successfully.`,
       redirectTo,
@@ -388,8 +391,8 @@ export async function verifyCredentials(credentials: LoginCredentials): Promise<
             name: runtimeUser.fullName,
             email: runtimeUser.email,
             role,
-            assignedWarehouseId: runtimeUser.warehouseId || 'wh-001',
-            warehouseName: runtimeUser.warehouseAccess || 'Main Central Warehouse',
+            assignedWarehouseId: runtimeUser.warehouseId || null,
+            warehouseName: runtimeUser.warehouseAccess || (runtimeUser.warehouseId ? 'Assigned Facility' : 'Unassigned Facility'),
           },
           message: `${runtimeUser.fullName} (${runtimeUser.role}) authenticated successfully.`,
           redirectTo,

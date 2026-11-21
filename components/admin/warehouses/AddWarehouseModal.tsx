@@ -35,6 +35,27 @@ export function AddWarehouseModal({
   const [temperatureZones, setTemperatureZones] = useState('Ambient Ventilated (15-25°C)');
   const [operatingHours, setOperatingHours] = useState('08:00 - 18:00 Mon-Sat');
   const [status, setStatus] = useState<WarehouseStatus>('Operational');
+  const [availableManagers, setAvailableManagers] = useState<
+    Array<{ id: string; fullName: string; email: string; phone?: string; role: string }>
+  >([]);
+
+  React.useEffect(() => {
+    fetch('/api/users')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          const mgrs = data.data.filter(
+            (u: any) =>
+              u.role === 'Inventory Manager' ||
+              u.role === 'manager' ||
+              u.role === 'staff' ||
+              u.role === 'Warehouse Staff'
+          );
+          setAvailableManagers(mgrs);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   if (!isOpen) return null;
 
@@ -100,7 +121,7 @@ export function AddWarehouseModal({
                 Register New Warehouse Facility
               </h3>
               <p className="text-xs text-slate-500">
-                Add an operational storage depot or distribution hub to VISTA.
+                Add an operational storage depot or distribution hub to Field Inventory Management.
               </p>
             </div>
           </div>
@@ -140,7 +161,7 @@ export function AddWarehouseModal({
                 <option value="Regional Depot">Regional Depot</option>
                 <option value="Logistics Hub">Logistics Hub</option>
                 <option value="Cold Chain Facility">Cold Chain Facility</option>
-                <option value="Forward Clinic">Forward Clinic</option>
+                <option value="Forward Depot">Forward Depot</option>
               </select>
             </div>
 
@@ -153,7 +174,7 @@ export function AddWarehouseModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-[#008a90] focus:outline-none"
-                placeholder="e.g. Hetauda Regional Medical Supply Depot"
+                placeholder="e.g. Hetauda Regional Supply Depot"
               />
             </div>
 
@@ -210,13 +231,25 @@ export function AddWarehouseModal({
             {/* Facility Manager */}
             <div>
               <label className="font-semibold text-slate-700">Facility Director / Lead</label>
-              <input
-                type="text"
+              <select
                 value={manager}
-                onChange={(e) => setManager(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-[#008a90] focus:outline-none"
-                placeholder="e.g. Bipin Thapa"
-              />
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setManager(val);
+                  const matched = availableManagers.find((u) => u.fullName === val || u.email === val);
+                  if (matched?.phone) {
+                    setManagerPhone(matched.phone);
+                  }
+                }}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-[#008a90] focus:outline-none cursor-pointer"
+              >
+                <option value="Unassigned">-- Unassigned (No Manager) --</option>
+                {availableManagers.map((m) => (
+                  <option key={m.id} value={m.fullName}>
+                    {m.fullName} ({m.email}) — {m.role}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Phone */}

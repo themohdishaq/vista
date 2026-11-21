@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Stock Balances & Bins | VISTA Manager',
+  title: 'Stock Balances & Bins | Field Inventory Manager',
   description:
     'Monitor live stock availability, reserved units, and bin allocations across assigned warehouses.',
 };

@@ -50,10 +50,10 @@ export default function StaffIssuePage() {
               ? m.notes.split('Voucher:')[1]?.trim() || `REQ-${idx + 200}`
               : `REQ-${idx + 200}`,
             ward: m.notes?.includes('Dispensed to')
-              ? m.notes.split('Dispensed to')[1]?.split('.')[0]?.trim() || 'Clinical Ward'
-              : 'Emergency Department',
+              ? m.notes.split('Dispensed to')[1]?.split('.')[0]?.trim() || 'Field Unit'
+              : 'Field Operations Unit',
             itemCode: m.itemCode || 'VST-001',
-            itemName: m.itemName || 'Medical Supplies',
+            itemName: m.itemName || 'Field Supplies',
             quantityIssued: Math.abs(m.quantity || 10),
             unit: 'Box',
             batchNo: m.batchNumber || 'LOT-2026A',
@@ -80,7 +80,6 @@ export default function StaffIssuePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          warehouseId: 'wh-001',
           itemId: record.itemCode,
           quantity: record.quantityIssued,
           batchNumber: record.batchNo,
@@ -105,7 +104,7 @@ export default function StaffIssuePage() {
   const handlePrintSlip = (item: StockIssueRecord) => {
     const slipText = `
 ===================================================
-     VISTA PORTAL - WAREHOUSE ISSUE VOUCHER
+     FIELD INVENTORY MANAGEMENT - WAREHOUSE ISSUE VOUCHER
 ===================================================
 Voucher No: ${item.issueNo}
 Requisition Ref: ${item.requisitionRef}
@@ -119,7 +118,7 @@ Description: ${item.itemName}
 Batch / Lot: ${item.batchNo}
 Quantity Issued: ${item.quantityIssued} ${item.unit}
 
-CONFIRMATION OF RECEIPT AT CLINIC:
+CONFIRMATION OF RECEIPT AT FIELD SITE:
 Receiver Name: __________________________
 Receiver Signature: _____________________
 Date: ___________________________________
@@ -129,14 +128,14 @@ Date: ___________________________________
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `VISTA-Issue-Voucher-${item.issueNo}.txt`;
+    link.download = `FIM-Issue-Voucher-${item.issueNo}.txt`;
     link.click();
     URL.revokeObjectURL(url);
     showToast(`Generated print slip for ${item.issueNo}`);
   };
 
   const handleExportCSV = () => {
-    const headers = ['Issue Voucher #', 'Requisition Ref', 'Destination Ward', 'SKU', 'Item Name', 'Qty Issued', 'Unit', 'Batch #', 'Dispensed By', 'Date'];
+    const headers = ['Issue Voucher #', 'Requisition Ref', 'Destination Unit', 'SKU', 'Item Name', 'Qty Issued', 'Unit', 'Batch #', 'Dispensed By', 'Date'];
     const rows = filtered.map((r) => [
       r.issueNo,
       r.requisitionRef,
@@ -154,7 +153,7 @@ Date: ___________________________________
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Stock-Issues-Ledger-${Date.now()}.csv`;
+    link.download = `FIM-Stock-Issues-Ledger-${Date.now()}.csv`;
     link.click();
     showToast('Exported issues ledger to CSV.');
   };
@@ -194,14 +193,14 @@ Date: ___________________________________
             <span className="text-slate-300">•</span>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
               <ClipboardCheck className="w-3.5 h-3.5 text-slate-400" />
-              <span>Clinical Ward Distribution Ledger</span>
+              <span>Field Unit Distribution Ledger</span>
             </div>
           </div>
           <h1 className="font-sans text-2xl font-black tracking-tight text-[#0a2540] mt-1">
             Issue &amp; Distribute Stock
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Responsibility 4 • Fulfill approved department requisitions, prepare pick lists, and record stock issued to hospital wards.
+            Responsibility 4 • Fulfill approved department requisitions, prepare pick lists, and record stock issued to field units.
           </p>
         </div>
 
@@ -239,7 +238,7 @@ Date: ___________________________________
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="text"
-            placeholder="Search by Voucher #, Requisition, Ward, SKU or Item..."
+            placeholder="Search by Voucher #, Requisition, Destination, SKU or Item..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#008a90]/20 font-medium"
@@ -258,7 +257,7 @@ Date: ___________________________________
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 <th className="py-3 px-4">Issue Voucher # &amp; Ref</th>
-                <th className="py-3 px-4">Destination Ward / Clinic</th>
+                <th className="py-3 px-4">Destination Unit / Location</th>
                 <th className="py-3 px-4">Item SKU &amp; Name</th>
                 <th className="py-3 px-4 text-right">Quantity Dispensed</th>
                 <th className="py-3 px-4">Batch Lot Number</th>
@@ -273,7 +272,7 @@ Date: ___________________________________
                   <td colSpan={8} className="py-12 text-center text-slate-400">
                     <ClipboardCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="font-semibold text-slate-600">No stock issue records found.</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Dispense approved requisitions to hospital departments.</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Dispense approved requisitions to field units.</p>
                   </td>
                 </tr>
               ) : (

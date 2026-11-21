@@ -1,13 +1,12 @@
 // filepath: lib/services/item-service.ts
 import { sql } from '@/lib/db';
 import { InventoryItem, ItemCategory, ItemStatus } from '@/types/items';
-import { INITIAL_INVENTORY_ITEMS } from '@/lib/data/items-seed-data';
 import { getWarehouses } from '@/lib/services/warehouse-service';
 
 /**
  * @file lib/services/item-service.ts
  * @description Catalog Management service for SKUs, stock aggregates, and bulk Excel/CSV import.
- * Dual-persistence: neon database query with global in-memory runtime fallback.
+ * Real PostgreSQL persistence on Neon Serverless with in-memory fallback.
  */
 
 export interface ItemFilterOptions {
@@ -40,149 +39,74 @@ export function getItemHistoryStore(): Record<string, any[]> {
   return globalThis.__vista_item_history__;
 }
 
-export function getInitialTransactionsForItem(item: InventoryItem): any[] {
-  return [
-    {
-      id: `txn-init-1-${item.id}`,
-      date: 'Nov 18, 2026 14:32',
-      type: 'Receipt',
-      qty: `+${Math.min(1000, Math.round(item.availableStock * 0.25)).toLocaleString()}`,
-      isPos: true,
-      operator: 'Mike Chen',
-      role: 'Warehouse Staff',
-      roleLink: '/staff/receive',
-      ref: `PO-${item.code.replace('VST-', '88')}`,
-      refLink: '/staff/receive',
-      facility: 'Central Medical Store',
-      notes: `Batch intake putaway verified by DDA for ${item.name}`,
-      status: 'Completed',
-      badge: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    },
-    {
-      id: `txn-init-2-${item.id}`,
-      date: 'Nov 15, 2026 11:20',
-      type: 'Transfer',
-      qty: `⇄ ${Math.min(250, Math.round(item.availableStock * 0.1)).toLocaleString()}`,
-      isPos: false,
-      operator: 'Sarah Johnson',
-      role: 'Inventory Manager',
-      roleLink: '/manager/approvals',
-      ref: `TRF-${item.code.replace('VST-', '30')}`,
-      refLink: '/admin/transfers',
-      facility: 'Central Medical Store → Pokhara Depot',
-      notes: `Inter-warehouse transfer authorized for ${item.name}`,
-      status: 'In Transit',
-      badge: 'bg-purple-100 text-purple-800 border-purple-200',
-    },
-    {
-      id: `txn-init-3-${item.id}`,
-      date: 'Nov 12, 2026 09:15',
-      type: 'Issue',
-      qty: `-${Math.min(150, Math.round(item.availableStock * 0.05)).toLocaleString()}`,
-      isPos: false,
-      operator: 'Emily Davis',
-      role: 'Warehouse Staff',
-      roleLink: '/staff/issue',
-      ref: `REQ-${item.code.replace('VST-', '10')}`,
-      refLink: '/admin/requests',
-      facility: 'Pokhara Regional Depot',
-      notes: `Dispensary order dispatch fulfilled for regional clinic`,
-      status: 'Completed',
-      badge: 'bg-sky-100 text-sky-800 border-sky-200',
-    },
-    {
-      id: `txn-init-4-${item.id}`,
-      date: 'Nov 08, 2026 16:45',
-      type: 'Adjustment',
-      qty: '-15',
-      isPos: false,
-      operator: 'Sarah Johnson',
-      role: 'Inventory Manager',
-      roleLink: '/manager/discrepancies',
-      ref: `ADJ-${item.code.replace('VST-', '04')}`,
-      refLink: '/admin/adjustments',
-      facility: 'Central Medical Store',
-      notes: `Physical inventory count variance reconciliation`,
-      status: 'Verified',
-      badge: 'bg-amber-100 text-amber-800 border-amber-200',
-    },
-  ];
+export function getInitialTransactionsForItem(_item?: InventoryItem): any[] {
+  return [];
 }
 
-export function getInitialHistoryForItem(item: InventoryItem): any[] {
-  return [
-    {
-      id: `hist-init-1-${item.id}`,
-      date: 'Nov 18, 2026 14:32',
-      eventType: 'Vendor Delivery Intake Putaway',
-      delta: `+${Math.min(1000, Math.round(item.availableStock * 0.25)).toLocaleString()}`,
-      isPos: true,
-      balance: item.availableStock,
-      operator: 'Mike Chen',
-      role: 'Warehouse Staff',
-      roleLink: '/staff/receive',
-      ref: `PO-${item.code.replace('VST-', '88')}`,
-      refLink: '/staff/receive',
-      facility: 'Central Medical Store',
-      daysAgo: 2,
-    },
-    {
-      id: `hist-init-2-${item.id}`,
-      date: 'Nov 15, 2026 11:20',
-      eventType: 'Inter-Warehouse Stock Transfer',
-      delta: `-${Math.min(250, Math.round(item.availableStock * 0.1)).toLocaleString()}`,
-      isPos: false,
-      balance: Math.max(0, item.availableStock - Math.min(1000, Math.round(item.availableStock * 0.25))),
-      operator: 'Sarah Johnson',
-      role: 'Inventory Manager',
-      roleLink: '/manager/approvals',
-      ref: `TRF-${item.code.replace('VST-', '30')}`,
-      refLink: '/admin/transfers',
-      facility: 'Central → Pokhara',
-      daysAgo: 5,
-    },
-    {
-      id: `hist-init-3-${item.id}`,
-      date: 'Nov 12, 2026 09:15',
-      eventType: 'Clinical Outpost Dispense Request',
-      delta: `-${Math.min(150, Math.round(item.availableStock * 0.05)).toLocaleString()}`,
-      isPos: false,
-      balance: Math.max(0, item.availableStock - 400),
-      operator: 'Emily Davis',
-      role: 'Warehouse Staff',
-      roleLink: '/staff/issue',
-      ref: `REQ-${item.code.replace('VST-', '10')}`,
-      refLink: '/admin/requests',
-      facility: 'Pokhara Regional Depot',
-      daysAgo: 8,
-    },
-    {
-      id: `hist-init-4-${item.id}`,
-      date: 'Nov 08, 2026 16:45',
-      eventType: 'Cycle Count Audit Adjustment',
-      delta: '-15',
-      isPos: false,
-      balance: Math.max(0, item.availableStock - 250),
-      operator: 'Sarah Johnson',
-      role: 'Inventory Manager',
-      roleLink: '/manager/discrepancies',
-      ref: `ADJ-${item.code.replace('VST-', '04')}`,
-      refLink: '/admin/adjustments',
-      facility: 'Central Medical Store',
-      daysAgo: 12,
-    },
-  ];
+export function getInitialHistoryForItem(_item?: InventoryItem): any[] {
+  return [];
 }
 
 export function getRuntimeItems(): InventoryItem[] {
   if (!globalThis.__vista_runtime_items__) {
-    globalThis.__vista_runtime_items__ = [...INITIAL_INVENTORY_ITEMS];
+    globalThis.__vista_runtime_items__ = [];
   }
   return globalThis.__vista_runtime_items__;
 }
 
 export function setRuntimeItems(items: InventoryItem[]): void {
   globalThis.__vista_runtime_items__ = items;
+}
+
+/**
+ * Resolves a valid warehouse ID from the database or creates/returns the primary active warehouse.
+ */
+async function resolveValidWarehouseId(requestedWarehouseId?: string): Promise<string> {
+  try {
+    if (requestedWarehouseId) {
+      const whRows = await sql.query(
+        `SELECT id FROM warehouses WHERE id = $1 AND deleted_at IS NULL LIMIT 1;`,
+        [requestedWarehouseId]
+      );
+      if (whRows && whRows.length > 0) {
+        return whRows[0].id;
+      }
+    }
+
+    const firstWh = await sql.query(
+      `SELECT id FROM warehouses WHERE deleted_at IS NULL ORDER BY created_at ASC LIMIT 1;`
+    );
+    if (firstWh && firstWh.length > 0) {
+      return firstWh[0].id;
+    }
+
+    // Provision fallback default warehouse if table is empty
+    const fallbackId = 'wh-001';
+    await sql.query(
+      `INSERT INTO warehouses (id, code, name, type, city, address, capacity_cbm, status)
+       VALUES ($1, 'WH-001', 'Central Medical Store', 'Central Hub'::warehouse_type, 'Kathmandu', 'Teku Complex', 5000, 'Operational'::warehouse_status)
+       ON CONFLICT (id) DO NOTHING;`,
+      [fallbackId]
+    ).catch(() => {});
+    return fallbackId;
+  } catch {
+    return requestedWarehouseId || 'wh-001';
+  }
+}
+
+/**
+ * Resolves an active user ID for attribution of stock movements.
+ */
+async function resolveOperatorUserId(): Promise<string> {
+  try {
+    const userRows = await sql.query(
+      `SELECT id FROM users WHERE status = 'active' ORDER BY created_at ASC LIMIT 1;`
+    );
+    if (userRows && userRows.length > 0) {
+      return userRows[0].id;
+    }
+  } catch {}
+  return 'usr-admin-001';
 }
 
 export async function getItems(options: ItemFilterOptions = {}): Promise<InventoryItem[]> {
@@ -239,11 +163,11 @@ export async function getItems(options: ItemFilterOptions = {}): Promise<Invento
     }
 
     query += ` GROUP BY i.id, i.code, i.name, i.category, i.unit, i.description, i.reorder_level, i.batch_tracking, i.expiry_tracking, i.status, i.image_url
-               ORDER BY i.code ASC;`;
+               ORDER BY i.created_at DESC, i.code ASC;`;
 
     const rows = await sql.query(query, params);
 
-    if (rows && rows.length > 0) {
+    if (rows) {
       dbItems = rows.map((r: any) => {
         const totalStock = Number(r.total_stock) || 0;
         const reservedStock = Number(r.reserved_stock) || 0;
@@ -251,8 +175,23 @@ export async function getItems(options: ItemFilterOptions = {}): Promise<Invento
         const reorderLevel = Number(r.reorder_level) || 100;
 
         let computedStatus: ItemStatus = r.status as ItemStatus;
-        if (totalStock === 0) computedStatus = 'Out of Stock';
-        else if (totalStock <= reorderLevel) computedStatus = 'Low Stock';
+        if (r.status !== 'Inactive') {
+          if (totalStock === 0) computedStatus = 'Out of Stock';
+          else if (totalStock <= reorderLevel) computedStatus = 'Low Stock';
+          else computedStatus = 'Active';
+        }
+
+        let formattedExpiry = '-';
+        if (r.nearest_expiry) {
+          const expDate = new Date(r.nearest_expiry);
+          if (!isNaN(expDate.getTime())) {
+            formattedExpiry = expDate.toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            });
+          }
+        }
 
         return {
           id: r.id,
@@ -262,7 +201,7 @@ export async function getItems(options: ItemFilterOptions = {}): Promise<Invento
           unit: r.unit || 'Box',
           stockQuantity: totalStock,
           status: computedStatus,
-          expiryDate: r.nearest_expiry ? new Date(r.nearest_expiry).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-',
+          expiryDate: formattedExpiry,
           image: r.image_url,
           description: r.description || `${r.name} (${r.unit}).`,
           availableStock,
@@ -275,16 +214,17 @@ export async function getItems(options: ItemFilterOptions = {}): Promise<Invento
       });
       dbSuccess = true;
     }
-  } catch {
-    // Database offline or in-sandbox mock fallback
+  } catch (err) {
+    console.error('Error fetching items from database:', err);
   }
 
   const runtime = getRuntimeItems();
 
   let mergedItems: InventoryItem[] = [];
-  if (dbSuccess && dbItems.length > 0) {
+  if (dbSuccess) {
     const dbCodes = new Set(dbItems.map((i) => i.code));
-    const newlyCreated = runtime.filter((i) => !dbCodes.has(i.code));
+    const dbIds = new Set(dbItems.map((i) => i.id));
+    const newlyCreated = runtime.filter((i) => !dbCodes.has(i.code) && !dbIds.has(i.id));
     mergedItems = [...newlyCreated, ...dbItems];
   } else {
     mergedItems = [...runtime];
@@ -311,11 +251,35 @@ export async function getItemById(id: string) {
   let itemObj: any = null;
 
   try {
-    const rows = await sql.query(`SELECT * FROM items WHERE id = $1 AND deleted_at IS NULL;`, [id]);
+    const rows = await sql.query(
+      `SELECT 
+        i.id,
+        i.code,
+        i.name,
+        i.category,
+        i.unit,
+        i.description,
+        i.reorder_level,
+        i.batch_tracking,
+        i.expiry_tracking,
+        i.status,
+        i.image_url,
+        COALESCE(SUM(sb.quantity_on_hand), 0)::int as total_stock,
+        COALESCE(SUM(sb.quantity_reserved), 0)::int as reserved_stock,
+        COALESCE(SUM(sb.quantity_on_hand - sb.quantity_reserved), 0)::int as available_stock,
+        MIN(sb.expiry_date) as nearest_expiry
+      FROM items i
+      LEFT JOIN stock_balances sb ON i.id = sb.item_id
+      WHERE (i.id = $1 OR i.code = $1) AND i.deleted_at IS NULL
+      GROUP BY i.id, i.code, i.name, i.category, i.unit, i.description, i.reorder_level, i.batch_tracking, i.expiry_tracking, i.status, i.image_url;`,
+      [id]
+    );
     if (rows && rows.length > 0) {
       itemObj = rows[0];
     }
-  } catch {}
+  } catch (err) {
+    console.error('Error fetching item by id from DB:', err);
+  }
 
   if (!itemObj) {
     const found = getRuntimeItems().find((i) => i.id === id || i.code === id);
@@ -325,28 +289,21 @@ export async function getItemById(id: string) {
 
   const itemId = itemObj.id;
   const avail = Number(itemObj.available_stock ?? itemObj.availableStock ?? itemObj.stockQuantity ?? 0);
-  const total = Number(itemObj.total_stock ?? itemObj.totalStock ?? avail);
   const reserved = Number(itemObj.reserved_stock ?? itemObj.reservedStock ?? 0);
+  const total = Number(itemObj.total_stock ?? itemObj.totalStock ?? (avail + reserved));
   const reorder = Number(itemObj.reorder_level ?? itemObj.reorderLevel ?? 100);
   const batchTracking = Boolean(itemObj.batch_tracking ?? itemObj.batchTracking);
   const expiryTracking = Boolean(itemObj.expiry_tracking ?? itemObj.expiryTracking);
   const image = itemObj.image_url ?? itemObj.image;
 
-  // Dynamic warehouse allocations fetched from system warehouses
-  let warehousesList: any[] = [];
-  try {
-    warehousesList = await getWarehouses();
-  } catch {}
-
-  if (!warehousesList || warehousesList.length === 0) {
-    warehousesList = [
-      { id: 'wh-001', name: 'Central Medical Store (Kathmandu)', city: 'Kathmandu', manager: 'Sarah Johnson', type: 'Central Hub' },
-      { id: 'wh-002', name: 'Pokhara Regional Depot', city: 'Pokhara', manager: 'David Kim', type: 'Regional Depot' },
-      { id: 'wh-003', name: 'Biratnagar Distribution Depot', city: 'Biratnagar', manager: 'Robert Garcia', type: 'Regional Depot' },
-    ];
+  let computedStatus: ItemStatus = (itemObj.status as ItemStatus) || 'Active';
+  if (computedStatus !== 'Inactive') {
+    if (total === 0) computedStatus = 'Out of Stock';
+    else if (total <= reorder) computedStatus = 'Low Stock';
+    else computedStatus = 'Active';
   }
 
-  // Check if stock_balances table has actual allocations for this item
+  // Dynamic warehouse allocations fetched from system warehouses
   let dbBalances: any[] = [];
   try {
     const balRows = await sql.query(
@@ -368,7 +325,7 @@ export async function getItemById(id: string) {
       name: b.warehouse_name,
       zone: `Bay 0${idx + 1} • Bin ${idx + 2}`,
       qty: Number(b.quantity_on_hand) || 0,
-      managerName: b.manager_name || 'Sarah Johnson',
+      managerName: b.manager_name || 'Warehouse Manager',
       managerLink: '/manager/stock',
       staffName: `${b.city || 'Facility'} Floor Staff`,
       staffLink: '/staff/stock',
@@ -376,42 +333,188 @@ export async function getItemById(id: string) {
       badge: idx === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-sky-50 text-sky-700 border-sky-200',
     }));
   } else {
-    // Dynamic distribution across all system warehouses
-    warehouseAllocations = warehousesList.map((wh: any, idx: number) => {
-      let portion = 0;
-      if (idx === 0) portion = Math.round(avail * 0.65);
-      else if (idx === 1) portion = Math.round(avail * 0.25);
-      else if (idx === 2) portion = Math.max(0, avail - Math.round(avail * 0.65) - Math.round(avail * 0.25));
-      else portion = 0;
+    // If no balances in DB yet, query actual active warehouses
+    let warehousesList: any[] = [];
+    try {
+      warehousesList = await getWarehouses();
+    } catch {}
 
-      return {
+    if (warehousesList && warehousesList.length > 0) {
+      warehouseAllocations = warehousesList.map((wh: any, idx: number) => ({
         id: wh.id,
         name: wh.name,
-        zone: `Bay 0${idx + 1} • Bin 0${idx + 4}`,
-        qty: portion,
-        managerName: wh.manager && wh.manager !== 'Unassigned' ? wh.manager : 'Sarah Johnson',
+        zone: `Bay 0${idx + 1} • Bin 0${idx + 2}`,
+        qty: idx === 0 ? avail : 0,
+        managerName: wh.manager && wh.manager !== 'Unassigned' ? wh.manager : 'Warehouse Manager',
         managerLink: '/manager/stock',
-        staffName: `${wh.city || 'Depot'} Floor Staff`,
+        staffName: `${wh.city || 'Facility'} Floor Staff`,
         staffLink: '/staff/stock',
         tier: wh.type === 'Central Hub' ? 'Primary Distribution Hub' : 'Regional Facility',
         badge: idx === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-sky-50 text-sky-700 border-sky-200',
+      }));
+    }
+  }
+
+  // Transactions & Stock History strictly from stock_movements ledger in DB
+  let dbMovements: any[] = [];
+  try {
+    const movRows = await sql.query(
+      `SELECT 
+        sm.id,
+        sm.movement_number,
+        sm.type,
+        sm.quantity,
+        sm.previous_balance,
+        sm.new_balance,
+        sm.batch_number,
+        sm.reference_id,
+        sm.notes,
+        sm.created_at,
+        w.name as warehouse_name,
+        w.city as warehouse_city,
+        u.full_name as operator_name,
+        u.role as operator_role
+      FROM stock_movements sm
+      LEFT JOIN warehouses w ON sm.warehouse_id = w.id
+      LEFT JOIN users u ON sm.performed_by_id = u.id
+      WHERE sm.item_id = $1
+      ORDER BY sm.created_at DESC;`,
+      [itemId]
+    );
+    if (movRows && movRows.length > 0) {
+      dbMovements = movRows;
+    }
+  } catch {}
+
+  const badgeMap: Record<string, string> = {
+    RECEIPT: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    ISSUE: 'bg-sky-100 text-sky-800 border-sky-200',
+    TRANSFER_IN: 'bg-purple-100 text-purple-800 border-purple-200',
+    TRANSFER_OUT: 'bg-purple-100 text-purple-800 border-purple-200',
+    ADJUSTMENT_ADD: 'bg-amber-100 text-amber-800 border-amber-200',
+    ADJUSTMENT_SUB: 'bg-amber-100 text-amber-800 border-amber-200',
+    RETURN: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    CONSUMPTION: 'bg-rose-100 text-rose-800 border-rose-200',
+  };
+
+  const typeLabelMap: Record<string, 'Receipt' | 'Issue' | 'Transfer' | 'Adjustment'> = {
+    RECEIPT: 'Receipt',
+    ISSUE: 'Issue',
+    TRANSFER_IN: 'Transfer',
+    TRANSFER_OUT: 'Transfer',
+    ADJUSTMENT_ADD: 'Adjustment',
+    ADJUSTMENT_SUB: 'Adjustment',
+    RETURN: 'Receipt',
+    CONSUMPTION: 'Issue',
+  };
+
+  let transactionsList: any[] = [];
+  let historyList: any[] = [];
+
+  if (dbMovements.length > 0) {
+    transactionsList = dbMovements.map((m: any) => {
+      const isPos = m.type === 'RECEIPT' || m.type === 'ADJUSTMENT_ADD' || m.type === 'RETURN';
+      const isTransfer = m.type === 'TRANSFER_IN' || m.type === 'TRANSFER_OUT';
+      const qtyStr = isTransfer
+        ? `⇄ ${Number(m.quantity).toLocaleString()}`
+        : isPos
+        ? `+${Number(m.quantity).toLocaleString()}`
+        : `-${Number(m.quantity).toLocaleString()}`;
+
+      const dateObj = new Date(m.created_at);
+      const dateStr =
+        dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+        ' ' +
+        dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+      const opRole =
+        m.operator_role === 'super_admin'
+          ? 'Administrator'
+          : m.operator_role === 'manager'
+          ? 'Inventory Manager'
+          : 'Warehouse Staff';
+
+      return {
+        id: m.id,
+        date: dateStr,
+        type: typeLabelMap[m.type] || 'Adjustment',
+        qty: qtyStr,
+        isPos,
+        operator: m.operator_name || 'System Operator',
+        role: opRole,
+        roleLink: opRole === 'Inventory Manager' ? '/manager/approvals' : opRole === 'Administrator' ? '/admin' : '/staff/stock',
+        ref: m.reference_id || m.movement_number,
+        refLink: '/admin/movements',
+        facility: m.warehouse_name || 'Central Facility',
+        notes: m.notes || `Stock movement ${m.type}`,
+        status: isTransfer ? 'In Transit' : 'Completed',
+        badge: badgeMap[m.type] || 'bg-slate-100 text-slate-800 border-slate-200',
       };
     });
+
+    historyList = dbMovements.map((m: any) => {
+      const isPos = m.type === 'RECEIPT' || m.type === 'ADJUSTMENT_ADD' || m.type === 'RETURN';
+      const isTransfer = m.type === 'TRANSFER_IN' || m.type === 'TRANSFER_OUT';
+      const qtyStr = isTransfer
+        ? `⇄ ${Number(m.quantity).toLocaleString()}`
+        : isPos
+        ? `+${Number(m.quantity).toLocaleString()}`
+        : `-${Number(m.quantity).toLocaleString()}`;
+
+      const dateObj = new Date(m.created_at);
+      const dateStr =
+        dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+        ' ' +
+        dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+      const daysAgo = Math.max(0, Math.floor((Date.now() - dateObj.getTime()) / (1000 * 60 * 60 * 24)));
+      const opRole =
+        m.operator_role === 'super_admin'
+          ? 'Administrator'
+          : m.operator_role === 'manager'
+          ? 'Inventory Manager'
+          : 'Warehouse Staff';
+
+      return {
+        id: `hist-${m.id}`,
+        date: dateStr,
+        eventType: m.notes || `Movement: ${m.type}`,
+        delta: qtyStr,
+        isPos,
+        balance: Number(m.new_balance) || 0,
+        operator: m.operator_name || 'System Operator',
+        role: opRole,
+        roleLink: opRole === 'Inventory Manager' ? '/manager/approvals' : opRole === 'Administrator' ? '/admin' : '/staff/stock',
+        ref: m.reference_id || m.movement_number,
+        refLink: '/admin/movements',
+        facility: m.warehouse_name || 'Central Facility',
+        daysAgo,
+      };
+    });
+  } else {
+    const txnStore = getItemTransactionsStore();
+    const histStore = getItemHistoryStore();
+    transactionsList = txnStore[itemId] || [];
+    historyList = histStore[itemId] || [];
   }
 
-  // Dynamic transactions & stock history from store or baseline
-  const txnStore = getItemTransactionsStore();
-  if (!txnStore[itemId]) {
-    txnStore[itemId] = getInitialTransactionsForItem(itemObj);
-  }
-
-  const histStore = getItemHistoryStore();
-  if (!histStore[itemId]) {
-    histStore[itemId] = getInitialHistoryForItem(itemObj);
+  let formattedExpiry = '-';
+  if (itemObj.nearest_expiry) {
+    const expDate = new Date(itemObj.nearest_expiry);
+    if (!isNaN(expDate.getTime())) {
+      formattedExpiry = expDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    }
+  } else if (itemObj.expiryDate) {
+    formattedExpiry = itemObj.expiryDate;
   }
 
   return {
     ...itemObj,
+    status: computedStatus,
     reorderLevel: reorder,
     reorder_level: reorder,
     batchTracking,
@@ -420,10 +523,11 @@ export async function getItemById(id: string) {
     availableStock: avail,
     totalStock: total,
     reservedStock: reserved,
-    stockQuantity: avail,
+    stockQuantity: total,
+    expiryDate: formattedExpiry,
     warehouseAllocations,
-    transactions: txnStore[itemId],
-    stockHistory: histStore[itemId],
+    transactions: transactionsList,
+    stockHistory: historyList,
   };
 }
 
@@ -470,9 +574,9 @@ export async function recordItemTransaction(
   // Update item in runtime store and DB
   await updateItem(item.id, {
     availableStock: newAvailable,
-    stockQuantity: newAvailable,
+    stockQuantity: newTotal,
     totalStock: newTotal,
-    status: newAvailable === 0 ? 'Out of Stock' : newAvailable <= item.reorderLevel ? 'Low Stock' : 'Active',
+    status: newTotal === 0 ? 'Out of Stock' : newTotal <= item.reorderLevel ? 'Low Stock' : 'Active',
   });
 
   const badgeMap = {
@@ -546,12 +650,12 @@ export async function recordItemTransaction(
     daysAgo: 0,
   };
 
-  // Prepend to stores
+  // Prepend to in-memory stores
   const txnStore = getItemTransactionsStore();
-  txnStore[item.id] = [newTxn, ...(txnStore[item.id] || getInitialTransactionsForItem(item))];
+  txnStore[item.id] = [newTxn, ...(txnStore[item.id] || [])];
 
   const histStore = getItemHistoryStore();
-  histStore[item.id] = [newHist, ...(histStore[item.id] || getInitialHistoryForItem(item))];
+  histStore[item.id] = [newHist, ...(histStore[item.id] || [])];
 
   const updatedItem = await getItemById(item.id);
   return {
@@ -570,116 +674,342 @@ export async function createItem(data: {
   reorderLevel?: number;
   description?: string;
   initialWarehouseId?: string;
+  warehouseId?: string;
   initialBatch?: string;
   expiryDate?: string;
+  reservedStock?: number;
 }): Promise<string> {
   const id = `item-${Date.now()}`;
   const code = data.code?.trim() || `VST-${Math.floor(100 + Math.random() * 900)}`;
+  const name = data.name.trim();
+  const category = (data.category as ItemCategory) || 'Medical Supplies';
+  const unit = data.unit?.trim() || 'Box';
+  const qty = Math.max(0, Number(data.stockQuantity) || 0);
+  const reorder = Math.max(0, Number(data.reorderLevel ?? 100));
+  const reservedStock = Math.max(0, Number(data.reservedStock) || 0);
+  const totalStock = qty + reservedStock;
+  const status: ItemStatus = totalStock === 0 ? 'Out of Stock' : totalStock <= reorder ? 'Low Stock' : 'Active';
+  const description = data.description?.trim() || `${name} (${unit}).`;
+  const expiryDateStr = data.expiryDate && data.expiryDate !== '-' ? data.expiryDate.trim() : '';
 
-  // 1. Update in-memory runtime store
+  // 1. Update in-memory runtime store immediately
   const newItem: InventoryItem = {
     id,
     code,
-    name: data.name.trim(),
-    category: data.category,
-    unit: data.unit || 'Box',
-    stockQuantity: Number(data.stockQuantity) || 0,
-    status: (Number(data.stockQuantity) || 0) <= (Number(data.reorderLevel) || 100) ? 'Low Stock' : 'Active',
-    expiryDate: data.expiryDate || 'Dec 31, 2026',
-    description: data.description || `${data.name} (${data.unit}).`,
-    availableStock: Number(data.stockQuantity) || 0,
-    reservedStock: 0,
-    totalStock: Number(data.stockQuantity) || 0,
+    name,
+    category,
+    unit,
+    stockQuantity: totalStock,
+    status,
+    expiryDate: expiryDateStr || '-',
+    description,
+    availableStock: qty,
+    reservedStock,
+    totalStock,
     batchTracking: true,
     expiryTracking: true,
-    reorderLevel: Number(data.reorderLevel) || 100,
+    reorderLevel: reorder,
   };
-  setRuntimeItems([newItem, ...getRuntimeItems()]);
+  setRuntimeItems([newItem, ...getRuntimeItems().filter((i) => i.id !== id && i.code !== code)]);
 
-  // 2. Persist to Neon DB if connected
+  // 2. Persist to Neon PostgreSQL
   try {
+    const validWarehouseId = await resolveValidWarehouseId(data.warehouseId || data.initialWarehouseId);
+
+    // Insert into items table
     await sql.query(
       `INSERT INTO items (id, code, name, category, unit, description, reorder_level, status)
-       VALUES ($1, $2, $3, $4::item_category, $5, $6, $7, 'Active'::item_status);`,
-      [
-        id,
-        code,
-        data.name.trim(),
-        data.category,
-        data.unit || 'Box',
-        data.description || `${data.name} (${data.unit}).`,
-        Number(data.reorderLevel) || 100,
-      ]
+       VALUES ($1, $2, $3, $4::item_category, $5, $6, $7, $8::item_status)
+       ON CONFLICT (code) DO UPDATE SET
+         name = EXCLUDED.name,
+         category = EXCLUDED.category,
+         unit = EXCLUDED.unit,
+         description = EXCLUDED.description,
+         reorder_level = EXCLUDED.reorder_level,
+         status = EXCLUDED.status,
+         deleted_at = NULL;`,
+      [id, code, name, category, unit, description, reorder, status]
     );
 
-    // If initial stock is specified and warehouse provided, add to stock_balances
-    if (data.stockQuantity && data.stockQuantity > 0) {
-      const warehouseId = data.initialWarehouseId || 'wh-001';
-      const batch = data.initialBatch || 'LOT-INIT-01';
+    // Insert or update stock_balances
+    const batch = data.initialBatch?.trim() || 'LOT-INIT-01';
+    let parsedExpiry: string | null = null;
+    if (expiryDateStr) {
+      const parsed = new Date(expiryDateStr);
+      if (!isNaN(parsed.getTime())) {
+        parsedExpiry = parsed.toISOString().split('T')[0];
+      }
+    }
 
+    const balRows = await sql.query(
+      `SELECT id FROM stock_balances WHERE warehouse_id = $1 AND item_id = $2 LIMIT 1;`,
+      [validWarehouseId, id]
+    );
+
+    if (balRows && balRows.length > 0) {
       await sql.query(
-        `INSERT INTO stock_balances (id, warehouse_id, item_id, batch_number, quantity_on_hand, quantity_reserved)
-         VALUES ($1, $2, $3, $4, $5, 0)
-         ON CONFLICT (warehouse_id, item_id, bin_id, batch_number)
-         DO UPDATE SET quantity_on_hand = stock_balances.quantity_on_hand + $5;`,
-        [`bal-${Date.now()}`, warehouseId, id, batch, Number(data.stockQuantity)]
+        `UPDATE stock_balances 
+         SET quantity_on_hand = $1, quantity_reserved = $2, expiry_date = COALESCE($3, expiry_date), updated_at = NOW()
+         WHERE id = $4;`,
+        [totalStock, reservedStock, parsedExpiry, balRows[0].id]
+      );
+    } else {
+      await sql.query(
+        `INSERT INTO stock_balances (id, warehouse_id, item_id, batch_number, expiry_date, quantity_on_hand, quantity_reserved)
+         VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+        [`bal-${Date.now()}`, validWarehouseId, id, batch, parsedExpiry, totalStock, reservedStock]
       );
     }
-  } catch {}
+
+    // If initial stock was provided, record in stock_movements ledger
+    if (totalStock > 0) {
+      const operatorId = await resolveOperatorUserId();
+      const movNumber = `MOV-REC-${Date.now().toString().slice(-6)}`;
+      await sql.query(
+        `INSERT INTO stock_movements (
+          id, movement_number, warehouse_id, item_id, type, quantity,
+          previous_balance, new_balance, batch_number, reference_id,
+          performed_by_id, notes, created_at
+        ) VALUES (
+          $1, $2, $3, $4, 'RECEIPT'::movement_type, $5,
+          0, $5, $6, $7,
+          $8, $9, NOW()
+        );`,
+        [
+          `mov-${Date.now()}`,
+          movNumber,
+          validWarehouseId,
+          id,
+          totalStock,
+          batch,
+          `PO-${code.replace('VST-', '') || 'INIT'}`,
+          operatorId,
+          `Initial catalog intake putaway for ${name}`,
+        ]
+      ).catch(() => {});
+    }
+  } catch (err) {
+    console.error('Failed to persist item to Neon DB:', err);
+  }
 
   return id;
 }
 
-export async function updateItem(id: string, data: Partial<InventoryItem>): Promise<void> {
-  // Update runtime store
+export async function updateItem(
+  id: string,
+  data: Partial<InventoryItem> & { warehouseId?: string }
+): Promise<InventoryItem | null> {
+  const avail = data.availableStock !== undefined ? Number(data.availableStock) : undefined;
+  const res = data.reservedStock !== undefined ? Number(data.reservedStock) : undefined;
+  const reorder = data.reorderLevel !== undefined ? Number(data.reorderLevel) : undefined;
+
+  // 1. Update in-memory runtime store
+  let updatedRuntimeItem: InventoryItem | null = null;
   const current = getRuntimeItems();
   setRuntimeItems(
     current.map((i) => {
       if (i.id === id || i.code === id) {
-        const updated = { ...i, ...data };
-        if (data.availableStock !== undefined || data.reservedStock !== undefined) {
-          const avail = data.availableStock !== undefined ? data.availableStock : i.availableStock;
-          const res = data.reservedStock !== undefined ? data.reservedStock : i.reservedStock;
-          updated.totalStock = avail + res;
-          updated.stockQuantity = avail;
+        const newAvail = avail !== undefined ? avail : Number(i.availableStock ?? i.stockQuantity ?? 0);
+        const newRes = res !== undefined ? res : Number(i.reservedStock ?? 0);
+        const newTotal = newAvail + newRes;
+        const newReorder = reorder !== undefined ? reorder : Number(i.reorderLevel ?? 100);
+
+        let newStatus: ItemStatus = data.status || i.status;
+        if (newStatus !== 'Inactive') {
+          if (newTotal === 0) newStatus = 'Out of Stock';
+          else if (newTotal <= newReorder) newStatus = 'Low Stock';
+          else newStatus = 'Active';
         }
+
+        const updated: InventoryItem = {
+          ...i,
+          ...data,
+          name: data.name !== undefined ? data.name.trim() : i.name,
+          category: (data.category || i.category) as ItemCategory,
+          unit: data.unit || i.unit,
+          description: data.description !== undefined ? data.description : i.description,
+          status: newStatus,
+          availableStock: newAvail,
+          reservedStock: newRes,
+          totalStock: newTotal,
+          stockQuantity: newTotal,
+          reorderLevel: newReorder,
+          expiryDate: data.expiryDate !== undefined ? data.expiryDate : i.expiryDate,
+          batchTracking: data.batchTracking !== undefined ? Boolean(data.batchTracking) : Boolean(i.batchTracking),
+          expiryTracking: data.expiryTracking !== undefined ? Boolean(data.expiryTracking) : Boolean(i.expiryTracking),
+        };
+        updatedRuntimeItem = updated;
         return updated;
       }
       return i;
     })
   );
 
-  // Update Neon DB
+  // 2. Update Neon PostgreSQL
   try {
-    await sql.query(
-      `UPDATE items SET
-        name = COALESCE($2, name),
-        category = COALESCE($3::item_category, category),
-        unit = COALESCE($4, unit),
-        description = COALESCE($5, description),
-        reorder_level = COALESCE($6, reorder_level),
-        status = COALESCE($7::item_status, status),
-        updated_at = NOW()
-       WHERE id = $1 AND deleted_at IS NULL;`,
-      [
-        id,
-        data.name,
-        data.category,
-        data.unit,
-        data.description,
-        data.reorderLevel,
-        data.status,
-      ]
+    const itemRows = await sql.query(
+      `SELECT id, code, reorder_level, status FROM items WHERE (id = $1 OR code = $1) AND deleted_at IS NULL LIMIT 1;`,
+      [id]
     );
-  } catch {}
+
+    if (itemRows && itemRows.length > 0) {
+      const dbItem = itemRows[0];
+      const targetId = dbItem.id;
+      const targetReorder = reorder !== undefined ? reorder : Number(dbItem.reorder_level) || 100;
+
+      // Update items table
+      await sql.query(
+        `UPDATE items SET
+          name = COALESCE($2, name),
+          category = COALESCE($3::item_category, category),
+          unit = COALESCE($4, unit),
+          description = COALESCE($5, description),
+          reorder_level = COALESCE($6, reorder_level),
+          status = COALESCE($7::item_status, status),
+          batch_tracking = COALESCE($8, batch_tracking),
+          expiry_tracking = COALESCE($9, expiry_tracking),
+          updated_at = NOW()
+         WHERE (id = $1 OR code = $1) AND deleted_at IS NULL;`,
+        [
+          id,
+          data.name !== undefined ? data.name.trim() : null,
+          data.category || null,
+          data.unit || null,
+          data.description !== undefined ? data.description : null,
+          reorder !== undefined ? reorder : null,
+          data.status || null,
+          data.batchTracking !== undefined ? Boolean(data.batchTracking) : null,
+          data.expiryTracking !== undefined ? Boolean(data.expiryTracking) : null,
+        ]
+      );
+
+      // Check existing balance
+      const balRows = await sql.query(
+        `SELECT id, warehouse_id, quantity_on_hand, quantity_reserved FROM stock_balances WHERE item_id = $1 LIMIT 1;`,
+        [targetId]
+      );
+
+      let parsedExpiry: string | null = null;
+      if (data.expiryDate && data.expiryDate !== '-') {
+        const parsed = new Date(data.expiryDate);
+        if (!isNaN(parsed.getTime())) {
+          parsedExpiry = parsed.toISOString().split('T')[0];
+        }
+      }
+
+      let newOnHand = 0;
+      let newReserved = 0;
+
+      if (balRows && balRows.length > 0) {
+        const currentBal = balRows[0];
+        const prevOnHand = Number(currentBal.quantity_on_hand) || 0;
+        newOnHand = avail !== undefined ? avail + (res !== undefined ? res : Number(currentBal.quantity_reserved) || 0) : prevOnHand;
+        newReserved = res !== undefined ? res : Number(currentBal.quantity_reserved) || 0;
+
+        await sql.query(
+          `UPDATE stock_balances 
+           SET quantity_on_hand = $2, quantity_reserved = $3, expiry_date = COALESCE($4, expiry_date), updated_at = NOW() 
+           WHERE id = $1;`,
+          [currentBal.id, newOnHand, newReserved, parsedExpiry]
+        );
+
+        // Record adjustment movement if stock changed
+        if (avail !== undefined && newOnHand !== prevOnHand) {
+          const delta = newOnHand - prevOnHand;
+          const isAdd = delta > 0;
+          const operatorId = await resolveOperatorUserId();
+
+          await sql.query(
+            `INSERT INTO stock_movements (
+              id, movement_number, warehouse_id, item_id, type, quantity,
+              previous_balance, new_balance, batch_number, reference_id,
+              performed_by_id, notes, created_at
+            ) VALUES (
+              $1, $2, $3, $4, $5::movement_type, $6,
+              $7, $8, 'LOT-GEN', $9,
+              $10, $11, NOW()
+            );`,
+            [
+              `mov-${Date.now()}`,
+              `MOV-ADJ-${Date.now().toString().slice(-6)}`,
+              currentBal.warehouse_id,
+              targetId,
+              isAdd ? 'ADJUSTMENT_ADD' : 'ADJUSTMENT_SUB',
+              Math.abs(delta),
+              prevOnHand,
+              newOnHand,
+              `ADJ-EDIT-${Date.now().toString().slice(-4)}`,
+              operatorId,
+              `Manual stock adjustment edit to ${newOnHand}`,
+            ]
+          ).catch(() => {});
+        }
+      } else {
+        // No balance record existed yet: create one with resolved warehouse
+        const validWarehouseId = await resolveValidWarehouseId(data.warehouseId);
+        newOnHand = avail !== undefined ? avail + (res !== undefined ? res : 0) : 0;
+        newReserved = res !== undefined ? res : 0;
+
+        await sql.query(
+          `INSERT INTO stock_balances (id, warehouse_id, item_id, batch_number, expiry_date, quantity_on_hand, quantity_reserved)
+           VALUES ($1, $2, $3, 'LOT-GEN', $4, $5, $6);`,
+          [`bal-${Date.now()}`, validWarehouseId, targetId, parsedExpiry, newOnHand, newReserved]
+        );
+
+        if (newOnHand > 0) {
+          const operatorId = await resolveOperatorUserId();
+          await sql.query(
+            `INSERT INTO stock_movements (
+              id, movement_number, warehouse_id, item_id, type, quantity,
+              previous_balance, new_balance, batch_number, reference_id,
+              performed_by_id, notes, created_at
+            ) VALUES (
+              $1, $2, $3, $4, 'RECEIPT'::movement_type, $5,
+              0, $5, 'LOT-GEN', $6,
+              $7, $8, NOW()
+            );`,
+            [
+              `mov-${Date.now()}`,
+              `MOV-INIT-${Date.now().toString().slice(-6)}`,
+              validWarehouseId,
+              targetId,
+              newOnHand,
+              `INIT-${Date.now().toString().slice(-4)}`,
+              operatorId,
+              `Initial balance creation on edit`,
+            ]
+          ).catch(() => {});
+        }
+      }
+
+      // Automatically recalculate and sync status in DB
+      let finalStatus: ItemStatus = data.status || dbItem.status;
+      if (finalStatus !== 'Inactive') {
+        if (newOnHand === 0) finalStatus = 'Out of Stock';
+        else if (newOnHand <= targetReorder) finalStatus = 'Low Stock';
+        else finalStatus = 'Active';
+
+        await sql.query(`UPDATE items SET status = $2::item_status WHERE id = $1;`, [targetId, finalStatus]).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.error('Failed to update item in Neon DB:', err);
+  }
+
+  return (await getItemById(id)) || updatedRuntimeItem;
 }
 
 export async function softDeleteItem(id: string): Promise<void> {
   const current = getRuntimeItems();
   setRuntimeItems(current.filter((i) => i.id !== id && i.code !== id));
   try {
-    await sql.query(`UPDATE items SET deleted_at = NOW(), status = 'Inactive' WHERE id = $1;`, [id]);
-  } catch {}
+    await sql.query(
+      `UPDATE items SET deleted_at = NOW(), status = 'Inactive' WHERE (id = $1 OR code = $1);`,
+      [id]
+    );
+  } catch (err) {
+    console.error('Failed to soft-delete item:', err);
+  }
 }
 
 /**
@@ -695,10 +1025,13 @@ export async function bulkImportItems(
     reorderLevel?: number | string;
     description?: string;
   }>,
-  targetWarehouseId = 'wh-001'
+  targetWarehouseId?: string
 ) {
   let importedCount = 0;
   const errors: string[] = [];
+
+  const validWarehouseId = await resolveValidWarehouseId(targetWarehouseId);
+  const operatorId = await resolveOperatorUserId();
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -707,35 +1040,100 @@ export async function bulkImportItems(
     try {
       const code = row.code?.trim() || `VST-${Math.floor(100 + Math.random() * 900)}`;
       const name = row.name.trim();
-      let category = 'Medical Supplies';
-      const validCategories = ['Medical Supplies', 'Pharmaceuticals', 'Equipment', 'Hygiene', 'Consumables'];
-      if (row.category && validCategories.includes(row.category.trim())) {
-        category = row.category.trim();
+      let category: ItemCategory = 'Medical Supplies';
+      const validCategories: ItemCategory[] = ['Medical Supplies', 'Pharmaceuticals', 'Equipment', 'Hygiene', 'Consumables'];
+      if (row.category && validCategories.includes(row.category.trim() as ItemCategory)) {
+        category = row.category.trim() as ItemCategory;
       }
 
       const unit = row.unit?.trim() || 'Box';
       const reorderLevel = parseInt(String(row.reorderLevel || 100), 10) || 100;
-      const stockQty = parseInt(String(row.stockQuantity || 0), 10) || 0;
+      const stockQty = Math.max(0, parseInt(String(row.stockQuantity || 0), 10) || 0);
       const itemId = `item-imp-${Date.now()}-${i}`;
+      const status: ItemStatus = stockQty === 0 ? 'Out of Stock' : stockQty <= reorderLevel ? 'Low Stock' : 'Active';
 
-      await sql.query(
+      const insertRes = await sql.query(
         `INSERT INTO items (id, code, name, category, unit, description, reorder_level, status)
-         VALUES ($1, $2, $3, $4::item_category, $5, $6, $7, 'Active'::item_status)
-         ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, reorder_level = EXCLUDED.reorder_level
+         VALUES ($1, $2, $3, $4::item_category, $5, $6, $7, $8::item_status)
+         ON CONFLICT (code) DO UPDATE SET 
+           name = EXCLUDED.name, 
+           category = EXCLUDED.category,
+           unit = EXCLUDED.unit,
+           description = EXCLUDED.description,
+           reorder_level = EXCLUDED.reorder_level,
+           status = EXCLUDED.status,
+           deleted_at = NULL
          RETURNING id;`,
-        [itemId, code, name, category, unit, row.description || `${name} (${unit}).`, reorderLevel]
+        [itemId, code, name, category, unit, row.description || `${name} (${unit}).`, reorderLevel, status]
       );
 
-      // Record stock balance if quantity provided
-      if (stockQty > 0) {
+      const resolvedItemId = (insertRes && insertRes[0]?.id) || itemId;
+
+      // Record stock balance
+      const existingBal = await sql.query(
+        `SELECT id FROM stock_balances WHERE warehouse_id = $1 AND item_id = $2 LIMIT 1;`,
+        [validWarehouseId, resolvedItemId]
+      );
+
+      if (existingBal && existingBal.length > 0) {
+        await sql.query(
+          `UPDATE stock_balances 
+           SET quantity_on_hand = quantity_on_hand + $1, updated_at = NOW() 
+           WHERE id = $2;`,
+          [stockQty, existingBal[0].id]
+        );
+      } else {
         await sql.query(
           `INSERT INTO stock_balances (id, warehouse_id, item_id, batch_number, quantity_on_hand, quantity_reserved)
-           VALUES ($1, $2, $3, 'LOT-EXCEL-IMPORT', $4, 0)
-           ON CONFLICT (warehouse_id, item_id, bin_id, batch_number)
-           DO UPDATE SET quantity_on_hand = stock_balances.quantity_on_hand + $4;`,
-          [`bal-imp-${Date.now()}-${i}`, targetWarehouseId, itemId, stockQty]
+           VALUES ($1, $2, $3, 'LOT-EXCEL-IMPORT', $4, 0);`,
+          [`bal-imp-${Date.now()}-${i}`, validWarehouseId, resolvedItemId, stockQty]
         );
       }
+
+      if (stockQty > 0) {
+        const movNumber = `MOV-IMP-${Date.now().toString().slice(-6)}-${i}`;
+        await sql.query(
+          `INSERT INTO stock_movements (
+            id, movement_number, warehouse_id, item_id, type, quantity,
+            previous_balance, new_balance, batch_number, reference_id,
+            performed_by_id, notes, created_at
+          ) VALUES (
+            $1, $2, $3, $4, 'RECEIPT'::movement_type, $5,
+            0, $5, 'LOT-EXCEL-IMPORT', $6,
+            $7, $8, NOW()
+          );`,
+          [
+            `mov-imp-${Date.now()}-${i}`,
+            movNumber,
+            validWarehouseId,
+            resolvedItemId,
+            stockQty,
+            `IMP-${code}`,
+            operatorId,
+            `Spreadsheet batch import putaway for ${name}`,
+          ]
+        ).catch(() => {});
+      }
+
+      // Add to runtime store
+      const newItem: InventoryItem = {
+        id: resolvedItemId,
+        code,
+        name,
+        category,
+        unit,
+        stockQuantity: stockQty,
+        status,
+        expiryDate: '-',
+        description: row.description || `${name} (${unit}).`,
+        availableStock: stockQty,
+        reservedStock: 0,
+        totalStock: stockQty,
+        batchTracking: true,
+        expiryTracking: true,
+        reorderLevel,
+      };
+      setRuntimeItems([newItem, ...getRuntimeItems().filter((item) => item.id !== resolvedItemId && item.code !== code)]);
 
       importedCount++;
     } catch (err: any) {

@@ -149,7 +149,7 @@ export default function ReportsPage() {
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const lines = [
-      `"VISTA Analytics Executive Summary - Live Report"`,
+      `"Field Inventory Management Analytics Executive Summary - Live Report"`,
       `"Export Date","${new Date().toLocaleString()}"`,
       `"Period Scope","${dateRange}"`,
       `"Warehouse Scope","${selectedWarehouse}"`,
@@ -184,7 +184,7 @@ export default function ReportsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `VISTA_Live_Analytics_${timestamp}.csv`);
+    link.setAttribute('download', `FIM_Live_Analytics_${timestamp}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -26,7 +26,7 @@ export function AboutCtaSection() {
           <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
             <div className="space-y-1.5 max-w-xl">
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white">
-                Experience VISTA Today
+                Experience Field Inventory Management Today
               </h2>
               <p className="text-xs sm:text-base text-cyan-100/90 font-normal">
                 Access the inventory management portal designed for operational excellence.
@@ -38,7 +38,7 @@ export function AboutCtaSection() {
                 href="/login"
                 className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm sm:text-base font-bold text-[#014f55] shadow-lg transition-all duration-200 hover:bg-slate-100 hover:scale-[1.02] active:scale-95"
               >
-                <span>Log In to VISTA</span>
+                <span>Log In to Portal</span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
             </div>

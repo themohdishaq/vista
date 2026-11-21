@@ -52,8 +52,8 @@ export default function Footer() {
                   />
                 </svg>
               </div>
-              <span className="font-sans text-xl font-black tracking-tight text-white">
-                VISTA
+              <span className="font-sans text-lg font-black tracking-tight text-white">
+                Field Inventory Management
               </span>
             </div>
 
@@ -62,7 +62,7 @@ export default function Footer() {
 
             {/* Copyright */}
             <p className="text-slate-400 text-xs sm:text-[13px]">
-              © 2025 VISTA Inventory Management System. All rights reserved.
+              © 2025 Field Inventory Management System. All rights reserved.
             </p>
           </div>
 

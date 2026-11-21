@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Local Purchases Review | VISTA Manager',
+  title: 'Local Purchases Review | Field Inventory Manager',
   description:
     'Review and approve local purchase orders recorded by warehouse floor teams.',
 };

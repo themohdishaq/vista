@@ -92,7 +92,7 @@ export function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrintModalPr
         <div className="mt-3.5 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/80 p-4 text-center">
           <div className="mx-auto max-w-[280px] rounded-xl border border-slate-300 bg-white p-3.5 shadow-sm text-left font-mono">
             <div className="flex justify-between items-center text-[11px] font-bold text-slate-800 border-b border-slate-200 pb-1.5">
-              <span>VISTA LOGISTICS</span>
+              <span>FIELD INVENTORY</span>
               <span>LOT: {item.code}-2026</span>
             </div>
 
@@ -130,7 +130,7 @@ export function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrintModalPr
                   </div>
                 </div>
                 <span className="text-[10px] tracking-wider text-slate-600 mt-1 font-bold">
-                  URN:VISTA:{item.code}
+                  URN:FIM:{item.code}
                 </span>
               </div>
             )}

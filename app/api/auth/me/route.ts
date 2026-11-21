@@ -1,18 +1,18 @@
 // filepath: app/api/auth/me/route.ts
 import { NextResponse } from 'next/server';
-import { getCurrentSession } from '@/lib/auth';
+import { getAuthScope } from '@/lib/auth-scope';
 
 /**
  * @file app/api/auth/me/route.ts
- * @description Retrieves current authenticated session from HTTP-only cookie.
+ * @description Retrieves current authenticated session from HTTP-only cookie with live warehouse scope.
  */
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const session = await getCurrentSession();
+  const scope = await getAuthScope();
 
-  if (!session) {
+  if (!scope.authenticated || !scope.user) {
     return NextResponse.json(
       {
         authenticated: false,
@@ -25,8 +25,14 @@ export async function GET() {
   return NextResponse.json(
     {
       authenticated: true,
-      user: session.user,
-      expiresAt: session.expiresAt,
+      user: scope.user,
+      role: scope.role,
+      isAdmin: scope.isAdmin,
+      isManager: scope.isManager,
+      isStaff: scope.isStaff,
+      isUnassigned: scope.isUnassigned,
+      warehouseId: scope.warehouseId,
+      warehouseName: scope.warehouseName,
     },
     { status: 200 }
   );

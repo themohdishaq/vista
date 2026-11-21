@@ -4,7 +4,7 @@ import React from 'react';
 const MILESTONES = [
   {
     year: '2022',
-    title: 'The Inception of VISTA',
+    title: 'The Inception of Field Inventory Management',
     desc: 'Engineered in response to healthcare supply bottlenecks to create an error-free, real-time inventory tracking system.',
   },
   {

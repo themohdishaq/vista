@@ -4,8 +4,8 @@ import "./globals.css";
 import { PublicShell } from "@/components/layout/PublicShell";
 
 export const metadata: Metadata = {
-  title: "VISTA | Vendor Inventory, Shipment & Tracking Application",
-  description: "VISTA is a smart inventory management portal for real-time warehouse control, stock tracking, and orders.",
+  title: "Field Inventory Management | Smart Warehouse Control & Logistics",
+  description: "Field Inventory Management is an enterprise inventory portal for real-time warehouse control, stock tracking, and logistics.",
 };
 
 export default function RootLayout({

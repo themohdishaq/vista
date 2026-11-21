@@ -1,6 +1,6 @@
 // filepath: app/api/warehouses/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { getCurrentSession } from '@/lib/auth';
+import { getAuthScope } from '@/lib/auth-scope';
 import { getWarehouseById, updateWarehouse, softDeleteWarehouse } from '@/lib/services/warehouse-service';
 
 export const dynamic = 'force-dynamic';
@@ -11,11 +11,21 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const session = await getCurrentSession();
+    const scope = await getAuthScope();
+
+    // Strict role scoping check
+    if (!scope.isAdmin) {
+      if (scope.isUnassigned || scope.warehouseId !== id) {
+        return NextResponse.json(
+          { success: false, message: 'Forbidden: You do not have permission to access another warehouse.' },
+          { status: 403 }
+        );
+      }
+    }
 
     const warehouse = await getWarehouseById(id, {
-      userRole: session?.user.role,
-      assignedWarehouseId: (session?.user as any)?.assignedWarehouseId,
+      userRole: scope.isAdmin ? 'super_admin' : scope.role || 'staff',
+      assignedWarehouseId: scope.warehouseId,
     });
 
     if (!warehouse) {
@@ -35,8 +45,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const session = await getCurrentSession();
-    if (session?.user.role !== 'admin') {
+    const scope = await getAuthScope();
+    if (!scope.isAdmin) {
       return NextResponse.json({ success: false, message: 'Forbidden: Super Admin only.' }, { status: 403 });
     }
 
@@ -54,13 +64,13 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const session = await getCurrentSession();
-    if (session?.user.role !== 'admin') {
+    const scope = await getAuthScope();
+    if (!scope.isAdmin) {
       return NextResponse.json({ success: false, message: 'Forbidden: Super Admin only.' }, { status: 403 });
     }
 
     await softDeleteWarehouse(id);
-    return NextResponse.json({ success: true, message: 'Warehouse archived successfully.' });
+    return NextResponse.json({ success: true, message: 'Warehouse deleted.' });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 400 });
   }

@@ -282,10 +282,24 @@ export function UsersTable({
 
                   {/* Assigned Warehouse */}
                   <td className="py-3 px-4 text-slate-700 font-medium">
-                    <div className="flex items-center gap-1.5 max-w-[200px] truncate" title={user.warehouseAccess || 'Unassigned'}>
-                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{user.warehouseAccess || 'Unassigned'}</span>
-                    </div>
+                    {isAdmin ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                        All Facilities
+                      </span>
+                    ) : user.warehouseAccess &&
+                      user.warehouseAccess !== 'Unassigned Facility' &&
+                      user.warehouseAccess !== 'Unassigned' &&
+                      user.warehouseAccess !== 'All Facilities (Super Admin)' ? (
+                      <div className="flex items-center gap-1.5 max-w-[220px] truncate" title={user.warehouseAccess}>
+                        <Building2 className="w-3.5 h-3.5 text-[#008a90] shrink-0" />
+                        <span className="truncate font-semibold text-slate-800 text-xs">{user.warehouseAccess}</span>
+                      </div>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        Unassigned
+                      </span>
+                    )}
                   </td>
 
                   {/* Phone */}

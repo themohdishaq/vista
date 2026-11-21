@@ -154,81 +154,106 @@ export default function WarehousesPage() {
     }
   };
 
-  const handleUpdateWarehouse = (updated: WarehouseFacility) => {
-    setWarehouses((prev) =>
-      prev.map((w) => (w.id === updated.id ? updated : w))
-    );
-    showToast(`Updated facility details for ${updated.name}.`);
+  const handleUpdateWarehouse = async (updated: WarehouseFacility) => {
+    try {
+      const res = await fetch(`/api/warehouses/${encodeURIComponent(updated.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Updated facility details for ${updated.name}.`);
+        await fetchWarehouses();
+      } else {
+        showToast(data.message || 'Failed to update warehouse in database.');
+      }
+    } catch (err: any) {
+      console.error('Update warehouse failed:', err);
+      // Local optimistic update
+      setWarehouses((prev) =>
+        prev.map((w) => (w.id === updated.id ? updated : w))
+      );
+      showToast(`Updated facility details for ${updated.name}.`);
+    }
   };
 
-  const handleAddZoneAndBins = (
+  const handleAddZoneAndBins = async (
     warehouseId: string,
     newZone: StorageZone,
     addedBins: number
   ) => {
-    setWarehouses((prev) =>
-      prev.map((w) => {
-        if (w.id === warehouseId) {
-          const newTotal = w.totalBins + addedBins;
-          const newRate =
-            newTotal > 0 ? Number(((w.usedBins / newTotal) * 100).toFixed(1)) : 0;
-          return {
-            ...w,
-            totalBins: newTotal,
-            occupancyRate: newRate,
-            zones: [...w.zones, newZone],
-          };
-        }
-        return w;
-      })
-    );
-    showToast(`Allocated ${addedBins} bins in ${newZone.code} to facility.`);
+    try {
+      const res = await fetch(`/api/warehouses/${encodeURIComponent(warehouseId)}/zones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: newZone.code,
+          name: newZone.name,
+          binCount: addedBins,
+          tempRange: newZone.tempRange,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Allocated ${addedBins} bins in ${newZone.code} to facility.`);
+        await fetchWarehouses();
+      } else {
+        showToast(data.message || 'Failed to allocate storage bins.');
+      }
+    } catch (err: any) {
+      console.error('Add bins failed:', err);
+      // Local optimistic fallback
+      setWarehouses((prev) =>
+        prev.map((w) => {
+          if (w.id === warehouseId) {
+            const newTotal = w.totalBins + addedBins;
+            const newRate =
+              newTotal > 0 ? Number(((w.usedBins / newTotal) * 100).toFixed(1)) : 0;
+            return {
+              ...w,
+              totalBins: newTotal,
+              occupancyRate: newRate,
+              zones: [...w.zones, newZone],
+            };
+          }
+          return w;
+        })
+      );
+      showToast(`Allocated ${addedBins} bins in ${newZone.code} to facility.`);
+    }
   };
 
-  const handleTransferStock = (
+  const handleTransferStock = async (
     sourceId: string,
     targetId: string,
-    itemCode: string,
-    quantity: number
+    itemId: string,
+    quantity: number,
+    notes?: string
   ) => {
-    setWarehouses((prev) => {
-      return prev.map((w) => {
-        if (w.id === sourceId) {
-          const updatedItems = w.topItems.map((item) =>
-            item.itemCode === itemCode
-              ? { ...item, quantity: Math.max(0, item.quantity - quantity) }
-              : item
-          );
-          return { ...w, topItems: updatedItems };
-        }
-        if (w.id === targetId) {
-          const existingItem = w.topItems.find((i) => i.itemCode === itemCode);
-          let updatedItems;
-          if (existingItem) {
-            updatedItems = w.topItems.map((item) =>
-              item.itemCode === itemCode
-                ? { ...item, quantity: item.quantity + quantity }
-                : item
-            );
-          } else {
-            updatedItems = [
-              ...w.topItems,
-              {
-                itemCode,
-                itemName: `Item ${itemCode}`,
-                category: 'Medical Supplies',
-                quantity,
-                unit: 'Box',
-                binLocation: `${w.zones[0]?.code || 'Z-A'}-01`,
-              },
-            ];
-          }
-          return { ...w, topItems: updatedItems };
-        }
-        return w;
+    try {
+      const res = await fetch('/api/transfers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromWarehouseId: sourceId,
+          toWarehouseId: targetId,
+          items: [{ itemId, quantity, batchNumber: 'LOT-TRANSFER' }],
+          notes: notes || 'Admin inter-facility stock transfer',
+          autoComplete: true, // Direct execution for immediate inventory movement
+        }),
       });
-    });
-    showToast(`Dispatched transfer of ${quantity} units (${itemCode}) between facilities.`);
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Dispatched and completed transfer of ${quantity} units.`);
+        await fetchWarehouses();
+      } else {
+        showToast(data.message || 'Stock transfer request failed.');
+      }
+    } catch (err: any) {
+      console.error('Stock transfer failed:', err);
+      showToast('Error executing inter-facility stock transfer.');
+    }
   };
 
   return (

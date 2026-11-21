@@ -2,9 +2,9 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'User Management | VISTA Portal',
+  title: 'User Management | Field Inventory Management',
   description:
-    'Manage users, roles, security permissions, and operational credentials across VISTA.',
+    'Manage users, roles, security permissions, and operational credentials across Field Inventory Management.',
 };
 
 export default function UsersLayout({

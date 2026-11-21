@@ -60,22 +60,6 @@ export default function UserManagementPage() {
       if (data.success && Array.isArray(data.data)) {
         liveList = data.data;
       }
-
-      // Merge with custom users saved in localStorage as a client-side safety net
-      if (typeof window !== 'undefined') {
-        try {
-          const stored: UserRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-          if (Array.isArray(stored) && stored.length > 0) {
-            const existingIds = new Set(liveList.map((u) => u.id));
-            const existingEmails = new Set(liveList.map((u) => u.email.toLowerCase()));
-            const newToAdd = stored.filter(
-              (s) => !existingIds.has(s.id) && !existingEmails.has(s.email.toLowerCase())
-            );
-            liveList = [...newToAdd, ...liveList];
-          }
-        } catch {}
-      }
-
       setUsers(liveList);
     } catch (e) {
       console.error('Failed to fetch live users:', e);
@@ -119,15 +103,16 @@ export default function UserManagementPage() {
     phone?: string;
     status: UserStatus;
   }) => {
-    const selectedWh = warehouses.find((w) => w.id === userData.warehouseId);
-    const facilityName =
-      userData.warehouseAccess ||
-      (selectedWh
-        ? `${selectedWh.code ? `[${selectedWh.code}] ` : ''}${selectedWh.name}`
-        : 'Main Central Warehouse');
+    const selectedWh = warehouses.find(
+      (w) => w.id === userData.warehouseId || w.code === userData.warehouseId || w.name === userData.warehouseId
+    );
+    const facilityName = selectedWh
+      ? `${selectedWh.code ? `[${selectedWh.code}] ` : ''}${selectedWh.name}`
+      : 'Unassigned Facility';
 
     const payload = {
       ...userData,
+      warehouseId: selectedWh ? selectedWh.id : (userData.warehouseId || null),
       warehouseAccess: facilityName,
     };
 
@@ -142,38 +127,9 @@ export default function UserManagementPage() {
       throw new Error(data.message || 'Failed to create user account.');
     }
 
-    const createdRecord: UserRecord = data.user || {
-      id: data.id || `usr-${Date.now()}`,
-      fullName: userData.fullName,
-      username: userData.email.toLowerCase(),
-      email: userData.email.toLowerCase(),
-      role: userData.role,
-      status: userData.status,
-      lastLogin: 'Never',
-      phone: userData.phone || '+1 (555) 000-0000',
-      warehouseId: userData.warehouseId,
-      warehouseAccess: facilityName,
-      permissionsCount: userData.role === 'Inventory Manager' ? 36 : 18,
-    };
-
-    // 1. Immediately prepend to table at index 0 so user is visibly at top of list
-    setUsers((prev) => [createdRecord, ...prev.filter((u) => u.id !== createdRecord.id)]);
-
-    // 2. Persist in localStorage
-    if (typeof window !== 'undefined') {
-      try {
-        const stored: UserRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        const updated = [
-          createdRecord,
-          ...stored.filter((u) => u.id !== createdRecord.id && u.email !== createdRecord.email),
-        ];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch {}
-    }
-
-    // 3. Reset role filter so new account is not hidden
+    // Refresh live users list from DB
+    await fetchUsers();
     setRoleFilter('All');
-
     showToast(`Account for ${userData.fullName} created successfully.`, 'success');
   };
 
@@ -187,53 +143,18 @@ export default function UserManagementPage() {
     status: UserStatus;
     password?: string;
   }) => {
-    const selectedWh = warehouses.find((w) => w.id === updatedData.warehouseId);
+    const selectedWh = warehouses.find(
+      (w) => w.id === updatedData.warehouseId || w.code === updatedData.warehouseId || w.name === updatedData.warehouseId
+    );
     const facilityName = selectedWh
       ? `${selectedWh.code ? `[${selectedWh.code}] ` : ''}${selectedWh.name}`
-      : 'Main Central Warehouse';
+      : 'Unassigned Facility';
 
     const fullPayload = {
       ...updatedData,
+      warehouseId: selectedWh ? selectedWh.id : (updatedData.warehouseId || null),
       warehouseAccess: facilityName,
     };
-
-    // Optimistic UI update
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === updatedData.id
-          ? {
-              ...u,
-              fullName: updatedData.fullName,
-              role: updatedData.role,
-              warehouseId: updatedData.warehouseId,
-              warehouseAccess: facilityName,
-              phone: updatedData.phone || u.phone,
-              status: updatedData.status,
-            }
-          : u
-      )
-    );
-
-    // Update in localStorage
-    if (typeof window !== 'undefined') {
-      try {
-        const stored: UserRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        const updated = stored.map((u) =>
-          u.id === updatedData.id
-            ? {
-                ...u,
-                fullName: updatedData.fullName,
-                role: updatedData.role,
-                warehouseId: updatedData.warehouseId,
-                warehouseAccess: facilityName,
-                phone: updatedData.phone || u.phone,
-                status: updatedData.status,
-              }
-            : u
-        );
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch {}
-    }
 
     try {
       const res = await fetch(`/api/users/${updatedData.id}`, {
@@ -247,6 +168,8 @@ export default function UserManagementPage() {
         throw new Error(data.message || 'Failed to update user profile.');
       }
 
+      // Refresh live users list from DB
+      await fetchUsers();
       showToast(`Account for ${updatedData.fullName} updated.`, 'success');
     } catch (err: any) {
       showToast(err.message || 'Failed to update user profile.', 'error');
@@ -395,7 +318,10 @@ export default function UserManagementPage() {
         {/* Right: Only the Primary + Add User Action */}
         <div className="flex items-center gap-2.5">
           <button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => {
+              fetchWarehouses();
+              setIsAddModalOpen(true);
+            }}
             className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#008a90] hover:bg-[#00747a] rounded-xl shadow-xs transition-colors cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />
@@ -425,7 +351,10 @@ export default function UserManagementPage() {
         roleFilter={roleFilter}
         onRoleFilterChange={setRoleFilter}
         onViewUser={(u) => setViewingUser(u)}
-        onEditUser={(u) => setEditingUser(u)}
+        onEditUser={(u) => {
+          fetchWarehouses();
+          setEditingUser(u);
+        }}
         onToggleStatus={handleToggleStatus}
         onDeleteUser={handleDeleteUser}
         onApproveUser={handleApproveUser}

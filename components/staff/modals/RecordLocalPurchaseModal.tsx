@@ -15,27 +15,32 @@ import {
   DollarSign,
   Building,
 } from 'lucide-react';
+import { AssignedBinItem } from '@/types/staff';
 
 interface RecordLocalPurchaseModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRecordPurchase: (purchaseData: any) => void;
+  operatorName?: string;
+  bins?: AssignedBinItem[];
 }
 
 export function RecordLocalPurchaseModal({
   isOpen,
   onClose,
   onRecordPurchase,
+  operatorName = 'Staff Specialist',
+  bins = [],
 }: RecordLocalPurchaseModalProps) {
-  const [vendorName, setVendorName] = useState('Metro Chemist & MedSupplies');
-  const [invoiceNo, setInvoiceNo] = useState(`LOC-${Math.floor(1000 + Math.random() * 9000)}`);
-  const [itemDescription, setItemDescription] = useState('Saline Solution 0.9% 500ml');
-  const [quantity, setQuantity] = useState('20');
-  const [unit, setUnit] = useState('Bottle');
-  const [amount, setAmount] = useState('180.00');
+  const [vendorName, setVendorName] = useState('');
+  const [invoiceNo, setInvoiceNo] = useState('');
+  const [itemDescription, setItemDescription] = useState('');
+  const [quantity, setQuantity] = useState('10');
+  const [unit, setUnit] = useState('Unit');
+  const [amount, setAmount] = useState('50.00');
   const [paymentMode, setPaymentMode] = useState('Petty Cash');
-  const [targetBin, setTargetBin] = useState('Bin A-03 (Quarantine)');
-  const [reason, setReason] = useState('Urgent floor depletion during weekend hours; approved under emergency local procurement threshold.');
+  const [targetBin, setTargetBin] = useState(bins.length > 0 ? bins[0].binCode : 'Bin A-01');
+  const [reason, setReason] = useState('Urgent floor stock depletion; emergency spot purchase.');
 
   if (!isOpen) return null;
 
@@ -43,17 +48,17 @@ export function RecordLocalPurchaseModal({
     e.preventDefault();
     const payload = {
       id: `pur-${Date.now()}`,
-      vendorName,
-      invoiceNo,
-      itemDescription,
+      vendorName: vendorName.trim() || 'Local Approved Chemist',
+      invoiceNo: invoiceNo.trim() || `LOC-${Math.floor(1000 + Math.random() * 9000)}`,
+      itemDescription: itemDescription.trim(),
       quantity: parseInt(quantity, 10) || 1,
       unit,
       amount: parseFloat(amount) || 0,
       paymentMode,
       targetBin,
       reason,
-      recordedBy: 'Mike Chen (Floor Specialist)',
-      status: 'Pending Manager Approval',
+      recordedBy: operatorName,
+      status: 'Pending Manager Review',
       date: new Date().toLocaleDateString('en-US'),
     };
 
@@ -100,18 +105,20 @@ export function RecordLocalPurchaseModal({
                 required
                 value={vendorName}
                 onChange={(e) => setVendorName(e.target.value)}
+                placeholder="e.g. City Medical Supplier"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs focus:border-[#008a90] focus:bg-white focus:outline-none"
               />
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Receipt / Invoice #
+                Vendor Receipt #
               </label>
               <input
                 type="text"
                 required
                 value={invoiceNo}
                 onChange={(e) => setInvoiceNo(e.target.value)}
+                placeholder="e.g. REC-8492"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 font-mono text-xs focus:border-[#008a90] focus:bg-white focus:outline-none"
               />
             </div>
@@ -119,13 +126,14 @@ export function RecordLocalPurchaseModal({
 
           <div>
             <label className="block font-semibold text-slate-700 mb-1">
-              Purchased Item Description
+              Item Purchased
             </label>
             <input
               type="text"
               required
               value={itemDescription}
               onChange={(e) => setItemDescription(e.target.value)}
+              placeholder="e.g. Emergency Sterile Saline Solution 500ml"
               className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
             />
           </div>
@@ -141,34 +149,32 @@ export function RecordLocalPurchaseModal({
                 required
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 font-mono text-xs font-bold focus:border-[#008a90] focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 font-mono text-xs font-bold focus:border-[#008a90] focus:bg-white focus:outline-none"
               />
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
                 Unit
               </label>
-              <select
+              <input
+                type="text"
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
-              >
-                <option value="Bottle">Bottle</option>
-                <option value="Box">Box</option>
-                <option value="Pack">Pack</option>
-                <option value="Unit">Unit</option>
-              </select>
+              />
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Total Cost ($)
+                Total Amount ($)
               </label>
               <input
-                type="text"
+                type="number"
+                step="0.01"
+                min="0"
                 required
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 font-mono text-xs font-bold text-emerald-600 focus:border-[#008a90] focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 font-mono text-xs font-bold text-emerald-700 focus:border-[#008a90] focus:bg-white focus:outline-none"
               />
             </div>
           </div>
@@ -176,35 +182,48 @@ export function RecordLocalPurchaseModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Payment Method
+                Payment Channel
               </label>
               <select
                 value={paymentMode}
                 onChange={(e) => setPaymentMode(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
               >
-                <option value="Petty Cash">Petty Cash Voucher</option>
-                <option value="Emergency Card">Emergency Hospital Card</option>
-                <option value="Net 30 Invoice">Vendor Net 30 Invoice</option>
+                <option value="Petty Cash">Facility Petty Cash</option>
+                <option value="Corporate Card">Corporate Card</option>
+                <option value="Direct Invoiced">Direct Invoiced</option>
               </select>
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Placed In Location
+                Receiving Bay
               </label>
-              <input
-                type="text"
-                required
-                value={targetBin}
-                onChange={(e) => setTargetBin(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 font-mono text-xs focus:border-[#008a90] focus:outline-none"
-              />
+              {bins.length > 0 ? (
+                <select
+                  value={targetBin}
+                  onChange={(e) => setTargetBin(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
+                >
+                  {bins.map((b) => (
+                    <option key={b.binCode} value={b.binCode}>
+                      {b.binCode}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={targetBin}
+                  onChange={(e) => setTargetBin(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
+                />
+              )}
             </div>
           </div>
 
           <div>
             <label className="block font-semibold text-slate-700 mb-1">
-              Purchase Reason & Hospital Justification
+              Procurement Justification
             </label>
             <textarea
               rows={2}
@@ -216,25 +235,29 @@ export function RecordLocalPurchaseModal({
           </div>
 
           {/* Action Buttons */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 rounded-xl bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Submit for Manager Approval</span>
-            </button>
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-[11px] text-slate-400">
+              Purchaser: <strong className="text-slate-600">{operatorName}</strong>
+            </span>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Submit for Manager Review</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>
     </div>
   );
 }
-

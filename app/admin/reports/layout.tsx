@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Reports & Analytics | VISTA Portal',
+  title: 'Reports & Analytics | Field Inventory Management',
   description:
     'Comprehensive insights into inventory performance, turnover rates, warehouse distributions, and scheduled audits.',
 };

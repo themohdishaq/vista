@@ -48,7 +48,7 @@ export function StockRequestDetailsCard({
   // Real client-side text/PDF download
   const handleDownloadPDF = () => {
     const content = `=====================================================
-VISTA OFFICIAL STOCK REQUEST DOSSIER
+FIELD INVENTORY MANAGEMENT STOCK REQUEST DOSSIER
 =====================================================
 Request Voucher ID:   ${request.requestId}
 Submission Timestamp: ${request.dateTime}
@@ -79,7 +79,7 @@ Fulfillment Status:   ${request.fulfillmentStatus}
 
 =====================================================
 DIGITAL AUTHENTICATION KEY:
-VISTA-SR-SECURE-${request.requestId}-${Date.now().toString(36).toUpperCase()}
+FIM-SR-SECURE-${request.requestId}-${Date.now().toString(36).toUpperCase()}
 =====================================================`;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });

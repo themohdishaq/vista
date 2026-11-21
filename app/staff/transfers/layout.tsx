@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Internal Stock Movements | VISTA Staff',
+  title: 'Internal Stock Movements | Field Inventory Staff',
   description:
     'Execute approved inter-bin and cross-dock stock relocations.',
 };

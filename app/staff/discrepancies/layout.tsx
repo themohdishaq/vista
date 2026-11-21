@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Report Shortages & Discrepancies | VISTA Staff',
+  title: 'Report Shortages & Discrepancies | Field Inventory Staff',
   description:
     'Report receiving shortages, package damages, and shelf count variances.',
 };

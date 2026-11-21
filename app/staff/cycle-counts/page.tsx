@@ -75,8 +75,6 @@ export default function StaffCycleCountsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          warehouseId: 'wh-001',
-          warehouseName: 'Central Medical Store (Kathmandu)',
           itemId: record.itemCode,
           itemCode: record.itemCode,
           itemName: record.itemName,
@@ -121,7 +119,7 @@ export default function StaffCycleCountsPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encodedUri;
-    link.download = `VISTA-Cycle-Counts-${Date.now()}.csv`;
+    link.download = `FIM-Cycle-Counts-${Date.now()}.csv`;
     link.click();
     showToast('Exported cycle counts ledger to CSV.');
   };

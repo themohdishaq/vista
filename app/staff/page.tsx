@@ -73,7 +73,17 @@ export default function StaffDashboard() {
   const [activeOrder, setActiveOrder] = useState<any | null>(null);
   const [kpis, setKpis] = useState<StaffKPIData | null>(null);
   const [operatorName, setOperatorName] = useState<string>('Staff Specialist');
-  const [shiftInfo, setShiftInfo] = useState({
+  const [assignedWarehouseId, setAssignedWarehouseId] = useState<string | null>(null);
+  const [isUnassigned, setIsUnassigned] = useState(false);
+  const [shiftInfo, setShiftInfo] = useState<{
+    shiftName: string;
+    shiftHours: string;
+    warehouseName: string;
+    zoneName: string;
+    managerName?: string;
+    managerPhone?: string;
+    managerEmail?: string;
+  }>({
     shiftName: 'Morning Shift',
     shiftHours: '06:00 - 14:30',
     warehouseName: 'Central Medical Store (Kathmandu)',
@@ -107,8 +117,27 @@ export default function StaffDashboard() {
   const fetchStaffData = async () => {
     try {
       setIsLoading(true);
+
+      // 1. Check current user session for operator name & warehouse scope
+      const sessionRes = await fetch('/api/auth/me').then((r) => r.json()).catch(() => ({}));
+      if (sessionRes.authenticated) {
+        if (sessionRes.user?.name) setOperatorName(sessionRes.user.name);
+        setIsUnassigned(Boolean(sessionRes.isUnassigned));
+        setAssignedWarehouseId(sessionRes.warehouseId || null);
+        if (sessionRes.warehouseName) {
+          setShiftInfo((prev) => ({
+            ...prev,
+            warehouseName: sessionRes.warehouseName,
+          }));
+        }
+      }
+
+      // 2. Fetch staff dashboard data
       const res = await fetch('/api/staff/dashboard');
       const json = await res.json();
+      if (json.unassigned) {
+        setIsUnassigned(true);
+      }
       if (json.success && json.data) {
         setBins(json.data.bins || []);
         setTasks(json.data.tasks || []);
@@ -118,12 +147,6 @@ export default function StaffDashboard() {
         if (json.data.shiftInfo) {
           setShiftInfo(json.data.shiftInfo);
         }
-      }
-
-      // Check current user session for operator name
-      const sessionRes = await fetch('/api/auth/me').then((r) => r.json()).catch(() => ({}));
-      if (sessionRes.user?.name) {
-        setOperatorName(sessionRes.user.name);
       }
     } catch (e) {
       console.error('Failed to load staff dashboard telemetry:', e);
@@ -273,7 +296,7 @@ export default function StaffDashboard() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            warehouseId: 'wh-001',
+            warehouseId: assignedWarehouseId || 'wh-001',
             itemId: firstItem.itemCode,
             quantity: firstItem.qtyPicked || 50,
             batchNumber: firstItem.batchNo || 'LOT-GENERAL',
@@ -291,12 +314,17 @@ export default function StaffDashboard() {
   };
 
   const handleRecordReceived = async (record: ReceivedInventoryRecord) => {
+    if (isUnassigned || !assignedWarehouseId) {
+      showToast('You must be assigned to a warehouse before receiving inventory.');
+      return;
+    }
+
     try {
       await fetch('/api/movements/receive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          warehouseId: 'wh-001',
+          warehouseId: assignedWarehouseId,
           itemId: record.itemCode,
           quantity: record.quantityReceived,
           batchNumber: record.batchNo,
@@ -315,12 +343,17 @@ export default function StaffDashboard() {
   };
 
   const handleRecordIssued = async (record: StockIssueRecord) => {
+    if (isUnassigned || !assignedWarehouseId) {
+      showToast('You must be assigned to a warehouse before issuing stock.');
+      return;
+    }
+
     try {
       await fetch('/api/movements/issue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          warehouseId: 'wh-001',
+          warehouseId: assignedWarehouseId,
           itemId: record.itemCode,
           quantity: record.quantityIssued,
           batchNumber: record.batchNo,
@@ -337,12 +370,17 @@ export default function StaffDashboard() {
   };
 
   const handleRecordCycleCount = async (record: CycleCountRecord) => {
+    if (isUnassigned || !assignedWarehouseId) {
+      showToast('You must be assigned to a warehouse before recording cycle counts.');
+      return;
+    }
+
     try {
       await fetch('/api/adjustments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          warehouseId: 'wh-001',
+          warehouseId: assignedWarehouseId,
           warehouseName: shiftInfo.warehouseName,
           itemId: record.itemCode,
           itemCode: record.itemCode,
@@ -440,6 +478,24 @@ export default function StaffDashboard() {
         </div>
       )}
 
+      {/* Unassigned Warning Banner */}
+      {isUnassigned && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-xs">
+          <div className="flex items-start gap-3.5">
+            <div className="rounded-xl bg-amber-500/10 p-2 text-amber-600 font-bold text-lg">
+              ⚠️
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-amber-900">No Warehouse Facility Assigned</h3>
+              <p className="mt-1 text-xs text-amber-700 leading-relaxed">
+                Your staff profile has not yet been assigned to a warehouse facility.
+                Active picking orders, storage bins, receiving docks, and cycle count tasks are accessible only after a facility is assigned by your warehouse manager or Super Administrator.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-[#071927] via-[#0b283d] to-[#071927] p-6 text-white shadow-md border border-slate-800">
         <div className="space-y-1.5">
@@ -452,6 +508,20 @@ export default function StaffDashboard() {
               <MapPin className="w-3.5 h-3.5 text-sky-400" />
               <span>{shiftInfo.warehouseName} • {shiftInfo.zoneName}</span>
             </div>
+            {shiftInfo.managerName && (
+              <>
+                <span className="text-slate-400">•</span>
+                <div className="flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-lg">
+                  <span className="text-slate-300">Facility Manager:</span>
+                  <strong className="text-white font-semibold">{shiftInfo.managerName}</strong>
+                  {(shiftInfo.managerPhone || shiftInfo.managerEmail) && (
+                    <span className="text-emerald-400 font-mono text-[11px]">
+                      • {shiftInfo.managerPhone || shiftInfo.managerEmail}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
           <h1 className="font-sans text-2xl font-black tracking-tight text-white">
             Floor Operations &amp; Inventory Workstation
@@ -567,6 +637,9 @@ export default function StaffDashboard() {
         isOpen={isReceiveOpen}
         onClose={() => setIsReceiveOpen(false)}
         onRecordReceived={handleRecordReceived}
+        operatorName={operatorName}
+        assignedWarehouseId={assignedWarehouseId}
+        bins={bins}
       />
 
       <IssueStockModal
@@ -574,6 +647,9 @@ export default function StaffDashboard() {
         onClose={() => setIsIssueOpen(false)}
         defaultRef={issueRef}
         onRecordIssued={handleRecordIssued}
+        operatorName={operatorName}
+        assignedWarehouseId={assignedWarehouseId}
+        bins={bins}
       />
 
       <CycleCountModal
@@ -584,43 +660,86 @@ export default function StaffDashboard() {
         }}
         targetBin={targetBinForCount}
         onRecordCount={handleRecordCycleCount}
+        operatorName={operatorName}
+        bins={bins}
       />
 
-      <SubmitRequestModal
-        isOpen={isRequestOpen}
-        onClose={() => {
-          setIsRequestOpen(false);
-          setTargetBinForRequest(null);
-        }}
-        targetBin={targetBinForRequest}
-        onSubmitRequest={async () => {
-          showToast('Stock replenishment request submitted to Manager for approval.');
-          fetchStaffData();
-        }}
-      />
+      {isRequestOpen && (
+        <SubmitRequestModal
+          isOpen={isRequestOpen}
+          onClose={() => {
+            setIsRequestOpen(false);
+            setTargetBinForRequest(null);
+          }}
+          targetBin={targetBinForRequest}
+          operatorName={operatorName}
+          bins={bins}
+          warehouseName={shiftInfo.warehouseName}
+          warehouseId={assignedWarehouseId || undefined}
+          managerName={shiftInfo.managerName}
+          onSubmitRequest={async (reqData) => {
+            try {
+              const res = await fetch('/api/requests', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  warehouseId: reqData.warehouseId || assignedWarehouseId,
+                  itemId: reqData.itemId || reqData.itemCode,
+                  itemCode: reqData.itemCode,
+                  itemName: reqData.itemName,
+                  quantity: reqData.quantity,
+                  requestedQuantity: reqData.quantity,
+                  priority: reqData.priority,
+                  urgency: reqData.priority === 'Urgent' ? 'Urgent' : 'Normal',
+                  department: reqData.warehouseName || shiftInfo.warehouseName,
+                  requiredBy: reqData.requiredBy,
+                  purpose: reqData.reason || `Floor replenishment requested for ${reqData.binCode}`,
+                  notes: reqData.reason || `Floor replenishment requested for ${reqData.binCode}`,
+                }),
+              });
+              const json = await res.json();
+              if (json.success) {
+                showToast(`Stock replenishment request for ${reqData.quantity} units submitted to Manager (${reqData.assignedManager || shiftInfo.managerName || 'Assigned Manager'}) for approval.`);
+              } else {
+                showToast(json.message || 'Error submitting replenishment request.');
+              }
+              fetchStaffData();
+            } catch {
+              showToast('Error submitting replenishment request.');
+            }
+          }}
+        />
+      )}
 
       <LogDamagedModal
         isOpen={isDamagedOpen}
         onClose={() => setIsDamagedOpen(false)}
         onRecordIncident={handleRecordIncident}
+        operatorName={operatorName}
+        bins={bins}
       />
 
       <KitPackerModal
         isOpen={isKitPackerOpen}
         onClose={() => setIsKitPackerOpen(false)}
         onRecordKitPacked={handleRecordKitPacked}
+        operatorName={operatorName}
       />
 
       <RecordLocalPurchaseModal
         isOpen={isPurchaseOpen}
         onClose={() => setIsPurchaseOpen(false)}
         onRecordPurchase={handleRecordPurchase}
+        operatorName={operatorName}
+        bins={bins}
       />
 
       <ReportShortageModal
         isOpen={isShortageOpen}
         onClose={() => setIsShortageOpen(false)}
         onRecordShortage={handleRecordIncident}
+        operatorName={operatorName}
+        bins={bins}
       />
     </div>
   );

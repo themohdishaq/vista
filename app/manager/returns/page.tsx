@@ -3,7 +3,7 @@
 
 /**
  * @file app/manager/returns/page.tsx
- * @description Dedicated Clinical Returns, Consumption & Quarantine Review for VISTA Inventory Manager.
+ * @description Dedicated Field Returns, Consumption & Quarantine Review for Field Inventory Manager.
  * Fulfills Responsibility 7: "Review consumption, returns and local purchases."
  * Live real-time integration with /api/returns and PostgreSQL dual-persistence store.
  * Zero static or hardcoded dummy fallback data.
@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { ReturnReviewRecord, ReturnReviewType, ReturnCondition } from '@/lib/services/return-service';
 
-const VISTA_WAREHOUSES = [
+const FIM_WAREHOUSES = [
   'Central Medical Store (Kathmandu)',
   'Pokhara Regional Depot',
   'Biratnagar Distribution Depot',
@@ -39,7 +39,7 @@ const VISTA_WAREHOUSES = [
   'Dhangadhi Regional Depot',
 ];
 
-const VISTA_ITEMS_CATALOG = [
+const FIM_ITEMS_CATALOG = [
   { id: 'item-001', code: 'VST-001', name: 'Surgical Mask 3-Ply', unit: 'Box', cost: 18.5 },
   { id: 'item-002', code: 'VST-002', name: 'Examination Gloves (Nitrile)', unit: 'Box', cost: 22.0 },
   { id: 'item-003', code: 'VST-003', name: 'Gauze Bandage 10cm x 5m', unit: 'Roll', cost: 12.0 },
@@ -49,7 +49,7 @@ const VISTA_ITEMS_CATALOG = [
   { id: 'item-007', code: 'VST-007', name: 'Digital Infrared Thermometer', unit: 'Unit', cost: 450.0 },
   { id: 'item-008', code: 'VST-008', name: 'Blood Pressure Monitor Digital', unit: 'Unit', cost: 850.0 },
   { id: 'item-009', code: 'VST-009', name: 'Hand Sanitizer Gel 500ml', unit: 'Bottle', cost: 45.0 },
-  { id: 'item-010', code: 'VST-010', name: 'Hospital Disinfectant 5L', unit: 'Canister', cost: 180.0 },
+  { id: 'item-010', code: 'VST-010', name: 'Industrial Disinfectant 5L', unit: 'Canister', cost: 180.0 },
 ];
 
 export default function ManagerReturnsPage() {
@@ -63,14 +63,14 @@ export default function ManagerReturnsPage() {
 
   // Modal State for New Return
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<ReturnReviewType>('Ward Return');
-  const [modalWarehouse, setModalWarehouse] = useState(VISTA_WAREHOUSES[0]);
-  const [modalOrigin, setModalOrigin] = useState('Emergency Trauma Ward');
-  const [modalItemId, setModalItemId] = useState(VISTA_ITEMS_CATALOG[0].id);
+  const [modalType, setModalType] = useState<ReturnReviewType>('Field Return');
+  const [modalWarehouse, setModalWarehouse] = useState(FIM_WAREHOUSES[0]);
+  const [modalOrigin, setModalOrigin] = useState('Field Site Alpha');
+  const [modalItemId, setModalItemId] = useState(FIM_ITEMS_CATALOG[0].id);
   const [modalBatch, setModalBatch] = useState('LOT-GENERAL-2026');
   const [modalQuantity, setModalQuantity] = useState(25);
   const [modalCondition, setModalCondition] = useState<ReturnCondition>('Intact / Sealed');
-  const [modalReason, setModalReason] = useState('Unopened surplus returned after department clinical shift.');
+  const [modalReason, setModalReason] = useState('Unopened surplus returned after field deployment.');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Disposition Action Modal
@@ -142,14 +142,14 @@ export default function ManagerReturnsPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const selectedItem = VISTA_ITEMS_CATALOG.find((i) => i.id === modalItemId) || VISTA_ITEMS_CATALOG[0];
+      const selectedItem = FIM_ITEMS_CATALOG.find((i) => i.id === modalItemId) || FIM_ITEMS_CATALOG[0];
       const res = await fetch('/api/returns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: modalType,
           origin: modalOrigin,
-          warehouseId: `wh-00${VISTA_WAREHOUSES.indexOf(modalWarehouse) + 1}`,
+          warehouseId: `wh-00${FIM_WAREHOUSES.indexOf(modalWarehouse) + 1}`,
           warehouseName: modalWarehouse,
           itemId: selectedItem.id,
           itemCode: selectedItem.code,
@@ -223,7 +223,7 @@ export default function ManagerReturnsPage() {
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Returns-Quarantine-Audit-${Date.now()}.csv`;
+    link.download = `FIM-Returns-Quarantine-Audit-${Date.now()}.csv`;
     link.click();
     showToast('Exported returns and quarantine ledger to CSV.');
   };
@@ -254,7 +254,7 @@ export default function ManagerReturnsPage() {
   const quarantineLossValue = reviews
     .filter((r) => r.status === 'Quarantined for Disposal')
     .reduce((acc, r) => acc + (r.estimatedValue || 0), 0);
-  const wardReturnsCount = reviews.filter((r) => r.type === 'Ward Return').length;
+  const wardReturnsCount = reviews.filter((r) => r.type === 'Field Return' || r.type === 'Ward Return').length;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -282,14 +282,14 @@ export default function ManagerReturnsPage() {
             <span className="text-slate-300">•</span>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
               <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-              <span>Reverse Logistics &amp; Clinical Quarantine Control</span>
+              <span>Reverse Logistics &amp; Operational Quarantine Control</span>
             </div>
           </div>
           <h1 className="font-sans text-2xl font-black tracking-tight text-[#0a2540] mt-1">
-            Returns, Clinical Consumption &amp; Quarantine Review
+            Returns, Operational Consumption &amp; Quarantine Review
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Audit ward returns, damaged stock, cold-chain excursion lots, and authorize restocking to active inventory or hazardous disposal write-offs.
+            Audit field returns, damaged stock, cold-chain excursion lots, and authorize restocking to active inventory or disposal write-offs.
           </p>
         </div>
 
@@ -368,7 +368,7 @@ export default function ManagerReturnsPage() {
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
           <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-medium">Total Ward Returns</span>
+            <span className="font-medium">Total Field Returns</span>
             <span className="p-1.5 rounded-lg bg-blue-50 text-blue-700">
               <RotateCcw className="w-4 h-4" />
             </span>
@@ -377,7 +377,7 @@ export default function ManagerReturnsPage() {
             <span className="text-2xl font-black text-[#0a2540]">{wardReturnsCount}</span>
             <span className="text-[11px] font-semibold text-blue-700">Vouchers</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Hospital department return transactions</p>
+          <p className="text-[11px] text-slate-400 mt-1">Field and unit return transactions</p>
         </div>
       </div>
 
@@ -401,7 +401,7 @@ export default function ManagerReturnsPage() {
             className="text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3 py-2 outline-none cursor-pointer"
           >
             <option value="All">All Facilities</option>
-            {VISTA_WAREHOUSES.map((wh) => (
+            {FIM_WAREHOUSES.map((wh) => (
               <option key={wh} value={wh}>{wh}</option>
             ))}
           </select>
@@ -412,6 +412,7 @@ export default function ManagerReturnsPage() {
             className="text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3 py-2 outline-none cursor-pointer"
           >
             <option value="All">All Types</option>
+            <option value="Field Return">Field Return</option>
             <option value="Ward Return">Ward Return</option>
             <option value="Damaged Quarantine">Damaged Quarantine</option>
             <option value="Expired Write-off">Expired Write-off</option>
@@ -444,7 +445,7 @@ export default function ManagerReturnsPage() {
                 <th className="py-3 px-4 text-center">Batch / Condition</th>
                 <th className="py-3 px-4 text-right">Quantity</th>
                 <th className="py-3 px-4 text-right">Est. Valuation</th>
-                <th className="py-3 px-4">Clinical Reason / Notes</th>
+                <th className="py-3 px-4">Operational Reason / Notes</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-center">Manager Disposition</th>
               </tr>
@@ -468,7 +469,7 @@ export default function ManagerReturnsPage() {
                     <td className="py-3.5 px-4">
                       <span
                         className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${
-                          item.type === 'Ward Return'
+                          item.type === 'Field Return' || item.type === 'Ward Return'
                             ? 'bg-blue-50 text-blue-700 border-blue-200'
                             : item.type === 'Damaged Quarantine'
                             ? 'bg-rose-50 text-rose-700 border-rose-200'
@@ -687,7 +688,7 @@ export default function ManagerReturnsPage() {
                     onChange={(e) => setModalType(e.target.value as ReturnReviewType)}
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium cursor-pointer"
                   >
-                    <option value="Ward Return">Ward Return (Surplus)</option>
+                    <option value="Field Return">Field Return (Surplus)</option>
                     <option value="Damaged Quarantine">Damaged Quarantine (Broken/Crushed)</option>
                     <option value="Cold Chain Breach">Cold Chain Breach (Temperature Alarm)</option>
                     <option value="Expired Write-off">Expired Write-off</option>
@@ -702,7 +703,7 @@ export default function ManagerReturnsPage() {
                     onChange={(e) => setModalWarehouse(e.target.value)}
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium cursor-pointer"
                   >
-                    {VISTA_WAREHOUSES.map((wh) => (
+                    {FIM_WAREHOUSES.map((wh) => (
                       <option key={wh} value={wh}>{wh}</option>
                     ))}
                   </select>
@@ -711,11 +712,11 @@ export default function ManagerReturnsPage() {
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Department / Origin Ward / Carrier:
+                  Department / Field Unit / Origin:
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Emergency Trauma Ward, ICU Bay 3, Dock Pokhara..."
+                  placeholder="e.g. Field Site Alpha, Maintenance Workshop, Dock West..."
                   value={modalOrigin}
                   onChange={(e) => setModalOrigin(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"
@@ -732,7 +733,7 @@ export default function ManagerReturnsPage() {
                   onChange={(e) => setModalItemId(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium cursor-pointer"
                 >
-                  {VISTA_ITEMS_CATALOG.map((item) => (
+                  {FIM_ITEMS_CATALOG.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.code} — {item.name} ({item.unit})
                     </option>

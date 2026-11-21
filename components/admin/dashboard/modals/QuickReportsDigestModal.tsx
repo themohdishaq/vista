@@ -45,7 +45,7 @@ export function QuickReportsDigestModal({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `VISTA_Executive_Digest_${Date.now()}.csv`);
+    link.setAttribute('download', `FIM_Executive_Digest_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

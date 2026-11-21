@@ -164,15 +164,15 @@ export function StaffSidebar({
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="font-sans text-xl font-black tracking-tight text-white leading-tight">
-                  VISTA
+                <span className="font-sans text-base font-black tracking-tight text-white leading-tight">
+                  Field Inventory
                 </span>
                 <span className="bg-sky-500/25 text-sky-300 border border-sky-400/30 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide">
                   Staff
                 </span>
               </div>
               <span className="text-[10px] font-medium text-slate-400 tracking-wide">
-                Warehouse Floor Specialist
+                Floor Operations Specialist
               </span>
             </div>
           </Link>
@@ -284,7 +284,7 @@ export function StaffSidebar({
           </button>
         </div>
         <div className="mt-2 text-center text-[10px] text-slate-500 font-mono">
-          VISTA Floor v1.0.0 • Assigned: Zone A
+          Field Inventory Floor v1.0.0 • Assigned: Zone A
         </div>
       </div>
     </div>

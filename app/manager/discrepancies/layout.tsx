@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Discrepancies & Shortages | VISTA Manager',
+  title: 'Discrepancies & Shortages | Field Inventory Manager',
   description:
     'Identify and resolve inventory shortages, damaged stock, and bin count variances.',
 };

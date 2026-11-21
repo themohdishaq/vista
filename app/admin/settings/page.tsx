@@ -32,7 +32,7 @@ export default function AdminSettingsPage() {
 
   // Profile State
   const [fullName, setFullName] = useState('System Administrator');
-  const [email, setEmail] = useState('admin@vista.com');
+  const [email, setEmail] = useState('admin@fieldinventory.com');
   const [phone, setPhone] = useState('+1 (555) 019-2831');
   const [department, setDepartment] = useState('Global Supply Chain & Logistics Operations');
   const [title, setTitle] = useState('Super Administrator');
@@ -71,7 +71,7 @@ export default function AdminSettingsPage() {
         if (data.success && data.profile) {
           const p = data.profile;
           setFullName(p.fullName || 'System Administrator');
-          setEmail(p.email || 'admin@vista.com');
+          setEmail(p.email || 'admin@fieldinventory.com');
           setPhone(p.phone || '+1 (555) 019-2831');
           setDepartment(p.department || 'Global Supply Chain & Logistics Operations');
           setTitle(p.title || 'Super Administrator');

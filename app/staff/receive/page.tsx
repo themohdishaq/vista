@@ -81,7 +81,6 @@ export default function StaffReceivePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          warehouseId: 'wh-001',
           itemId: record.itemCode,
           quantity: record.quantityReceived,
           batchNumber: record.batchNo,
@@ -126,7 +125,7 @@ export default function StaffReceivePage() {
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Receiving-Ledger-${Date.now()}.csv`;
+    link.download = `FIM-Receiving-Ledger-${Date.now()}.csv`;
     link.click();
     showToast('Exported receiving ledger to CSV.');
   };

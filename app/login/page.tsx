@@ -130,7 +130,7 @@ export default function LoginPage() {
           <Link
             href="/"
             className="inline-flex items-center gap-2.5 transition-transform hover:scale-105"
-            aria-label="VISTA Home"
+            aria-label="Field Inventory Management Home"
           >
             {/* Isometric 3D Teal Cube Logo */}
             <div className="flex h-12 w-12 items-center justify-center">
@@ -178,9 +178,11 @@ export default function LoginPage() {
                 />
               </svg>
             </div>
-            <span className="font-sans text-3xl font-black tracking-tight text-[#0a2540]">
-              VISTA
-            </span>
+            <div className="text-left">
+              <span className="font-sans text-xl sm:text-2xl font-black tracking-tight text-[#0a2540] block leading-tight">
+                Field Inventory Management
+              </span>
+            </div>
           </Link>
 
           <h1 className="text-2xl font-extrabold tracking-tight text-[#0a2540]">
@@ -214,7 +216,7 @@ export default function LoginPage() {
                   autoFocus
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@vista.com or username"
+                  placeholder="name@company.com or username"
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 pl-10 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#008a90] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#008a90]/20 transition-all font-mono"
                 />
               </div>
@@ -351,7 +353,7 @@ export default function LoginPage() {
             </div>
             <div className="relative flex justify-center text-xs">
               <span className="bg-white px-3 text-slate-400 font-medium">
-                Healthcare SSO / Enterprise Federation
+                Enterprise SSO / Identity Federation
               </span>
             </div>
           </div>
@@ -359,11 +361,11 @@ export default function LoginPage() {
           {/* Organization SSO Button */}
           <button
             type="button"
-            onClick={() => alert('Microsoft Entra ID healthcare single sign-on is active for enterprise hospital tenants.')}
+            onClick={() => alert('Microsoft Entra ID enterprise single sign-on is active for organizational field accounts.')}
             className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
           >
             <Building2 className="h-4 w-4 text-slate-500" />
-            <span>Microsoft Entra ID / Healthcare SSO</span>
+            <span>Microsoft Entra ID / Enterprise SSO</span>
           </button>
         </div>
 
@@ -375,7 +377,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-xs text-slate-500">
-            VISTA Supply Chain & Warehouse Management System
+            Field Inventory Management Supply Chain & Warehouse System
           </p>
         </div>
 

@@ -56,12 +56,15 @@ export function AddUserModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Set default warehouse if available and not set
+  // Initialize default warehouse selection only once when modal opens
   React.useEffect(() => {
-    if (warehouses.length > 0 && !warehouseId) {
-      setWarehouseId(warehouses[0].id);
+    if (isOpen) {
+      setFormError(null);
+      if (warehouses.length > 0 && warehouseId === '') {
+        setWarehouseId(warehouses[0].id);
+      }
     }
-  }, [warehouses, warehouseId]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -81,24 +84,22 @@ export function AddUserModal({
       setFormError('Password must be at least 6 characters.');
       return;
     }
-    if (!warehouseId) {
-      setFormError('Please assign a warehouse to this user.');
-      return;
-    }
 
     try {
       setIsSubmitting(true);
-      const selectedWh = warehouses.find((w) => w.id === warehouseId);
+      const selectedWh = warehouses.find(
+        (w) => w.id === warehouseId || w.code === warehouseId || w.name === warehouseId
+      );
       const warehouseAccess = selectedWh
         ? `${selectedWh.code ? `[${selectedWh.code}] ` : ''}${selectedWh.name}`
-        : 'Main Central Warehouse';
+        : 'Unassigned Facility';
 
       await onAddUser({
         fullName: fullName.trim(),
         email: email.trim().toLowerCase(),
         password: password.trim(),
         role,
-        warehouseId,
+        warehouseId: selectedWh ? selectedWh.id : warehouseId,
         warehouseAccess,
         phone: phone.trim() || undefined,
         status,
@@ -109,6 +110,7 @@ export function AddUserModal({
       setEmail('');
       setPassword('');
       setPhone('');
+      setWarehouseId(warehouses.length > 0 ? warehouses[0].id : '');
       setFormError(null);
       onClose();
     } catch (err: any) {
@@ -180,14 +182,14 @@ export function AddUserModal({
               <input
                 type="email"
                 required
-                placeholder="e.g. suresh.staff@vista.org"
+                placeholder="e.g. suresh.staff@fieldinventory.org"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-slate-700 focus:outline-hidden focus:border-[#008a90]"
               />
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              Used as the login username on the VISTA Portal login screen.
+              Used as the login username on the Field Inventory Management login screen.
             </p>
           </div>
 
@@ -276,25 +278,21 @@ export function AddUserModal({
           {/* Warehouse Facility Assignment (Dynamic from Admin-Created Warehouses) */}
           <div>
             <label className="block font-medium text-slate-700 mb-1">
-              Assigned Warehouse Facility <span className="text-rose-500">*</span>
+              Assigned Warehouse Facility
             </label>
             <div className="relative">
               <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <select
-                required
                 value={warehouseId}
                 onChange={(e) => setWarehouseId(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-700 focus:outline-hidden focus:border-[#008a90] cursor-pointer"
               >
-                {warehouses.length === 0 ? (
-                  <option value="">No warehouses found</option>
-                ) : (
-                  warehouses.map((wh) => (
-                    <option key={wh.id} value={wh.id}>
-                      {wh.code ? `[${wh.code}] ` : ''}{wh.name}
-                    </option>
-                  ))
-                )}
+                <option value="">-- No Facility Assigned (Unassigned) --</option>
+                {warehouses.map((wh) => (
+                  <option key={wh.id} value={wh.id}>
+                    {wh.code ? `[${wh.code}] ` : ''}{wh.name}
+                  </option>
+                ))}
               </select>
             </div>
             <p className="text-[11px] text-slate-400 mt-1">

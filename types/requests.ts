@@ -49,13 +49,26 @@ export interface RequestTimelineEvent {
 export interface StockRequestRecord {
   id: string;
   requestId: string;              // e.g. "SR-2025-048"
+  requestNumber?: string;
+  refNo?: string;
   dateTime: string;               // e.g. "Apr 30, 2025 14:20"
+  date?: string;
   type: RequestType;
   requestedBy: string;            // e.g. "Jane Smith"
+  requestedByEmail?: string | null;
   department: string;             // e.g. "Medical"
   warehouse: string;              // e.g. "Main Warehouse"
+  warehouseId?: string;
+  warehouseName?: string;
+  warehouseCode?: string;
+  assignedManager?: string;
+  assignedManagerEmail?: string | null;
   itemCount: number;              // e.g. 3
   totalQuantity: number;          // e.g. 50
+  quantity?: number;
+  itemCode?: string;
+  itemName?: string;
+  unit?: string;
   priority: RequestPriority;      // e.g. "High"
   status: RequestStatus;          // e.g. "Approved"
   purpose: string;                // e.g. "First Aid Kit for Clinic"

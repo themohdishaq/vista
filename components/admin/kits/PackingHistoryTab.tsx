@@ -51,7 +51,7 @@ export function PackingHistoryTab({ activities }: PackingHistoryTabProps) {
   // Client-side packing slip download
   const handlePrintSlip = (act: PackingActivity) => {
     const content = `=====================================================
-VISTA OFFICIAL KIT PACKING SLIP & QA VOUCHER
+FIELD INVENTORY MANAGEMENT KIT PACKING SLIP & QA VOUCHER
 =====================================================
 Batch Identifier:      ${act.batchNumber}
 Assembly Timestamp:    ${act.dateTime}
@@ -65,7 +65,7 @@ INTERNAL VERIFICATION:
 ${act.notes || 'Batch assembled according to WHO GDP standard procedures.'}
 
 DIGITAL AUDIT SEAL:
-VISTA-BOM-QA-${act.kitCode}-${Date.now().toString(36).toUpperCase()}
+FIM-BOM-QA-${act.kitCode}-${Date.now().toString(36).toUpperCase()}
 =====================================================`;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });

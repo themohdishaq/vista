@@ -353,7 +353,7 @@ export function ItemsTable({
               const encodedUri = encodeURI(csvContent);
               const link = document.createElement('a');
               link.setAttribute('href', encodedUri);
-              link.setAttribute('download', 'vista_inventory_items.csv');
+              link.setAttribute('download', 'fim_inventory_items.csv');
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);

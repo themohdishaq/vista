@@ -78,9 +78,9 @@ const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
     actor: 'Mike Chen',
     role: 'Floor Specialist',
     action: 'ISSUE',
-    target: 'Paracetamol 500mg Tablets (VST-003)',
+    target: 'Industrial Protective Gear (VST-003)',
     warehouse: 'Main Central Warehouse',
-    details: 'Dispensed 200 packs to Emergency Ward (SR-2025-012).',
+    details: 'Dispensed 200 units to Field Maintenance Unit (SR-2025-012).',
     ipAddress: '192.168.1.140',
   },
   {
@@ -91,7 +91,7 @@ const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
     action: 'KIT_PACK',
     target: 'First Aid Kit Standard (KIT-001)',
     warehouse: 'Main Central Warehouse',
-    details: 'Supervised assembly of 10 clinic kits; component inventory deducted.',
+    details: 'Supervised assembly of 10 field kits; component inventory deducted.',
     ipAddress: '192.168.2.55',
   },
 ];
@@ -122,7 +122,7 @@ export default function AuditLogsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'VISTA_System_Audit_Ledger.csv');
+    link.setAttribute('download', 'FIM_System_Audit_Ledger.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

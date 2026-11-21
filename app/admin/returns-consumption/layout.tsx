@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Returns & Consumption Management | VISTA Portal',
+  title: 'Returns & Consumption Management | Field Inventory Management',
   description:
     'Manage returns, excess items, damaged batches, and floor consumption.',
 };

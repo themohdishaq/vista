@@ -43,7 +43,7 @@ export default function CtaBannerSection() {
                 Take Control of Your Inventory
               </h2>
               <p className="text-xs sm:text-base text-cyan-100/90 font-normal">
-                Join VISTA today and experience smarter inventory management.
+                Deploy Field Inventory Management today and experience smarter stock operations.
               </p>
             </div>
 
@@ -53,7 +53,7 @@ export default function CtaBannerSection() {
                 href="/login"
                 className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm sm:text-base font-bold text-[#014f55] shadow-lg transition-all duration-200 hover:bg-slate-100 hover:scale-[1.02] active:scale-95"
               >
-                <span>Log In to VISTA</span>
+                <span>Log In to Portal</span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
             </div>

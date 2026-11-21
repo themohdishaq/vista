@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Assigned Floor Stock | VISTA Staff',
+  title: 'Assigned Floor Stock | Field Inventory Staff',
   description:
     'View real-time available stock and bin balances in your assigned warehouse zones.',
 };

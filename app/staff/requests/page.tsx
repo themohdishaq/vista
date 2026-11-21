@@ -40,16 +40,18 @@ export default function StaffRequestsPage() {
       if (json.success && Array.isArray(json.data)) {
         const mapped = json.data.map((r: any) => ({
           id: r.id,
-          refNo: r.requestNumber || r.request_number || r.id,
+          refNo: r.requestId || r.requestNumber || r.request_number || r.id,
           type: r.type || 'Bin Replenishment',
-          itemCode: r.itemCode || r.item_code || 'VST-001',
-          itemName: r.itemName || r.item_name || 'Medical Supply',
-          quantity: Number(r.quantity) || 1,
-          unit: r.unit || 'Units',
+          itemCode: r.itemCode || r.items?.[0]?.itemCode || r.items?.[0]?.code || 'VST-001',
+          itemName: r.itemName || r.items?.[0]?.itemName || r.items?.[0]?.name || 'Medical Supply',
+          quantity: Number(r.quantity || r.totalQuantity || r.items?.[0]?.quantity) || 1,
+          unit: r.unit || r.items?.[0]?.unit || 'Units',
           priority: r.priority || 'Normal',
           status: r.status,
+          warehouse: r.warehouse || r.warehouseName || 'Assigned Facility',
+          assignedManager: r.assignedManager || r.reviewedBy || 'Facility Manager',
           requestedBy: r.requestedBy || r.requested_by_name || 'Floor Specialist',
-          date: r.date || (r.created_at ? new Date(r.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleString()),
+          date: r.dateTime || r.date || (r.created_at ? new Date(r.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleString()),
           reason: r.purpose || r.notes || 'Routine bin restock',
         }));
         setRequests(mapped);
@@ -65,18 +67,27 @@ export default function StaffRequestsPage() {
 
   const handleCreateRequest = async (data: any) => {
     try {
-      await fetch('/api/requests', {
+      const res = await fetch('/api/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          itemId: data.itemCode,
+          warehouseId: data.warehouseId,
+          itemId: data.itemId || data.itemCode,
+          itemCode: data.itemCode,
+          itemName: data.itemName,
           quantity: data.quantity,
           purpose: data.reason,
           priority: data.priority,
+          binCode: data.binCode,
         }),
       });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        showToast(json.message || 'Error submitting replenishment request.');
+        return;
+      }
       await fetchRequests();
-      showToast(`Submitted replenishment request for ${data.quantity} units of ${data.itemCode}.`);
+      showToast(`Submitted replenishment request for ${data.quantity} units of ${data.itemCode} to Manager (${data.assignedManager || 'Assigned Manager'}).`);
     } catch (err) {
       console.error('Failed to submit request:', err);
       showToast('Error submitting replenishment request.');
@@ -116,7 +127,7 @@ export default function StaffRequestsPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `VISTA-Stock-Requests-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `FIM-Stock-Requests-${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -260,9 +271,10 @@ export default function StaffRequestsPage() {
               <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 <th className="py-3 px-4">Request Ref</th>
                 <th className="py-3 px-4">Request Type</th>
-                <th className="py-3 px-4">Item SKU & Name</th>
+                <th className="py-3 px-4">Item SKU &amp; Name</th>
                 <th className="py-3 px-4 text-right">Quantity</th>
                 <th className="py-3 px-4">Priority</th>
+                <th className="py-3 px-4">Warehouse &amp; Manager</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Submission Reason</th>
                 <th className="py-3 px-4">Date</th>
@@ -271,7 +283,7 @@ export default function StaffRequestsPage() {
             <tbody className="divide-y divide-slate-100 font-sans">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-xs text-slate-400 font-medium">
+                  <td colSpan={9} className="py-12 text-center text-xs text-slate-400 font-medium">
                     No matching replenishment requests found. Use &ldquo;+ New Stock Request&rdquo; to request stock.
                   </td>
                 </tr>
@@ -307,6 +319,15 @@ export default function StaffRequestsPage() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4">
+                      <span className="font-semibold text-slate-800 block text-xs">
+                        {req.warehouse}
+                      </span>
+                      <span className="text-[11px] text-[#008a90] font-medium flex items-center gap-1">
+                        <span className="text-slate-400">Mgr:</span>
+                        <strong className="text-teal-800">{req.assignedManager}</strong>
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4">
                       <span
                         className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ${
                           req.status === 'Approved'
@@ -333,12 +354,14 @@ export default function StaffRequestsPage() {
         </div>
       </div>
 
-      <SubmitRequestModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        targetBin={null as any}
-        onSubmitRequest={handleCreateRequest}
-      />
+      {isModalOpen && (
+        <SubmitRequestModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          targetBin={null}
+          onSubmitRequest={handleCreateRequest}
+        />
+      )}
     </div>
   );
 }

@@ -1,18 +1,27 @@
 // filepath: app/api/movements/route.ts
 import { NextResponse } from 'next/server';
-import { getCurrentSession } from '@/lib/auth';
+import { getAuthScope } from '@/lib/auth-scope';
 import { getMovements } from '@/lib/services/stock-service';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const session = await getCurrentSession();
+    const scope = await getAuthScope();
     const { searchParams } = new URL(request.url);
 
+    if (!scope.isAdmin && scope.isUnassigned) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        unassigned: true,
+        message: 'No warehouse facility assigned.',
+      });
+    }
+
     let warehouseId = searchParams.get('warehouseId') || undefined;
-    if (session?.user.role !== 'admin' && (session?.user as any)?.assignedWarehouseId) {
-      warehouseId = (session?.user as any).assignedWarehouseId;
+    if (!scope.isAdmin) {
+      warehouseId = scope.warehouseId || undefined;
     }
 
     const search = searchParams.get('search') || undefined;

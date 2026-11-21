@@ -1,11 +1,9 @@
 // filepath: lib/services/staff-service.ts
 import { sql } from '@/lib/db';
-import { getStockOverview } from '@/lib/services/stock-service';
-import { getRequests } from '@/lib/services/request-service';
 import { getTransfers } from '@/lib/services/transfer-service';
 import { getIncidents } from '@/lib/services/incident-service';
-import { getAdjustments } from '@/lib/services/stock-service';
 import { getKits } from '@/lib/services/kit-service';
+import { ensureWarehouseExists } from '@/lib/services/warehouse-service';
 import {
   StaffKPIData,
   AssignedBinItem,
@@ -16,11 +14,13 @@ import {
 /**
  * @file lib/services/staff-service.ts
  * @description Central Floor Operations & Workstation Service for VISTA Warehouse Staff.
- * Computes live assigned bins, real-time picking/putaway shift tasks, active workstation orders,
- * and floor telemetry with zero hardcoded arrays.
+ * Strictly database-grounded: computes live assigned bins, real-time picking/putaway shift tasks,
+ * active workstation orders, and floor telemetry for the staff member's assigned facility.
+ * Zero hardcoded or static mock arrays.
  */
 
 export interface StaffDashboardData {
+  unassigned?: boolean;
   kpis: StaffKPIData;
   bins: AssignedBinItem[];
   tasks: StaffTaskItem[];
@@ -46,7 +46,13 @@ export interface StaffDashboardData {
     shiftName: string;
     shiftHours: string;
     warehouseName: string;
+    warehouseId?: string;
+    warehouseCode?: string;
+    warehouseCity?: string;
     zoneName: string;
+    managerName?: string;
+    managerPhone?: string;
+    managerEmail?: string;
   };
 }
 
@@ -74,89 +80,353 @@ export async function getStaffShiftTasks(
 }
 
 export async function getStaffDashboardData(
-  user?: { id?: string; name?: string; role?: string },
-  facility?: string
+  userOrFacility?: { id?: string; name?: string; role?: string } | string | null,
+  facilityParam?: string | null
 ): Promise<StaffDashboardData> {
-  const [stockItems, requests, transfers, incidents, adjustments, kits] =
-    await Promise.all([
-      getStockOverview(facility || null),
-      getRequests({ warehouseId: facility }),
-      getTransfers({ warehouseId: facility }),
-      getIncidents(facility),
-      getAdjustments(facility),
-      getKits(),
-    ]);
+  let user: { id?: string; name?: string; role?: string } | undefined;
+  let facility: string | undefined;
 
-  // 1. Build Assigned Bins from Live Stock Overview
-  const bins: AssignedBinItem[] = stockItems.map((item, idx) => {
-    const binNumber = String(idx + 1).padStart(2, '0');
-    const isLow = item.available <= 100 || item.status === 'Low Stock' || item.status === 'Out of Stock';
+  if (typeof userOrFacility === 'string') {
+    facility = userOrFacility;
+    user = undefined;
+  } else if (userOrFacility && typeof userOrFacility === 'object') {
+    user = userOrFacility;
+    facility = facilityParam || undefined;
+  } else {
+    facility = facilityParam || undefined;
+  }
+
+  // 1. Strict Unassigned Guard
+  if (!facility || facility === 'Unassigned Facility' || facility === 'Unassigned') {
+    return {
+      unassigned: true,
+      kpis: {
+        shiftProgress: {
+          value: '0 / 0',
+          label: 'Tasks Completed',
+          subtitle: 'No facility assigned',
+          progressPercent: 0,
+          badge: 'Unassigned',
+          badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
+        },
+        assignedBins: {
+          value: '0 Bins',
+          label: 'Bays Monitored',
+          subtitle: 'No facility assigned',
+          badge: 'Unassigned',
+          badgeColor: 'bg-slate-50 text-slate-700 border-slate-200',
+        },
+        pendingTasks: {
+          value: '0 Orders',
+          label: 'Pending Work Queue',
+          subtitle: 'No active shift tasks',
+          badge: 'Idle',
+          badgeColor: 'bg-slate-50 text-slate-700 border-slate-200',
+        },
+        cycleCountsDue: {
+          value: '0 Audits',
+          label: 'Cycle Counts Due',
+          subtitle: 'No audits scheduled',
+          badge: 'Up to Date',
+          badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        },
+      },
+      bins: [],
+      tasks: [],
+      activeOrder: null,
+      incidents: [],
+      shiftInfo: {
+        shiftName: 'Unassigned Shift',
+        shiftHours: '--:-- - --:--',
+        warehouseName: 'No Warehouse Assigned',
+        zoneName: 'None',
+        managerName: 'Unassigned',
+      },
+    };
+  }
+
+  // 2. Resolve warehouse entity dynamically
+  const resolvedWh = await ensureWarehouseExists(facility);
+  const targetWarehouseId = resolvedWh ? resolvedWh.id : facility;
+
+  // 3. Fetch Warehouse Metadata from Neon DB
+  let whMeta: any = null;
+  try {
+    const whRows = await sql.query(
+      `SELECT id, code, name, operating_hours, city, address, manager_name, manager_phone
+       FROM warehouses
+       WHERE id = $1 AND deleted_at IS NULL
+       LIMIT 1;`,
+      [targetWarehouseId]
+    );
+    if (whRows && whRows.length > 0) {
+      whMeta = whRows[0];
+    }
+  } catch (err) {
+    console.error('Error fetching warehouse metadata for staff:', err);
+  }
+
+  // 4. Fetch Assigned Manager for this Warehouse (Manager-Staff Relation)
+  let managerName = whMeta?.manager_name && whMeta.manager_name !== 'Unassigned' ? whMeta.manager_name : 'Facility Manager';
+  let managerPhone = whMeta?.manager_phone || undefined;
+  let managerEmail: string | undefined = undefined;
+
+  try {
+    const mgrRows = await sql.query(
+      `SELECT full_name, email, phone 
+       FROM users 
+       WHERE role = 'manager' AND deleted_at IS NULL
+         AND (assigned_warehouse_id = $1 OR id IN (SELECT user_id FROM user_warehouse_assignments WHERE warehouse_id = $1))
+       ORDER BY (assigned_warehouse_id = $1) DESC, created_at ASC
+       LIMIT 1;`,
+      [targetWarehouseId]
+    );
+    if (mgrRows && mgrRows.length > 0) {
+      managerName = mgrRows[0].full_name;
+      if (mgrRows[0].phone) managerPhone = mgrRows[0].phone;
+      if (mgrRows[0].email) managerEmail = mgrRows[0].email;
+    }
+  } catch (err) {
+    console.error('Error resolving warehouse manager user:', err);
+  }
+
+  // 5. Fetch Storage Zones for this Warehouse
+  let zones: any[] = [];
+  try {
+    zones = await sql.query(
+      `SELECT id, code, name, temp_range
+       FROM storage_zones
+       WHERE warehouse_id = $1
+       ORDER BY code ASC;`,
+      [targetWarehouseId]
+    );
+  } catch (err) {
+    console.error('Error fetching storage zones:', err);
+  }
+  const primaryZone = zones.length > 0 ? `${zones[0].code} (${zones[0].name})` : 'Zone A (General Storage Bay)';
+
+  // 6. Fetch Real Stock Balances & Assigned Bins for this Warehouse
+  let balances: any[] = [];
+  try {
+    balances = await sql.query(
+      `SELECT 
+         sb.id as balance_id,
+         sb.warehouse_id,
+         sb.item_id,
+         sb.bin_id,
+         sb.batch_number,
+         sb.expiry_date,
+         sb.quantity_on_hand,
+         sb.quantity_reserved,
+         COALESCE(b.bin_code, 'General Bay') as bin_code,
+         COALESCE(z.code, 'Zone A') as zone_code,
+         COALESCE(z.name, 'Storage Bay') as zone_name,
+         i.code as item_code,
+         i.name as item_name,
+         i.category,
+         i.unit,
+         COALESCE(i.reorder_level, 100) as min_threshold,
+         i.status as item_status
+       FROM stock_balances sb
+       JOIN items i ON sb.item_id = i.id
+       LEFT JOIN storage_bins b ON sb.bin_id = b.id
+       LEFT JOIN storage_zones z ON b.zone_id = z.id
+       WHERE sb.warehouse_id = $1 AND sb.quantity_on_hand > 0
+       ORDER BY b.bin_code ASC, i.name ASC;`,
+      [targetWarehouseId]
+    );
+  } catch (err) {
+    console.error('Error fetching live stock balances for staff bins:', err);
+  }
+
+  // Also query active bins for this warehouse to include empty bays ready for putaway
+  let allBins: any[] = [];
+  try {
+    allBins = await sql.query(
+      `SELECT b.id, b.bin_code, COALESCE(z.code, 'Zone A') as zone_code, COALESCE(z.name, 'General Bay') as zone_name
+       FROM storage_bins b
+       LEFT JOIN storage_zones z ON b.zone_id = z.id
+       WHERE b.warehouse_id = $1 AND b.is_active = TRUE
+       ORDER BY b.bin_code ASC;`,
+      [targetWarehouseId]
+    );
+  } catch {}
+
+  const bins: AssignedBinItem[] = balances.map((row) => {
+    const isLow = Number(row.quantity_on_hand) <= Number(row.min_threshold) || row.item_status === 'Low Stock';
+    const expDateStr = row.expiry_date
+      ? new Date(row.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : 'No Expiry Set';
 
     return {
-      binCode: `Bin A-${binNumber}`,
-      itemCode: item.code,
-      itemName: item.name,
-      category: item.category || 'Medical Supplies',
-      availableStock: item.available || 0,
-      reservedStock: item.reserved || 0,
-      unit: item.unit || 'Box',
-      batchNo: `LOT-${item.code.replace(/[^A-Z0-9]/gi, '')}-2026A`,
-      expiryDate: 'Dec 31, 2026',
+      binCode: row.bin_code,
+      itemCode: row.item_code,
+      itemName: row.item_name,
+      category: row.category || 'Medical Supplies',
+      availableStock: Number(row.quantity_on_hand) || 0,
+      reservedStock: Number(row.quantity_reserved) || 0,
+      unit: row.unit || 'Units',
+      batchNo: row.batch_number || 'LOT-GENERAL',
+      lotNumber: row.batch_number || 'LOT-GENERAL',
+      expiryDate: expDateStr,
       isLowStock: isLow,
-      minThreshold: 100,
+      minThreshold: Number(row.min_threshold) || 100,
+      isEmpty: false,
     };
   });
 
-  // 2. Build Live Shift Task Queue from real operational queues
+  // Include empty bays so staff knows what storage locations are available
+  const occupiedBins = new Set(balances.map((b) => b.bin_code));
+  for (const b of allBins) {
+    if (!occupiedBins.has(b.bin_code)) {
+      bins.push({
+        binCode: b.bin_code,
+        itemCode: 'EMPTY',
+        itemName: 'Available Storage Bay (Ready for Putaway)',
+        category: 'Available Bay',
+        availableStock: 0,
+        reservedStock: 0,
+        unit: 'Bay',
+        batchNo: '—',
+        lotNumber: '—',
+        expiryDate: '—',
+        isLowStock: false,
+        minThreshold: 0,
+        isEmpty: true,
+      });
+    }
+  }
+
+  // 7. Fetch Stock Requests for Active Pick Orders & Shift Queue
+  let requestRows: any[] = [];
+  try {
+    requestRows = await sql.query(
+      `SELECT 
+         sr.id, sr.request_number, sr.warehouse_id, sr.department, sr.priority, sr.status, sr.created_at,
+         sri.id as req_item_id, sri.item_id, sri.quantity as req_qty,
+         i.code as item_code, i.name as item_name, i.unit,
+         sb.bin_id, b.bin_code, sb.batch_number, sb.expiry_date
+       FROM stock_requests sr
+       LEFT JOIN stock_request_items sri ON sr.id = sri.request_id
+       LEFT JOIN items i ON sri.item_id = i.id
+       LEFT JOIN stock_balances sb ON sb.item_id = i.id AND sb.warehouse_id = sr.warehouse_id AND sb.quantity_on_hand > 0
+       LEFT JOIN storage_bins b ON sb.bin_id = b.id
+       WHERE sr.warehouse_id = $1
+       ORDER BY sr.created_at DESC;`,
+      [targetWarehouseId]
+    );
+  } catch (err) {
+    console.error('Error fetching stock requests for staff queue:', err);
+  }
+
+  // Group requests
+  const requestMap = new Map<string, { meta: any; items: any[] }>();
+  for (const r of requestRows) {
+    if (!requestMap.has(r.id)) {
+      requestMap.set(r.id, {
+        meta: {
+          id: r.id,
+          requestNumber: r.request_number,
+          department: r.department,
+          priority: r.priority,
+          status: r.status,
+          createdAt: r.created_at,
+        },
+        items: [],
+      });
+    }
+    if (r.item_code) {
+      requestMap.get(r.id)!.items.push({
+        id: r.req_item_id,
+        itemCode: r.item_code,
+        name: r.item_name,
+        binLocation: r.bin_code || 'General Bay',
+        batchNo: r.batch_number || 'LOT-GENERAL',
+        expiry: r.expiry_date
+          ? new Date(r.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : 'No Expiry',
+        qtyRequested: Number(r.req_qty) || 1,
+        qtyPicked: Number(r.req_qty) || 1,
+        unit: r.unit || 'Units',
+        scanned: false,
+      });
+    }
+  }
+
+  const groupedRequests = Array.from(requestMap.values());
+
+  // 8. Build Active Workstation Order
+  let activeOrder = null;
+  const approvedRequests = groupedRequests.filter(
+    (g) => g.meta.status === 'Approved' || g.meta.status === 'In Progress'
+  );
+
+  if (approvedRequests.length > 0 && approvedRequests[0].items.length > 0) {
+    const topReq = approvedRequests[0];
+    activeOrder = {
+      orderRef: topReq.meta.requestNumber || `REQ-${topReq.meta.id.slice(-6)}`,
+      department: topReq.meta.department || 'Clinical Ward Distribution',
+      priority: topReq.meta.priority || 'Normal',
+      items: topReq.items,
+    };
+  }
+
+  // 9. Build Shift Task Queue
   const tasks: StaffTaskItem[] = [];
 
-  // 2a. Pick & Issue Tasks from Approved Stock Requests
-  const approvedRequests = requests.filter((r) => r.status === 'Approved');
+  // 9a. Approved Picking Tasks
   approvedRequests.forEach((req, idx) => {
-    const totalQty = (req as any).items?.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0) || (req as any).quantity || 50;
+    const totalQty = req.items.reduce((sum, it) => sum + (it.qtyRequested || 0), 0);
     tasks.push({
-      id: `task-pick-${req.id || idx}`,
+      id: `task-pick-${req.meta.id || idx}`,
       taskType: 'Pick & Issue',
-      refNo: (req as any).requestNumber || (req as any).request_number || `REQ-${idx + 100}`,
-      title: `Pick & Dispense for ${(req as any).department || 'Ward'}`,
-      location: 'Zone A - Bays 1-5',
-      quantity: totalQty,
+      refNo: req.meta.requestNumber || `REQ-${idx + 100}`,
+      title: `Pick & Dispense for ${req.meta.department || 'Clinical Ward'}`,
+      location: primaryZone,
+      quantity: totalQty || 1,
       unit: 'Units',
-      urgency: req.priority === 'Urgent' ? 'Urgent' : 'Normal',
-      destinationWard: (req as any).department || 'Emergency Ward',
-      status: idx === 0 ? 'In Progress' : 'Queued',
-      timestamp: (req as any).date || (req as any).created_at || 'Today',
+      urgency: req.meta.priority === 'Urgent' ? 'Urgent' : 'Normal',
+      destinationWard: req.meta.department || 'Emergency Ward',
+      status: idx === 0 && activeOrder ? 'In Progress' : 'Queued',
+      timestamp: req.meta.createdAt ? new Date(req.meta.createdAt).toLocaleDateString() : 'Today',
     });
   });
 
-  // 2b. Cycle Count Tasks from Discrepancies and Recount-requested Adjustments
-  const recountAdjustments = adjustments.filter((a) => a.status === 'Recount Requested');
-  recountAdjustments.forEach((adj, idx) => {
+  // 9b. Low stock items create Restock & Count tasks
+  const lowStockBins = bins.filter((b) => b.isLowStock && b.itemCode !== 'EMPTY');
+  lowStockBins.slice(0, 3).forEach((lsb, idx) => {
     tasks.push({
-      id: `task-count-${adj.id || idx}`,
+      id: `task-restock-${lsb.itemCode}-${idx}`,
       taskType: 'Cycle Count',
-      refNo: adj.adjustmentId,
-      title: `Recount Required: ${adj.itemName}`,
-      location: `Zone A - ${adj.warehouse || 'Depot'}`,
-      quantity: Math.abs(adj.quantityDelta || 10),
-      unit: adj.unit || 'Units',
+      refNo: `AUD-${lsb.binCode}`,
+      title: `Stock Count & Restock Check: ${lsb.itemName}`,
+      location: lsb.binCode,
+      quantity: lsb.availableStock,
+      unit: lsb.unit,
       urgency: 'Urgent',
       status: 'Queued',
-      timestamp: adj.date || 'Today',
+      timestamp: 'Today',
     });
   });
 
-  // 2c. Receive / Putaway Tasks from In-Transit Transfers
-  const inTransitTransfers = transfers.filter((t) => t.status === 'In Transit');
-  inTransitTransfers.forEach((trf, idx) => {
-    const trfQty = trf.quantity || (trf as any).items?.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0) || 100;
+  // 9c. Inbound Transfers in Transit create Receive Putaway Tasks
+  let transfers: any[] = [];
+  try {
+    transfers = await getTransfers({ warehouseId: targetWarehouseId });
+  } catch {}
+
+  const inTransitTransfers = transfers.filter(
+    (t: any) => t.status === 'In Transit' && (t.toWarehouseId === targetWarehouseId || t.toWarehouse === whMeta?.name)
+  );
+
+  inTransitTransfers.forEach((trf: any, idx: number) => {
     tasks.push({
       id: `task-putaway-${trf.id || idx}`,
       taskType: 'Receive Putaway',
       refNo: trf.transferId,
       title: `Inbound Freight Putaway from ${trf.fromWarehouse}`,
-      location: 'Receiving Dock Bay 2',
-      quantity: trfQty,
+      location: 'Receiving Dock',
+      quantity: trf.quantity || 100,
       unit: 'Units',
       urgency: 'Normal',
       status: 'Queued',
@@ -164,7 +434,12 @@ export async function getStaffDashboardData(
     });
   });
 
-  // 2d. Kit Packing Tasks from Active Kits
+  // 9d. Active Kits create Kit Packing Tasks
+  let kits: any[] = [];
+  try {
+    kits = await getKits();
+  } catch {}
+
   if (kits && kits.length > 0) {
     const targetKit = kits[0];
     tasks.push({
@@ -172,8 +447,8 @@ export async function getStaffDashboardData(
       taskType: 'Kit Pack',
       refNo: targetKit.code || 'KIT-001',
       title: `Assemble & Seal ${targetKit.name}`,
-      location: 'Packing Station Bay 2',
-      quantity: 20,
+      location: 'Kit Packing Station',
+      quantity: 10,
       unit: 'Kits',
       urgency: 'Normal',
       status: 'Queued',
@@ -181,27 +456,56 @@ export async function getStaffDashboardData(
     });
   }
 
-  // 3. Compute KPI Telemetry
+  // 10. Fetch Real Incidents & Discrepancies for this Warehouse
+  let incidentRecords: any[] = [];
+  try {
+    incidentRecords = await getIncidents(targetWarehouseId);
+  } catch (err) {
+    console.error('Error fetching incidents for staff floor operations:', err);
+  }
+
+  const mappedIncidents: StaffIncidentReport[] = [];
+
+  // Map incident records from database
+  incidentRecords.forEach((inc: any) => {
+    mappedIncidents.push({
+      id: inc.id,
+      ticketNo: inc.ticketNo || inc.ticket_number || `INC-${inc.id.slice(-6)}`,
+      type: (inc.type as any) || 'Shortage',
+      itemCode: inc.itemCode || inc.item_code || inc.item_id || 'SKU',
+      itemName: inc.itemName || inc.item_name || 'Medical Supply',
+      batchNo: inc.batch_number || 'LOT-GENERAL',
+      batchNumber: inc.batch_number || 'LOT-GENERAL',
+      quantity: inc.quantity || 1,
+      unit: 'Units',
+      binLocation: 'Assigned Bay',
+      description: inc.description || 'Reported on floor',
+      status: inc.status === 'Resolved' ? 'Resolved' : 'Pending Manager Review',
+      reportedDate: inc.created_at ? new Date(inc.created_at).toLocaleDateString() : 'Today',
+    });
+  });
+
+  // 11. Compute Accurate KPIs
   const totalTasks = tasks.length || 1;
   const completedTasks = tasks.filter((t) => t.status === 'Completed').length;
   const urgentTasksCount = tasks.filter((t) => t.urgency === 'Urgent').length;
-  const lowStockBinsCount = bins.filter((b) => b.isLowStock).length;
+  const realBinsCount = bins.filter((b) => b.itemCode !== 'EMPTY').length;
   const cycleAuditsCount = tasks.filter((t) => t.taskType === 'Cycle Count').length;
 
   const kpis: StaffKPIData = {
     shiftProgress: {
-      value: `${completedTasks} / ${totalTasks}`,
+      value: `${completedTasks} / ${tasks.length}`,
       label: 'Tasks Completed',
-      subtitle: `${Math.round((completedTasks / totalTasks) * 100)}% of Shift Target achieved`,
-      progressPercent: Math.round((completedTasks / totalTasks) * 100),
-      badge: completedTasks >= totalTasks ? 'Completed' : 'On Track',
+      subtitle: tasks.length > 0 ? `${Math.round((completedTasks / totalTasks) * 100)}% of Shift Target achieved` : 'All tasks up to date',
+      progressPercent: tasks.length > 0 ? Math.round((completedTasks / totalTasks) * 100) : 100,
+      badge: completedTasks >= tasks.length ? 'Completed' : 'On Track',
       badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     },
     assignedBins: {
-      value: `${bins.length} Bins`,
-      label: 'Zone A Monitored',
-      subtitle: '100% Floor Inventory Coverage',
-      badge: 'Optimal',
+      value: `${bins.length} Bays`,
+      label: 'Active Storage Locations',
+      subtitle: `${realBinsCount} active, ${bins.length - realBinsCount} available bays`,
+      badge: primaryZone.split(' ')[0] || 'Zone A',
       badgeColor: 'bg-teal-50 text-[#008a90] border-teal-200',
     },
     pendingTasks: {
@@ -214,79 +518,11 @@ export async function getStaffDashboardData(
     cycleCountsDue: {
       value: `${cycleAuditsCount} Audits`,
       label: 'Cycle Counts Due',
-      subtitle: cycleAuditsCount > 0 ? 'Recount tickets pending' : 'All tallies reconciled',
+      subtitle: cycleAuditsCount > 0 ? 'Recount checks scheduled' : 'All tallies reconciled',
       badge: cycleAuditsCount > 0 ? 'Action Needed' : 'Up to Date',
       badgeColor: cycleAuditsCount > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200',
     },
   };
-
-  // 4. Construct Active Workstation Pick Order from First Approved Request
-  let activeOrder = null;
-  if (approvedRequests.length > 0) {
-    const topReq = approvedRequests[0];
-    const pickItems = (topReq.items || []).map((item: any, idx: number) => {
-      const matchedBin = bins.find((b) => b.itemCode === item.code || b.itemCode === item.itemId) || bins[idx % bins.length];
-      return {
-        id: `pick-${item.id || idx}`,
-        itemCode: matchedBin ? matchedBin.itemCode : (item.code || 'VST-001'),
-        name: matchedBin ? matchedBin.itemName : (item.name || 'Medical Supply Item'),
-        binLocation: matchedBin ? matchedBin.binCode : `Bin A-0${idx + 1}`,
-        batchNo: matchedBin ? matchedBin.batchNo : 'LOT-2026A',
-        expiry: matchedBin ? matchedBin.expiryDate : 'Dec 31, 2026',
-        qtyRequested: item.quantity || 50,
-        qtyPicked: item.quantity || 50,
-        unit: matchedBin ? matchedBin.unit : 'Box',
-        scanned: false,
-      };
-    });
-
-    activeOrder = {
-      orderRef: (topReq as any).requestNumber || (topReq as any).request_number || 'REQ-2026-001',
-      department: (topReq as any).department || 'Emergency Trauma Ward',
-      priority: topReq.priority || 'Urgent',
-      items: pickItems.length > 0 ? pickItems : [
-        {
-          id: 'pick-001',
-          itemCode: bins[0]?.itemCode || 'VST-001',
-          name: bins[0]?.itemName || 'Surgical Mask 3-Ply',
-          binLocation: 'Bin A-01',
-          batchNo: 'LOT-SM-2026A',
-          expiry: 'Dec 31, 2026',
-          qtyRequested: 50,
-          qtyPicked: 50,
-          unit: 'Box',
-          scanned: false,
-        },
-        {
-          id: 'pick-002',
-          itemCode: bins[1]?.itemCode || 'VST-002',
-          name: bins[1]?.itemName || 'Examination Gloves (Nitrile)',
-          binLocation: 'Bin A-02',
-          batchNo: 'LOT-GL-2026B',
-          expiry: 'Dec 31, 2026',
-          qtyRequested: 50,
-          qtyPicked: 50,
-          unit: 'Box',
-          scanned: false,
-        },
-      ],
-    };
-  }
-
-  // 5. Map Incidents
-  const mappedIncidents: StaffIncidentReport[] = incidents.map((inc) => ({
-    id: inc.id,
-    ticketNo: (inc as any).ticketNo || inc.ticket_number || `INC-${inc.id}`,
-    type: inc.type as any,
-    itemCode: (inc as any).itemCode || inc.item_code || 'SKU',
-    itemName: (inc as any).itemName || inc.item_name || 'Medical Supplies',
-    quantity: inc.quantity || 1,
-    unit: 'Units',
-    binLocation: 'General Bay',
-    description: inc.description || 'Reported on floor',
-    status: inc.status as any,
-    reportedDate: inc.created_at ? new Date(inc.created_at).toLocaleDateString() : 'Today',
-  }));
 
   return {
     kpis,
@@ -295,10 +531,16 @@ export async function getStaffDashboardData(
     activeOrder,
     incidents: mappedIncidents,
     shiftInfo: {
-      shiftName: 'Morning Shift',
-      shiftHours: '06:00 - 14:30',
-      warehouseName: facility || 'Central Medical Store (Kathmandu)',
-      zoneName: 'Zone A (Bulk Storage & Picking)',
+      shiftName: 'Operations Shift',
+      shiftHours: whMeta?.operating_hours || '08:00 - 18:00 Mon-Sat',
+      warehouseName: whMeta ? `${whMeta.code ? `[${whMeta.code}] ` : ''}${whMeta.name}` : facility,
+      warehouseId: targetWarehouseId,
+      warehouseCode: whMeta?.code,
+      warehouseCity: whMeta?.city,
+      zoneName: primaryZone,
+      managerName,
+      managerPhone,
+      managerEmail,
     },
   };
 }

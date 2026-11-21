@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Stock Adjustments & Variance | VISTA Portal',
+  title: 'Stock Adjustments & Variance | Field Inventory Management',
   description:
     'Cycle count adjustments, write-offs, variance investigation, and reconciliation audits.',
 };

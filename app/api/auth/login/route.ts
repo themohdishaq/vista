@@ -23,7 +23,7 @@ export async function GET() {
   return NextResponse.json(
     {
       online: true,
-      service: 'VISTA Unified Auth API',
+      service: 'Field Inventory Management Auth API',
       timestamp: new Date().toISOString(),
       adminAuthAvailable: true,
     },

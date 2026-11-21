@@ -94,7 +94,7 @@ export default function ManagerPurchasesPage() {
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Local-Purchases-${Date.now()}.csv`;
+    link.download = `FIM-Local-Purchases-${Date.now()}.csv`;
     link.click();
     showToast('Exported local purchase ledger.');
   };
@@ -129,7 +129,7 @@ export default function ManagerPurchasesPage() {
               Local Purchases &amp; Emergency Direct Buys
             </h1>
             <p className="text-xs text-slate-500">
-              Manager authorization for emergency spot orders and local clinic requisitions
+              Manager authorization for emergency spot orders and local field requisitions
             </p>
           </div>
         </div>

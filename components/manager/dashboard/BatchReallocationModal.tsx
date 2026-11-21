@@ -56,7 +56,7 @@ export function BatchReallocationModal({
                 FIFO Batch Re-Allocation
               </h3>
               <p className="text-xs text-slate-500">
-                Transfer expiring stock to high-turnover wards
+                Transfer short-dated stock to high-consumption field locations
               </p>
             </div>
           </div>
@@ -88,17 +88,17 @@ export function BatchReallocationModal({
 
           <div>
             <label className="block font-medium text-slate-700 mb-1">
-              Destination High-Velocity Ward
+              Destination High-Turnover Unit / Site
             </label>
             <select
               value={targetWard}
               onChange={(e) => setTargetWard(e.target.value)}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-700 focus:outline-hidden focus:border-[#008a90]"
             >
-              <option value="Emergency Department">Emergency Department (Highest Turnover)</option>
-              <option value="Intensive Care Unit (ICU)">Intensive Care Unit (ICU)</option>
-              <option value="Surgical Suites">Surgical Suites</option>
-              <option value="Outpatient Urgent Care">Outpatient Urgent Care</option>
+              <option value="Field Operations Site Alpha">Field Operations Site Alpha (Highest Turnover)</option>
+              <option value="Central Maintenance Facility">Central Maintenance Facility</option>
+              <option value="Regional Assembly Hub">Regional Assembly Hub</option>
+              <option value="Rapid Deployment Unit">Rapid Deployment Unit</option>
             </select>
           </div>
 

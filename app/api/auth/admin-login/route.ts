@@ -30,7 +30,7 @@ export async function GET() {
   return NextResponse.json(
     {
       online: true,
-      service: 'VISTA Admin Authentication Gateway',
+      service: 'Field Inventory Management Admin Gateway',
       timestamp: new Date().toISOString(),
       adminConfigured: Boolean(adminEmail),
       authMode: 'environment_vault',

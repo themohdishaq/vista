@@ -32,12 +32,12 @@ export default function StaffSettingsPage() {
 
   // Profile Fields
   const [fullName, setFullName] = useState('Mike Chen');
-  const [email, setEmail] = useState('staff@vista.com');
+  const [email, setEmail] = useState('staff@fieldinventory.com');
   const [phone, setPhone] = useState('+1 (555) 456-7890');
   const [department, setDepartment] = useState('Warehouse Floor Operations');
   const [stationZone, setStationZone] = useState('Zone A - Bulk Storage & Picking');
   const [shiftSchedule, setShiftSchedule] = useState('Day Shift (08:00 - 16:30)');
-  const [warehouseName, setWarehouseName] = useState('Main Central Warehouse');
+  const [warehouseName, setWarehouseName] = useState('Loading Facility...');
 
   // Password Fields
   const [currentPassword, setCurrentPassword] = useState('');
@@ -75,12 +75,12 @@ export default function StaffSettingsPage() {
         if (data.success && data.profile) {
           const p = data.profile;
           setFullName(p.fullName || 'Mike Chen');
-          setEmail(p.email || 'staff@vista.com');
+          setEmail(p.email || 'staff@fieldinventory.com');
           setPhone(p.phone || '+1 (555) 456-7890');
           setDepartment(p.department || 'Warehouse Floor Operations');
           setStationZone(p.stationZone || 'Zone A - Bulk Storage & Picking');
           setShiftSchedule(p.shiftSchedule || 'Day Shift (08:00 - 16:30)');
-          setWarehouseName(p.warehouseName || 'Main Central Warehouse');
+          setWarehouseName(p.warehouseName || 'Unassigned Facility');
           if (p.operationalPreferences) {
             setOperational((prev) => ({ ...prev, ...p.operationalPreferences }));
           }

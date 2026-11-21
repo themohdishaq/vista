@@ -4,6 +4,7 @@ import path from 'node:path';
 import { sql } from '@/lib/db';
 import { UserRecord, UserRole, UserStatus } from '@/types/users';
 import { INITIAL_USER_RECORDS } from '@/lib/data/users-seed-data';
+import { ensureWarehouseExists } from './warehouse-service';
 
 /**
  * @file lib/services/user-service.ts
@@ -59,14 +60,7 @@ export function getRuntimeUsers(): UserRecord[] {
     if (persisted && persisted.length > 0) {
       globalThis.__vista_runtime_users__ = persisted;
     } else {
-      // Clone baseline seed users and initialize default working passwords
-      globalThis.__vista_runtime_users__ = INITIAL_USER_RECORDS.map((u) => ({
-        ...u,
-        role: u.role === 'Inventory Staff' ? 'Warehouse Staff' : u.role,
-        password:
-          u.password ||
-          (u.role === 'Inventory Manager' ? 'manager123' : 'staff123'),
-      }));
+      globalThis.__vista_runtime_users__ = [];
       savePersistedUsers(globalThis.__vista_runtime_users__);
     }
   }
@@ -110,8 +104,17 @@ export async function getUsers(options: UserFilterOptions = {}): Promise<UserRec
     const params: any[] = [];
     let paramIdx = 1;
 
-    if (userRole === 'manager' && assignedWarehouseId) {
-      query += ` AND u.assigned_warehouse_id = $${paramIdx++}`;
+    if (userRole === 'manager') {
+      if (!assignedWarehouseId) {
+        return [];
+      }
+      query += ` AND u.assigned_warehouse_id = $${paramIdx++} AND u.role = 'staff'::user_role`;
+      params.push(assignedWarehouseId);
+    } else if (userRole === 'staff') {
+      if (!assignedWarehouseId) {
+        return [];
+      }
+      query += ` AND u.assigned_warehouse_id = $${paramIdx++} AND u.role = 'staff'::user_role`;
       params.push(assignedWarehouseId);
     }
 
@@ -156,7 +159,7 @@ export async function getUsers(options: UserFilterOptions = {}): Promise<UserRec
           ? `${r.warehouse_code ? `[${r.warehouse_code}] ` : ''}${r.warehouse_name}`
           : r.role === 'super_admin'
           ? 'All Facilities (Super Admin)'
-          : 'Main Central Warehouse';
+          : 'Unassigned Facility';
 
         return {
           id: r.id,
@@ -201,8 +204,14 @@ export async function getUsers(options: UserFilterOptions = {}): Promise<UserRec
 
   // Apply filters to merged results
   return mergedUsers.filter((u) => {
-    if (userRole === 'manager' && assignedWarehouseId && u.warehouseId !== assignedWarehouseId) {
-      return false;
+    if (userRole === 'manager') {
+      if (!assignedWarehouseId) return false;
+      if (u.warehouseId !== assignedWarehouseId || (u.role !== 'Warehouse Staff' && u.role !== 'Inventory Staff')) {
+        return false;
+      }
+    } else if (userRole === 'staff') {
+      if (!assignedWarehouseId) return false;
+      if (u.warehouseId !== assignedWarehouseId) return false;
     }
 
     if (roleFilter && roleFilter !== 'All') {
@@ -258,22 +267,51 @@ export async function createUser(
   const username = data.email.trim().toLowerCase();
   const passwordHash = data.password.trim();
 
-  // Role resolution: strictly Manager or Staff
+  // Role resolution & warehouse scoping:
   let dbRole: 'manager' | 'staff' = 'staff';
   let displayRole: UserRole = 'Warehouse Staff';
+  let assignedWarehouse: string | null = null;
+  let facilityName = 'Unassigned Facility';
 
-  if (data.role === 'Inventory Manager' || data.role === 'manager') {
-    dbRole = 'manager';
-    displayRole = 'Inventory Manager';
-  } else {
+  if (creator.role === 'manager') {
+    if (!creator.assignedWarehouseId) {
+      throw new Error('You must be assigned to a warehouse before provisioning staff.');
+    }
+    // Manager can ONLY provision staff for their own assigned warehouse
     dbRole = 'staff';
     displayRole = 'Warehouse Staff';
+    assignedWarehouse = creator.assignedWarehouseId;
+  } else {
+    // Admin / Super Admin
+    if (data.role === 'Inventory Manager' || data.role === 'manager') {
+      dbRole = 'manager';
+      displayRole = 'Inventory Manager';
+    } else {
+      dbRole = 'staff';
+      displayRole = 'Warehouse Staff';
+    }
+    assignedWarehouse = data.warehouseId ? data.warehouseId.trim() : null;
+    if (!assignedWarehouse && data.warehouseAccess && data.warehouseAccess !== 'Unassigned Facility') {
+      assignedWarehouse = data.warehouseAccess.trim();
+    }
+  }
+
+  // Dynamically resolve warehouse against Neon DB & runtime memory
+  if (assignedWarehouse) {
+    const resolved = await ensureWarehouseExists(assignedWarehouse);
+    if (resolved) {
+      assignedWarehouse = resolved.id;
+      facilityName = `${resolved.code ? `[${resolved.code}] ` : ''}${resolved.name}`;
+    } else {
+      assignedWarehouse = null;
+      facilityName = 'Unassigned Facility';
+    }
+  } else {
+    facilityName = 'Unassigned Facility';
   }
 
   const userStatus: UserStatus = data.status === 'Inactive' ? 'Inactive' : 'Active';
   const dbStatus = userStatus === 'Inactive' ? 'inactive' : 'active';
-  const assignedWarehouse = data.warehouseId || 'wh-001';
-  const facilityName = data.warehouseAccess || 'Main Central Warehouse';
 
   // Construct complete UserRecord object
   const newUserRecord: UserRecord = {
@@ -285,34 +323,63 @@ export async function createUser(
     status: userStatus,
     lastLogin: 'Never',
     phone: data.phone?.trim() || '+1 (555) 000-0000',
-    warehouseId: assignedWarehouse,
-    warehouseAccess: facilityName,
+    warehouseId: assignedWarehouse || undefined,
+    warehouseAccess: assignedWarehouse ? facilityName : 'Unassigned Facility',
     permissionsCount: dbRole === 'manager' ? 36 : 18,
     password: passwordHash,
   };
 
-  // 1. Immediately store in global runtime memory (prepended at top)
-  const currentRuntime = getRuntimeUsers();
   // Check duplicates in runtime memory
-  const duplicate = currentRuntime.find((u) => u.email.toLowerCase() === username);
+  const currentRuntime = getRuntimeUsers();
+  const duplicate = currentRuntime.find((u) => u.email.toLowerCase() === username && u.status !== 'Inactive');
   if (duplicate) {
     throw new Error(`An account with email "${data.email}" already exists.`);
   }
 
-  setRuntimeUsers([newUserRecord, ...currentRuntime]);
+  // Check if a user with this email exists in DB
+  const existingDbUsers = await sql.query(
+    `SELECT id, deleted_at FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1) LIMIT 1;`,
+    [username]
+  );
 
-  // 2. Persist to Neon Postgres DB if connected
-  try {
+  if (existingDbUsers.length > 0) {
+    if (existingDbUsers[0].deleted_at === null) {
+      throw new Error(`An account with email "${data.email}" already exists.`);
+    }
+    // If soft-deleted in DB, reactivate and update with new credentials/warehouse
+    try {
+      await sql.query(`DELETE FROM user_warehouse_assignments WHERE user_id = $1;`, [existingDbUsers[0].id]);
+    } catch {}
+    await sql.query(
+      `UPDATE users
+       SET id = $1, full_name = $2, username = $3, email = $3, password_hash = $4,
+           role = $5::user_role, status = $6::user_status, department = 'Operations',
+           phone = $7, assigned_warehouse_id = $8, approved_at = NOW(), deleted_at = NULL, updated_at = NOW()
+       WHERE id = $9;`,
+      [
+        id,
+        data.fullName.trim(),
+        username,
+        passwordHash,
+        dbRole,
+        dbStatus,
+        data.phone?.trim() || '+1 (555) 000-0000',
+        assignedWarehouse,
+        existingDbUsers[0].id,
+      ]
+    );
+  } else {
     await sql.query(
       `INSERT INTO users (
          id, full_name, username, email, password_hash, role, status,
-         department, phone, assigned_warehouse_id, approved_at
+         department, phone, assigned_warehouse_id, approved_at, deleted_at
        ) VALUES (
          $1, $2, $3, $4, $5, $6::user_role, $7::user_status,
-         'Operations', $8, $9, NOW()
+         'Operations', $8, $9, NOW(), NULL
        )
        ON CONFLICT (id) DO UPDATE 
-       SET full_name = EXCLUDED.full_name, password_hash = EXCLUDED.password_hash;`,
+       SET full_name = EXCLUDED.full_name, password_hash = EXCLUDED.password_hash,
+           assigned_warehouse_id = EXCLUDED.assigned_warehouse_id, deleted_at = NULL;`,
       [
         id,
         data.fullName.trim(),
@@ -325,32 +392,20 @@ export async function createUser(
         assignedWarehouse,
       ]
     );
-  } catch (err: any) {
-    // If assigned_warehouse_id foreign key failed (e.g. mock ID), retry with null warehouse
+  }
+
+  setRuntimeUsers([newUserRecord, ...currentRuntime]);
+
+  if (assignedWarehouse) {
     try {
       await sql.query(
-        `INSERT INTO users (
-           id, full_name, username, email, password_hash, role, status,
-           department, phone, approved_at
-         ) VALUES (
-           $1, $2, $3, $4, $5, $6::user_role, $7::user_status,
-           'Operations', $8, NOW()
-         )
-         ON CONFLICT (id) DO UPDATE 
-         SET full_name = EXCLUDED.full_name, password_hash = EXCLUDED.password_hash;`,
-        [
-          id,
-          data.fullName.trim(),
-          username,
-          username,
-          passwordHash,
-          dbRole,
-          dbStatus,
-          data.phone?.trim() || '+1 (555) 000-0000',
-        ]
+        `INSERT INTO user_warehouse_assignments (id, user_id, warehouse_id, is_primary)
+         VALUES ($1, $2, $3, TRUE)
+         ON CONFLICT (user_id, warehouse_id) DO UPDATE SET is_primary = TRUE;`,
+        [`uwa-${Date.now()}-${Math.floor(Math.random() * 1000)}`, id, assignedWarehouse]
       );
-    } catch {
-      // Offline fallback is active and already stored in runtime memory
+    } catch (err) {
+      console.error(`Failed to sync warehouse assignment for user ${username}:`, err);
     }
   }
 
@@ -372,9 +427,43 @@ export async function updateUser(
     phone?: string;
     status?: UserStatus | string;
     password?: string;
+    stationZone?: string;
+    shiftSchedule?: string;
+    assignedBins?: string;
+    assignedTask?: string;
+    department?: string;
   }
 ): Promise<void> {
-  // 1. Update in-memory runtime store
+  // Dynamically resolve warehouse assignment changes
+  let resolvedWarehouseId: string | null = null;
+  let resolvedWarehouseName: string = 'Unassigned Facility';
+  let hasWarehouseUpdate = false;
+
+  if (data.warehouseId !== undefined) {
+    hasWarehouseUpdate = true;
+    if (data.warehouseId && data.warehouseId !== 'Unassigned Facility') {
+      const resolved = await ensureWarehouseExists(data.warehouseId);
+      if (resolved) {
+        resolvedWarehouseId = resolved.id;
+        resolvedWarehouseName = `${resolved.code ? `[${resolved.code}] ` : ''}${resolved.name}`;
+      } else if (data.warehouseAccess && data.warehouseAccess !== 'Unassigned Facility') {
+        const fromAccess = await ensureWarehouseExists(data.warehouseAccess);
+        if (fromAccess) {
+          resolvedWarehouseId = fromAccess.id;
+          resolvedWarehouseName = `${fromAccess.code ? `[${fromAccess.code}] ` : ''}${fromAccess.name}`;
+        }
+      }
+    }
+  } else if (data.warehouseAccess !== undefined && data.warehouseAccess !== 'Unassigned Facility') {
+    const fromAccess = await ensureWarehouseExists(data.warehouseAccess);
+    if (fromAccess) {
+      hasWarehouseUpdate = true;
+      resolvedWarehouseId = fromAccess.id;
+      resolvedWarehouseName = `${fromAccess.code ? `[${fromAccess.code}] ` : ''}${fromAccess.name}`;
+    }
+  }
+
+  // Prepare the runtime update, but only publish it after the database write succeeds.
   const runtimeUsers = getRuntimeUsers();
   const updatedRuntime = runtimeUsers.map((u) => {
     if (u.id === userId) {
@@ -394,22 +483,32 @@ export async function updateUser(
           ? 'Suspended'
           : (data.status as UserStatus) || u.status;
 
+      let newWhId = u.warehouseId;
+      let newWhAccess = u.warehouseAccess;
+      if (hasWarehouseUpdate) {
+        newWhId = resolvedWarehouseId || undefined;
+        newWhAccess = resolvedWarehouseId ? resolvedWarehouseName : 'Unassigned Facility';
+      }
+
       return {
         ...u,
         fullName: data.fullName !== undefined ? data.fullName.trim() : u.fullName,
         role: updatedRole,
-        warehouseId: data.warehouseId !== undefined ? data.warehouseId || undefined : u.warehouseId,
-        warehouseAccess: data.warehouseAccess !== undefined ? data.warehouseAccess : u.warehouseAccess,
+        warehouseId: newWhId,
+        warehouseAccess: newWhAccess,
         phone: data.phone !== undefined ? data.phone.trim() : u.phone,
         status: updatedStatus,
         password: data.password ? data.password.trim() : u.password,
+        stationZone: data.stationZone !== undefined ? data.stationZone : u.stationZone,
+        shiftSchedule: data.shiftSchedule !== undefined ? data.shiftSchedule : u.shiftSchedule,
+        assignedBins: data.assignedBins !== undefined ? data.assignedBins : (u as any).assignedBins,
+        assignedTask: data.assignedTask !== undefined ? data.assignedTask : (u as any).assignedTask,
+        department: data.department !== undefined ? data.department : u.department,
       };
     }
     return u;
   });
-  setRuntimeUsers(updatedRuntime);
 
-  // 2. Update DB
   const updates: string[] = [];
   const params: any[] = [userId];
   let paramIdx = 2;
@@ -426,9 +525,9 @@ export async function updateUser(
     params.push(dbRole);
   }
 
-  if (data.warehouseId !== undefined) {
+  if (hasWarehouseUpdate) {
     updates.push(`assigned_warehouse_id = $${paramIdx++}`);
-    params.push(data.warehouseId || null);
+    params.push(resolvedWarehouseId);
   }
 
   if (data.phone !== undefined) {
@@ -447,16 +546,89 @@ export async function updateUser(
     params.push(data.password.trim());
   }
 
-  if (updates.length === 0) return;
-
-  updates.push(`updated_at = NOW()`);
-  const query = `UPDATE users SET ${updates.join(', ')} WHERE id = $1;`;
-
-  try {
-    await sql.query(query, params);
-  } catch (err) {
-    // Handled gracefully
+  if (data.department !== undefined) {
+    updates.push(`department = $${paramIdx++}`);
+    params.push(data.department);
   }
+
+  const updatedUser = updatedRuntime.find((u) => u.id === userId);
+
+  if (updates.length > 0) {
+    updates.push(`updated_at = NOW()`);
+    const query = `UPDATE users SET ${updates.join(', ')} WHERE id = $1 RETURNING id;`;
+    const rows = await sql.query(query, params);
+
+    if (!rows.length) {
+      if (!updatedUser?.password) {
+        throw new Error('The staff profile is missing from the database and cannot be synchronized without its account credentials.');
+      }
+
+      const dbRole =
+        updatedUser.role === 'Inventory Manager' ? 'manager'
+        : updatedUser.role === 'Administrator' ? 'super_admin'
+        : updatedUser.role === 'Auditor' ? 'auditor'
+        : 'staff';
+      const dbStatus =
+        updatedUser.status === 'Active' ? 'active'
+        : updatedUser.status === 'Pending' ? 'pending_approval'
+        : updatedUser.status === 'Suspended' ? 'suspended'
+        : 'inactive';
+
+      await sql.query(
+        `INSERT INTO users (
+           id, full_name, username, email, password_hash, role, status,
+           department, phone, assigned_warehouse_id, approved_at
+         ) VALUES (
+           $1, $2, $3, $4, $5, $6::user_role, $7::user_status,
+           $8, $9, $10,
+           CASE WHEN $7 = 'active' THEN NOW() ELSE NULL END
+         )
+         ON CONFLICT (id) DO UPDATE
+         SET full_name = EXCLUDED.full_name,
+             username = EXCLUDED.username,
+             email = EXCLUDED.email,
+             password_hash = EXCLUDED.password_hash,
+             role = EXCLUDED.role,
+             status = EXCLUDED.status,
+             department = EXCLUDED.department,
+             phone = EXCLUDED.phone,
+             assigned_warehouse_id = EXCLUDED.assigned_warehouse_id,
+             updated_at = NOW();`,
+        [
+          updatedUser.id,
+          updatedUser.fullName,
+          updatedUser.username,
+          updatedUser.email,
+          updatedUser.password,
+          dbRole,
+          dbStatus,
+          updatedUser.department || 'Operations',
+          updatedUser.phone || null,
+          updatedUser.warehouseId || null,
+        ]
+      );
+    }
+
+    if (hasWarehouseUpdate) {
+      if (resolvedWarehouseId) {
+        await sql.query(
+          `DELETE FROM user_warehouse_assignments
+           WHERE user_id = $1 AND warehouse_id <> $2;`,
+          [userId, resolvedWarehouseId]
+        );
+        await sql.query(
+          `INSERT INTO user_warehouse_assignments (id, user_id, warehouse_id, is_primary)
+           VALUES ($1, $2, $3, TRUE)
+           ON CONFLICT (user_id, warehouse_id) DO UPDATE SET is_primary = TRUE;`,
+          [`uwa-${Date.now()}-${Math.floor(Math.random() * 1000)}`, userId, resolvedWarehouseId]
+        );
+      } else {
+        await sql.query(`DELETE FROM user_warehouse_assignments WHERE user_id = $1;`, [userId]);
+      }
+    }
+  }
+
+  setRuntimeUsers(updatedRuntime);
 }
 
 export async function approveStaff(userId: string, superAdminId: string): Promise<void> {

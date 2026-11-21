@@ -1,0 +1,190 @@
+VISTA – Field Inventory Management System
+
+Act as a Senior Full-Stack Developer and Software Architect.
+
+I have an existing Field Inventory Management System named VISTA. The system has three primary roles:
+
+Super Admin
+
+Inventory Manager
+
+Floor Staff
+
+The system manages organizational inventory across multiple warehouses, facilities, storage locations, and field operations.
+
+This is a single-organization system, not a multi-tenant application.
+
+Your responsibility is to audit, repair, and complete the existing application. Make every page, route, form, field, button, API, dashboard, assignment, and inventory workflow fully functional.
+
+1. Super Admin – Organization-Wide Management
+
+The Super Admin must be able to:
+
+Manage all warehouses and storage facilities.
+
+Create, update, activate, and deactivate warehouses.
+
+Create and manage Inventory Manager accounts.
+
+Assign Managers to their respective warehouses.
+
+Reassign warehouses between Managers.
+
+Manage Floor Staff accounts and role permissions.
+
+View all users and their assignments.
+
+Manage the master inventory catalog.
+
+Manage product/item categories, SKUs, units, and barcodes.
+
+Monitor inventory across all warehouses.
+
+View warehouse-wise stock and inventory movements.
+
+Monitor stock shortages, damaged items, and discrepancies.
+
+View global reports, audit logs, and operational activities.
+
+2. Inventory Manager – Warehouse Management
+
+Each Manager should only manage their assigned warehouse or warehouses.
+
+Managers must be able to:
+
+View and manage their assigned warehouse details.
+
+View warehouse inventory and stock levels.
+
+Manage assigned Floor Staff.
+
+Assign staff to storage areas, sections, zones, and bins.
+
+Assign shifts and daily operational tasks.
+
+Monitor incoming and outgoing inventory.
+
+Review stock requests submitted by staff.
+
+Approve or reject stock requests.
+
+Review stock adjustments and physical count discrepancies.
+
+Monitor damaged, missing, and expired items where applicable.
+
+Manage warehouse receiving, storage, picking, issuing, and dispatch operations.
+
+Manage authorized stock transfers.
+
+Generate warehouse-specific reports.
+
+Managers must not access or modify another Manager's warehouses or staff without authorization.
+
+3. Floor Staff – Field Operations
+
+Floor Staff should perform actual inventory operations within their assigned warehouse and operational area.
+
+They must be able to:
+
+View their assigned warehouse and storage location.
+
+View assigned inventory and available stock.
+
+Receive incoming inventory.
+
+Record item quantities and relevant identification details.
+
+Scan item barcodes where supported.
+
+Store items in assigned locations.
+
+Pick and issue inventory against approved requests.
+
+Submit stock replenishment requests.
+
+Perform physical stock counts.
+
+Report missing, damaged, or incorrect inventory.
+
+Record returned items.
+
+Submit purchase or procurement records where authorized.
+
+Create and track transfer requests.
+
+Confirm physical receipt of transferred inventory where authorized.
+
+View assigned tasks and request statuses.
+
+Staff must not approve their own stock requests or make unauthorized stock adjustments.
+
+4. Core Inventory Workflows
+
+Make the following workflows fully functional and connected:
+
+Inventory receiving and stock entry.
+
+Warehouse storage and bin allocation.
+
+Stock lookup and availability.
+
+Stock requests and replenishment approvals.
+
+Picking, issuing, and dispatch.
+
+Physical stock counting.
+
+Stock discrepancies and adjustments.
+
+Damaged and missing inventory reporting.
+
+Inventory returns.
+
+Procurement and purchase recording.
+
+Inter-warehouse stock transfers.
+
+Inventory reports and audit trails.
+
+Adapt these workflows to the actual inventory requirements of the existing project. Do not introduce medical, clinical, pharmaceutical, ward, or patient-related functionality.
+
+5. Organizational Relationships
+
+Implement the following hierarchy:
+
+Super Admin
+├── Warehouse A → Manager A → Assigned Staff
+├── Warehouse B → Manager B → Assigned Staff
+└── Warehouse C → Manager C → Assigned Staff
+
+Support multiple Managers per warehouse if operationally required and multiple warehouse assignments per Manager where authorized.
+
+Keep role, warehouse assignment, staff supervision, and operational-area assignment separate.
+
+6. Important Implementation Requirements
+
+Inspect the existing codebase before making changes.
+
+Review every route and every existing form.
+
+Connect every frontend field to the correct backend functionality.
+
+Ensure all updates persist in the actual database.
+
+Use real database data rather than static or dummy data.
+
+Enforce role-based and warehouse-based authorization on the server.
+
+Keep inventory balances and stock movement records consistent.
+
+Require authorization for sensitive stock adjustments.
+
+Prevent unauthorized stock issuance and negative inventory.
+
+Preserve the existing application architecture and working features.
+
+Test each workflow using separate Super Admin, Manager, and Floor Staff accounts.
+
+Do not rebuild the application from scratch.
+
+First audit the existing implementation, identify missing functionality, and then implement and test each feature systematically.

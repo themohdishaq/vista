@@ -24,6 +24,7 @@ interface KitPackerModalProps {
   onClose: () => void;
   selectedKit?: KitRecord | null;
   onRecordKitPacked: (kitId: string, kitCode: string, qty: number, packingBay: string) => void;
+  operatorName?: string;
 }
 
 export function KitPackerModal({
@@ -31,6 +32,7 @@ export function KitPackerModal({
   onClose,
   selectedKit,
   onRecordKitPacked,
+  operatorName = 'Floor Specialist',
 }: KitPackerModalProps) {
   const [kitId, setKitId] = useState(selectedKit?.id || 'kit-001');
   const [kitCode, setKitCode] = useState(selectedKit?.code || 'KIT-001');
@@ -83,12 +85,12 @@ export function KitPackerModal({
   const handleDownloadPackingList = () => {
     const slip = `
 ===================================================
-     VISTA PORTAL - OFFICIAL KIT PACKING LIST
+FIELD INVENTORY MANAGEMENT - OFFICIAL KIT PACKING LIST
 ===================================================
 Kit Identifier: ${kitCode} - ${kitName}
 Total Kits Packed: ${qtyNum}
 Assembly Station: ${packingBay}
-Operator: Floor Logistics Specialist
+Operator: ${operatorName}
 Timestamp: ${new Date().toLocaleString()}
 
 BILL OF MATERIALS (BOM) PER KIT:
@@ -105,14 +107,14 @@ QUALITY ASSURANCE:
 [X] Storage assigned to Dispatch Staging Bay
 
 SUPERVISED BY: Facility Inventory Manager
-PACKED BY: Floor Specialist
+PACKED BY: ${operatorName}
 ===================================================
 `;
     const blob = new Blob([slip], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `VISTA-PackingList-${kitCode}.txt`;
+    link.download = `FIM-PackingList-${kitCode}.txt`;
     link.click();
     URL.revokeObjectURL(url);
   };

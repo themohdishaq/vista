@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Kit Management & Packing Lists | VISTA Portal',
+  title: 'Kit Management & Packing Lists | Field Inventory Management',
   description:
     'Bill of materials (BOM), trauma kits, surgical packs, and box assembly tracking.',
 };

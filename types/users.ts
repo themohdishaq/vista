@@ -35,6 +35,8 @@ export interface UserRecord {
   operationalPreferences?: Record<string, any>;
   stationZone?: string;
   shiftSchedule?: string;
+  assignedBins?: string;
+  assignedTask?: string;
 }
 
 export interface CreateUserInput {
@@ -54,6 +56,11 @@ export interface UpdateUserInput {
   phone?: string;
   status?: UserStatus;
   password?: string;
+  stationZone?: string;
+  shiftSchedule?: string;
+  assignedBins?: string;
+  assignedTask?: string;
+  department?: string;
 }
 
 export interface UsersKPICard {

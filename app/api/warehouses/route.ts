@@ -1,19 +1,30 @@
 // filepath: app/api/warehouses/route.ts
 import { NextResponse } from 'next/server';
-import { getCurrentSession } from '@/lib/auth';
+import { getAuthScope } from '@/lib/auth-scope';
 import { getWarehouses, createWarehouse } from '@/lib/services/warehouse-service';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const session = await getCurrentSession();
+    const scope = await getAuthScope();
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || undefined;
 
+    if (!scope.isAdmin && scope.isUnassigned) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        unassigned: true,
+        message: 'No warehouse facility assigned.',
+      });
+    }
+
     const warehouses = await getWarehouses({
-      userRole: session?.user.role,
-      assignedWarehouseId: (session?.user as any)?.assignedWarehouseId,
+      userRole: scope.isAdmin ? 'super_admin' : scope.role || 'staff',
+      assignedWarehouseId: scope.warehouseId,
+      assignedWarehouseIds: scope.assignedWarehouseIds,
+      userId: scope.user?.id,
       search,
     });
 
@@ -25,8 +36,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await getCurrentSession();
-    if (session?.user.role !== 'admin') {
+    const scope = await getAuthScope();
+    if (!scope.isAdmin) {
       return NextResponse.json({ success: false, message: 'Forbidden: Super Admin only.' }, { status: 403 });
     }
 

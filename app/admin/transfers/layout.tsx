@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Inter-Warehouse Transfers | VISTA Portal',
+  title: 'Inter-Warehouse Transfers | Field Inventory Management',
   description:
     'Dispatch, authorize, and track multi-facility inventory transfers with transit tracking.',
 };

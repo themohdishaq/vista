@@ -84,7 +84,7 @@ export function UserDetailsModal({
                 Assigned Warehouse
               </span>
               <span className="font-bold text-slate-800 text-xs mt-0.5 block truncate">
-                {user.warehouseAccess || 'Unassigned'}
+                {user.role === 'Administrator' ? 'All Facilities (Super Admin)' : (user.warehouseAccess || 'Unassigned Facility')}
               </span>
             </div>
             <div>
@@ -129,7 +129,7 @@ export function UserDetailsModal({
                   Assigned Facility:
                 </span>
                 <span className="font-medium text-slate-800">
-                  {user.warehouseAccess || 'All Warehouses'}
+                  {user.role === 'Administrator' ? 'All Facilities (Super Admin)' : (user.warehouseAccess || 'Unassigned Facility')}
                 </span>
               </div>
 

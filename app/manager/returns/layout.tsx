@@ -2,9 +2,9 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Returns & Consumption Audits | VISTA Manager',
+  title: 'Returns & Consumption Audits | Field Inventory Manager',
   description:
-    'Review returned ward stock, authorize quarantine write-offs, and track consumption.',
+    'Review returned field stock, authorize quarantine write-offs, and track consumption.',
 };
 
 export default function ManagerReturnsLayout({

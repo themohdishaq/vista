@@ -62,7 +62,7 @@ export default function ReturnsPage() {
               type: isReturn ? 'Return' : 'Consumption',
               sourceLocation: m.warehouse || 'Central Facility',
               destinationFacility: m.warehouse || 'Main Depot',
-              reason: m.notes || (isReturn ? 'Excess Stock' : 'Clinical Consumption'),
+              reason: m.notes || (isReturn ? 'Excess Stock' : 'Operational Consumption'),
               totalItems: 1,
               quantity: Math.abs(m.quantity || 0),
               estimatedValue: Math.abs(m.quantity || 0) * 15,
@@ -218,7 +218,7 @@ export default function ReturnsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `VISTA_Returns_Consumption_${Date.now()}.csv`);
+    link.setAttribute('download', `FIM_Returns_Consumption_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -386,7 +386,7 @@ export default function ReturnsPage() {
                   <TrendingDown className="w-4 h-4 text-emerald-600" />
                   <div>
                     <p className="font-semibold text-slate-800">Record Consumption</p>
-                    <p className="text-[10px] text-slate-400">Internal ward/clinic usage</p>
+                    <p className="text-[10px] text-slate-400">Internal field/operational usage</p>
                   </div>
                 </button>
               </div>

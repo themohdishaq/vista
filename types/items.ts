@@ -31,6 +31,8 @@ export interface InventoryItem {
   batchTracking: boolean;
   expiryTracking: boolean;
   reorderLevel: number;
+  warehouseId?: string;
+  initialWarehouseId?: string;
 }
 
 export interface ItemsKPIData {

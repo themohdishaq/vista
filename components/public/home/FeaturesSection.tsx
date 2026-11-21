@@ -100,7 +100,7 @@ export default function FeaturesSection() {
         {/* Section Header */}
         <div className="text-center space-y-2 mb-12 sm:mb-16">
           <p className="text-xs sm:text-sm font-bold tracking-widest text-[#00a896] uppercase">
-            — WHAT VISTA OFFERS —
+            — WHAT WE OFFER —
           </p>
           <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-[#0a2540]">
             Everything You Need to Manage Stock

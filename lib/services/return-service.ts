@@ -3,12 +3,13 @@ import { sql } from '@/lib/db';
 
 /**
  * @file lib/services/return-service.ts
- * @description Master Clinical Returns, Consumption & Quarantine Service for VISTA Healthcare.
- * Manages Ward Returns, Damaged/Expired Stock Quarantines, Restocking Authorizations,
+ * @description Master Field Returns, Consumption & Quarantine Service for Field Inventory Management.
+ * Manages Field Returns, Damaged/Expired Stock Quarantines, Restocking Authorizations,
  * and Disposal Write-offs with live PostgreSQL database backing and dual-persistence runtime store.
  */
 
 export type ReturnReviewType =
+  | 'Field Return'
   | 'Ward Return'
   | 'Damaged Quarantine'
   | 'Expired Write-off'
@@ -58,6 +59,13 @@ declare global {
 }
 
 function initRuntimeReturns(): ReturnReviewRecord[] {
+  if (!globalThis.__vista_runtime_returns__) {
+    globalThis.__vista_runtime_returns__ = [];
+  }
+  return globalThis.__vista_runtime_returns__;
+}
+
+function _unusedMockReturns(): ReturnReviewRecord[] {
   if (!globalThis.__vista_runtime_returns__) {
     const today = new Date();
     const formatDate = (daysAgo: number, hours: number, mins: number) => {

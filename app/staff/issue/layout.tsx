@@ -2,9 +2,9 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Issue & Distribute Stock | VISTA Staff',
+  title: 'Issue & Distribute Stock | Field Inventory Staff',
   description:
-    'Prepare and record stock issues, bin picks, and ward distributions.',
+    'Prepare and record stock issues, bin picks, and field unit distributions.',
 };
 
 export default function StaffIssueLayout({

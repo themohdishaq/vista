@@ -21,7 +21,7 @@ export async function PATCH(
       await approveRequest(id, { id: session.user.id });
       return NextResponse.json({ success: true, message: 'Requisition approved for fulfillment.' });
     } else if (body.action === 'reject') {
-      await rejectRequest(id, { id: session.user.id }, body.reason);
+      await rejectRequest(id, { id: session.user.id });
       return NextResponse.json({ success: true, message: 'Requisition rejected.' });
     }
 

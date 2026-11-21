@@ -252,7 +252,7 @@ export const INITIAL_RECENT_REPORTS: GeneratedReportItem[] = [
   },
   {
     id: 'rep-005',
-    name: 'Clinical Consumption Analysis',
+    name: 'Field Operational Consumption Analysis',
     category: 'Operations',
     generatedOn: 'Apr 25, 2025 17:15',
     generatedBy: 'Michael Brown',

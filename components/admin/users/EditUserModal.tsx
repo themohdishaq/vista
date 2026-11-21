@@ -59,16 +59,21 @@ export function EditUserModal({
 
       // Match warehouseId or lookup by warehouseAccess
       if (user.warehouseId) {
-        setWarehouseId(user.warehouseId);
-      } else if (user.warehouseAccess && warehouses.length > 0) {
+        const found = warehouses.find(
+          (w) => w.id === user.warehouseId || w.code === user.warehouseId || w.name === user.warehouseId
+        );
+        setWarehouseId(found ? found.id : user.warehouseId);
+      } else if (user.warehouseAccess && user.warehouseAccess !== 'Unassigned Facility' && warehouses.length > 0) {
         const found = warehouses.find(
           (w) =>
             w.name.toLowerCase() === user.warehouseAccess?.toLowerCase() ||
-            w.id === user.warehouseAccess
+            w.id === user.warehouseAccess ||
+            (w.code && user.warehouseAccess?.includes(w.code)) ||
+            user.warehouseAccess?.includes(w.name)
         );
-        setWarehouseId(found ? found.id : warehouses[0]?.id || '');
-      } else if (warehouses.length > 0) {
-        setWarehouseId(warehouses[0].id);
+        setWarehouseId(found ? found.id : '');
+      } else {
+        setWarehouseId('');
       }
 
       setStatus(user.status || 'Active');
@@ -86,10 +91,6 @@ export function EditUserModal({
 
     if (!fullName.trim()) {
       setFormError('Full Name is required.');
-      return;
-    }
-    if (!warehouseId) {
-      setFormError('Please assign a warehouse to this user.');
       return;
     }
     if (newPassword && newPassword.trim().length < 6) {
@@ -232,16 +233,16 @@ export function EditUserModal({
           {/* Assigned Warehouse (Dynamic) */}
           <div>
             <label className="block font-medium text-slate-700 mb-1">
-              Assigned Warehouse Facility <span className="text-rose-500">*</span>
+              Assigned Warehouse Facility
             </label>
             <div className="relative">
               <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <select
-                required
                 value={warehouseId}
                 onChange={(e) => setWarehouseId(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-700 focus:outline-hidden focus:border-[#008a90] cursor-pointer"
               >
+                <option value="">-- No Facility Assigned (Unassigned) --</option>
                 {warehouses.map((wh) => (
                   <option key={wh.id} value={wh.id}>
                     {wh.code ? `[${wh.code}] ` : ''}{wh.name}

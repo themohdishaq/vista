@@ -34,7 +34,7 @@ export function OperationalReportModal({
 
     const timestamp = new Date().toLocaleString();
     const content = `=====================================================
-VISTA INVENTORY MANAGEMENT - OPERATIONAL REPORT
+FIELD INVENTORY MANAGEMENT - OPERATIONAL REPORT
 =====================================================
 Report Name:    ${reportType}
 Facility Scope: ${selectedWarehouse}
@@ -64,7 +64,7 @@ APPROVED DISPATCHES & MOVEMENT:
 - Kit Packing Progress:           84% complete for ward allocations
 
 MANAGER ELECTRONIC SIGN-OFF:
-VISTA-MGR-REPORT-${Date.now().toString(36).toUpperCase()}-APPROVED
+FIM-MGR-REPORT-${Date.now().toString(36).toUpperCase()}-APPROVED
 =====================================================`;
 
     const blob = new Blob([content], { type: format === 'CSV' ? 'text/csv;charset=utf-8;' : 'text/plain;charset=utf-8;' });

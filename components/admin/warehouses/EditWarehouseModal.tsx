@@ -34,6 +34,32 @@ export function EditWarehouseModal({
   const [usedBins, setUsedBins] = useState(0);
   const [status, setStatus] = useState<WarehouseStatus>('Operational');
   const [operatingHours, setOperatingHours] = useState('');
+  const [capacityCbm, setCapacityCbm] = useState(3000);
+  const [hasColdChain, setHasColdChain] = useState(false);
+  const [temperatureZones, setTemperatureZones] = useState('Ambient (15-25°C)');
+  const [availableManagers, setAvailableManagers] = useState<string[]>([]);
+  const [managerUsers, setManagerUsers] = useState<
+    Array<{ id: string; fullName: string; email: string; phone?: string; role: string }>
+  >([]);
+
+  useEffect(() => {
+    fetch('/api/users')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          const mgrs = data.data.filter(
+            (u: any) =>
+              u.role === 'Inventory Manager' ||
+              u.role === 'manager' ||
+              u.role === 'staff' ||
+              u.role === 'Warehouse Staff'
+          );
+          setManagerUsers(mgrs);
+          setAvailableManagers(Array.from(new Set(mgrs.map((u: any) => u.fullName))));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (warehouse) {
@@ -41,13 +67,16 @@ export function EditWarehouseModal({
       setType(warehouse.type);
       setCity(warehouse.city);
       setAddress(warehouse.address);
-      setManager(warehouse.manager);
-      setManagerRole(warehouse.managerRole);
-      setManagerPhone(warehouse.managerPhone);
-      setTotalBins(warehouse.totalBins);
-      setUsedBins(warehouse.usedBins);
-      setStatus(warehouse.status);
-      setOperatingHours(warehouse.operatingHours);
+      setManager(warehouse.manager || 'Unassigned');
+      setManagerRole(warehouse.managerRole || 'Facility Director');
+      setManagerPhone(warehouse.managerPhone || '');
+      setTotalBins(warehouse.totalBins || 0);
+      setUsedBins(warehouse.usedBins || 0);
+      setStatus(warehouse.status || 'Operational');
+      setOperatingHours(warehouse.operatingHours || '08:00 - 18:00 Mon-Sat');
+      setCapacityCbm(warehouse.capacityCbm || 3000);
+      setHasColdChain(Boolean(warehouse.hasColdChain));
+      setTemperatureZones(warehouse.temperatureZones || 'Ambient (15-25°C)');
     }
   }, [warehouse]);
 
@@ -59,18 +88,21 @@ export function EditWarehouseModal({
 
     const updated: WarehouseFacility = {
       ...warehouse,
-      name,
+      name: name.trim(),
       type,
-      city,
-      address,
-      manager,
-      managerRole,
-      managerPhone,
+      city: city.trim(),
+      address: address.trim(),
+      manager: manager.trim(),
+      managerRole: managerRole.trim() || 'Facility Director',
+      managerPhone: managerPhone.trim(),
       totalBins: Number(totalBins),
       usedBins: Number(usedBins),
       occupancyRate: updatedRate,
       status,
-      operatingHours,
+      operatingHours: operatingHours.trim(),
+      capacityCbm: Number(capacityCbm) || 3000,
+      hasColdChain: Boolean(hasColdChain),
+      temperatureZones: temperatureZones.trim(),
     };
 
     onUpdateWarehouse(updated);
@@ -130,7 +162,7 @@ export function EditWarehouseModal({
                 <option value="Regional Depot">Regional Depot</option>
                 <option value="Logistics Hub">Logistics Hub</option>
                 <option value="Cold Chain Facility">Cold Chain Facility</option>
-                <option value="Forward Clinic">Forward Clinic</option>
+                <option value="Forward Depot">Forward Depot</option>
               </select>
             </div>
 
@@ -143,6 +175,7 @@ export function EditWarehouseModal({
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-[#008a90] focus:outline-none cursor-pointer"
               >
                 <option value="Operational">Operational</option>
+                <option value="Inactive">Inactive / Deactivated</option>
                 <option value="High Capacity">High Capacity</option>
                 <option value="Maintenance">Maintenance</option>
               </select>
@@ -196,24 +229,80 @@ export function EditWarehouseModal({
               />
             </div>
 
-            {/* Manager Name */}
+            {/* Volume Capacity CBM */}
             <div>
-              <label className="font-semibold text-slate-700">Facility Director</label>
+              <label className="font-semibold text-slate-700">Volume Capacity (m³)</label>
               <input
-                type="text"
-                value={manager}
-                onChange={(e) => setManager(e.target.value)}
+                type="number"
+                min="100"
+                value={capacityCbm}
+                onChange={(e) => setCapacityCbm(Number(e.target.value))}
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-[#008a90] focus:outline-none"
               />
             </div>
 
-            {/* Phone */}
+            {/* Cold Chain Toggle */}
+            <div className="flex items-center gap-2 pt-6">
+              <label className="flex items-center gap-2 cursor-pointer text-slate-700 font-semibold select-none">
+                <input
+                  type="checkbox"
+                  checked={hasColdChain}
+                  onChange={(e) => setHasColdChain(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-[#008a90] focus:ring-[#008a90]"
+                />
+                <span>Certified Cold Chain Facility (2°C - 8°C)</span>
+              </label>
+            </div>
+
+            {/* Thermal Regimes */}
+            <div className="col-span-2">
+              <label className="font-semibold text-slate-700">Thermal Regimes / Temperature Zones</label>
+              <input
+                type="text"
+                value={temperatureZones}
+                onChange={(e) => setTemperatureZones(e.target.value)}
+                placeholder="e.g. 2°C - 8°C & Ambient (15-25°C)"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-[#008a90] focus:outline-none"
+              />
+            </div>
+
+            {/* Assigned Inventory Manager */}
             <div>
-              <label className="font-semibold text-slate-700">Contact Line</label>
+              <label className="font-semibold text-slate-700">Assigned Inventory Manager</label>
+              <select
+                value={manager}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setManager(val);
+                  const matched = managerUsers.find((u) => u.fullName === val || u.email === val);
+                  if (matched?.phone) {
+                    setManagerPhone(matched.phone);
+                  }
+                }}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-[#008a90] focus:outline-none cursor-pointer"
+              >
+                <option value="Unassigned">-- Unassigned (No Manager) --</option>
+                {managerUsers.map((m) => (
+                  <option key={m.id} value={m.fullName}>
+                    {m.fullName} ({m.email}) — {m.role}
+                  </option>
+                ))}
+                {manager &&
+                  !managerUsers.some((m) => m.fullName === manager) &&
+                  manager !== 'Unassigned' && (
+                    <option value={manager}>{manager} (Current Assigned)</option>
+                  )}
+              </select>
+            </div>
+
+            {/* Contact Line */}
+            <div>
+              <label className="font-semibold text-slate-700">Manager Contact Line</label>
               <input
                 type="text"
                 value={managerPhone}
                 onChange={(e) => setManagerPhone(e.target.value)}
+                placeholder="+977 1-4250000"
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-[#008a90] focus:outline-none"
               />
             </div>
@@ -225,6 +314,7 @@ export function EditWarehouseModal({
                 type="text"
                 value={operatingHours}
                 onChange={(e) => setOperatingHours(e.target.value)}
+                placeholder="08:00 - 18:00 Mon-Sat"
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-[#008a90] focus:outline-none"
               />
             </div>

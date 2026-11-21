@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Approvals Queue | VISTA Manager',
+  title: 'Approvals Queue | Field Inventory Manager',
   description:
     'Dedicated approval center for stock requests, adjustments, transfers, and receiving.',
 };

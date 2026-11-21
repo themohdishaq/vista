@@ -48,7 +48,7 @@ export function ReturnDetailsCard({
   // Real client-side text/PDF documentation download
   const handleDownloadDocument = () => {
     const content = `=====================================================
-VISTA OFFICIAL RETURN & CONSUMPTION VOUCHER
+FIELD INVENTORY MANAGEMENT RETURN & CONSUMPTION VOUCHER
 =====================================================
 Document ID:          ${record.documentId}
 Transaction Type:     ${record.type}
@@ -90,7 +90,7 @@ ${record.timeline
 
 =====================================================
 DIGITAL VERIFICATION:
-VISTA-SECURE-AUTH-${record.documentId}-${Date.now().toString(36).toUpperCase()}
+FIM-SECURE-AUTH-${record.documentId}-${Date.now().toString(36).toUpperCase()}
 =====================================================`;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });

@@ -14,7 +14,7 @@ export function AboutMissionVision() {
             Built with Purpose, Engineered for Trust
           </h2>
           <p className="mt-3 text-sm sm:text-base text-slate-600">
-            Every feature in VISTA was developed to ensure that medical facilities, clinics, and warehouses never experience critical supply interruptions.
+            Every feature in Field Inventory Management was developed to ensure that medical facilities, clinics, and warehouses never experience critical supply interruptions.
           </p>
         </div>
 

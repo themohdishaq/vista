@@ -4,11 +4,11 @@
 /**
  * @file app/manager/stock/page.tsx
  * @description Dedicated Stock Balances & Batch Expiry Monitor for the Inventory Manager.
- * Fulfills Responsibility 1: "Monitor stock availability and inventory balances" &
- * Responsibility 5: "Monitor batch numbers and expiry dates."
+ * Scoped strictly to the Manager's assigned warehouse facility.
+ * Displays an informative Unassigned Facility banner if not yet assigned by Super Admin.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Layers,
   Search,
@@ -19,13 +19,15 @@ import {
   Building2,
   Calendar,
   CheckCircle2,
+  ShieldAlert,
 } from 'lucide-react';
 import { BatchReallocationModal } from '@/components/manager/dashboard/BatchReallocationModal';
 import { LocationStockBalance, ExpiringBatchItem } from '@/types/manager';
 
 export default function ManagerStockPage() {
   const [balances, setBalances] = useState<LocationStockBalance[]>([]);
-  const [selectedFacility, setSelectedFacility] = useState('All');
+  const [assignedWarehouseName, setAssignedWarehouseName] = useState<string>('Loading Facility...');
+  const [isUnassigned, setIsUnassigned] = useState(false);
   const [search, setSearch] = useState('');
   const [reallocatingBatch, setReallocatingBatch] = useState<ExpiringBatchItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -36,15 +38,27 @@ export default function ManagerStockPage() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const fetchBalances = async () => {
+  const fetchSessionAndStock = async () => {
     try {
       setIsLoading(true);
+      // 1. Fetch live session & warehouse scope
+      const meRes = await fetch('/api/auth/me');
+      const meData = await meRes.json();
+      if (meData.authenticated) {
+        setIsUnassigned(Boolean(meData.isUnassigned));
+        setAssignedWarehouseName(meData.warehouseName || (meData.isUnassigned ? 'Unassigned Facility' : 'Assigned Warehouse'));
+      }
+
+      // 2. Fetch stock balances
       const res = await fetch('/api/stock');
       const data = await res.json();
-      if (data.success && Array.isArray(data.data)) {
+      if (data.unassigned) {
+        setIsUnassigned(true);
+        setBalances([]);
+      } else if (data.success && Array.isArray(data.data)) {
         setBalances(data.data.map((s: any) => ({
           id: s.id,
-          facility: s.location || 'Main Central Warehouse',
+          facility: s.location || meData.warehouseName || 'Assigned Warehouse',
           binLocation: 'General Bay',
           itemCode: s.code,
           itemName: s.name,
@@ -63,26 +77,16 @@ export default function ManagerStockPage() {
     }
   };
 
-  React.useEffect(() => {
-    fetchBalances();
+  useEffect(() => {
+    fetchSessionAndStock();
   }, []);
 
-  const facilities = [
-    'All',
-    'Central Medical Store Kathmandu',
-    'Western Regional Medical Depot Pokhara',
-    'Eastern Distribution Center Biratnagar',
-    'Mid-Western Logistics Hub Nepalgunj',
-    'Far-Western Medical Hub Dhangadhi',
-  ];
-
   const filtered = balances.filter((b) => {
-    const matchFac = selectedFacility === 'All' || b.facility === selectedFacility;
     const matchSearch =
       b.itemCode.toLowerCase().includes(search.toLowerCase()) ||
       b.itemName.toLowerCase().includes(search.toLowerCase()) ||
       b.binLocation.toLowerCase().includes(search.toLowerCase());
-    return matchFac && matchSearch;
+    return matchSearch;
   });
 
   const handleExportCSV = () => {
@@ -103,7 +107,7 @@ export default function ManagerStockPage() {
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Manager-Stock-${Date.now()}.csv`;
+    link.download = `FIM-Manager-Stock-${Date.now()}.csv`;
     link.click();
   };
 
@@ -122,6 +126,25 @@ export default function ManagerStockPage() {
         </div>
       )}
 
+      {/* Unassigned Warning Banner */}
+      {isUnassigned && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-xs">
+          <div className="flex items-start gap-3.5">
+            <div className="rounded-xl bg-amber-500/10 p-2 text-amber-600">
+              <ShieldAlert className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-amber-900">No Warehouse Facility Assigned</h3>
+              <p className="mt-1 text-xs text-amber-700 leading-relaxed">
+                Your manager account has not yet been assigned to a warehouse facility by the Super Administrator.
+                Inventory items, stock balances, movements, and floor staff management are restricted to your assigned facility.
+                Please contact the Super Administrator to assign your facility.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl bg-white p-6 border border-slate-200/90 shadow-xs">
         <div>
@@ -132,21 +155,22 @@ export default function ManagerStockPage() {
             <span className="text-slate-300">•</span>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
               <Building2 className="w-3.5 h-3.5 text-slate-400" />
-              <span>Multi-Facility Inventory Scope</span>
+              <span className="font-semibold text-slate-700">{assignedWarehouseName}</span>
             </div>
           </div>
           <h1 className="font-sans text-2xl font-black tracking-tight text-[#0a2540] mt-1">
             Stock Availability & Balances
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Monitor real-time inventory balances, reserved units, batch numbers, and reorder triggers across assigned warehouses.
+            Monitor real-time inventory balances, reserved units, batch numbers, and reorder triggers strictly for your assigned facility.
           </p>
         </div>
 
         <button
           type="button"
           onClick={handleExportCSV}
-          className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 self-start sm:self-auto"
+          disabled={isUnassigned || balances.length === 0}
+          className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 self-start sm:self-auto"
         >
           <Download className="w-4 h-4 text-slate-500" />
           <span>Export Stock Report</span>
@@ -161,24 +185,18 @@ export default function ManagerStockPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            disabled={isUnassigned}
             placeholder="Search SKU, item or bin..."
-            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#008a90] focus:outline-none shadow-2xs"
+            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#008a90] focus:outline-none shadow-2xs disabled:bg-slate-50"
           />
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <span className="text-xs text-slate-500 font-medium">Facility:</span>
-          <select
-            value={selectedFacility}
-            onChange={(e) => setSelectedFacility(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:border-[#008a90] focus:outline-none shadow-2xs cursor-pointer"
-          >
-            {facilities.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500 font-medium">Assigned Facility:</span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-800 text-xs font-semibold border border-slate-200">
+            <Building2 className="w-3.5 h-3.5 text-[#008a90]" />
+            {assignedWarehouseName}
+          </span>
         </div>
       </div>
 
@@ -199,76 +217,89 @@ export default function ManagerStockPage() {
                 <th className="py-3 px-4 text-center">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-sans">
-              {filtered.map((item) => (
-                <tr key={`${item.facility}-${item.binLocation}`} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-3.5 px-4 font-semibold text-slate-800">
-                    {item.facility}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="font-mono text-xs font-bold text-[#008a90] bg-teal-50 px-2 py-0.5 rounded border border-teal-200/80">
-                      {item.binLocation}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="font-mono text-[11px] text-[#008a90] font-bold block">
-                      {item.itemCode}
-                    </span>
-                    <span className="font-semibold text-slate-900">
-                      {item.itemName}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono font-black text-slate-900">
-                    {item.availableUnits.toLocaleString()}{' '}
-                    <span className="text-[11px] text-slate-400">{item.unit}</span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono text-slate-500">
-                    {item.reservedUnits.toLocaleString()}{' '}
-                    <span className="text-[11px] text-slate-400">{item.unit}</span>
-                  </td>
-                  <td className="py-3.5 px-4 font-mono text-slate-600 text-xs">
-                    {item.batchNo}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-600 font-medium text-xs">
-                    {item.expiryDate}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span
-                      className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wide ${
-                        item.status === 'Optimal'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setReallocatingBatch({
-                          id: `b-${item.batchNo}`,
-                          itemCode: item.itemCode,
-                          itemName: item.itemName,
-                          batchNo: item.batchNo,
-                          warehouse: item.facility,
-                          location: item.binLocation,
-                          currentWarehouse: item.facility,
-                          quantity: item.availableUnits,
-                          unit: item.unit,
-                          expiryDate: item.expiryDate,
-                          daysRemaining: 45,
-                          suggestedAction: 'FEFO Fast-Track',
-                        })
-                      }
-                      className="px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-[#008a90] border border-teal-200 text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      Reallocate
-                    </button>
+            <tbody className="divide-y divide-slate-100">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center text-xs text-slate-400">
+                    <RotateCw className="w-5 h-5 animate-spin mx-auto text-[#008a90] mb-2" />
+                    Loading assigned warehouse inventory...
                   </td>
                 </tr>
-              ))}
+              ) : isUnassigned ? (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center text-xs text-slate-400">
+                    <ShieldAlert className="w-7 h-7 mx-auto text-amber-500 mb-2" />
+                    <p className="font-semibold text-slate-700">No Warehouse Assigned</p>
+                    <p className="mt-1 text-slate-500">Contact your Super Administrator to assign your warehouse facility.</p>
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center text-xs text-slate-400">
+                    No inventory records found for {assignedWarehouseName}.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((b) => (
+                  <tr key={`${b.facility}-${b.binLocation}-${b.batchNo}-${b.itemCode}`} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-4 font-medium text-slate-800">{b.facility}</td>
+                    <td className="py-3 px-4 font-mono text-slate-600">{b.binLocation}</td>
+                    <td className="py-3 px-4">
+                      <div className="font-semibold text-slate-900">{b.itemName}</div>
+                      <div className="font-mono text-[11px] text-slate-400">{b.itemCode}</div>
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono font-bold text-slate-800">
+                      {b.availableUnits.toLocaleString()} {b.unit}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-slate-500">
+                      {b.reservedUnits.toLocaleString()} {b.unit}
+                    </td>
+                    <td className="py-3 px-4 font-mono text-slate-600">{b.batchNo}</td>
+                    <td className="py-3 px-4 text-slate-600">{b.expiryDate}</td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
+                          b.status === 'Optimal'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : b.status === 'Low Stock'
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                        }`}
+                      >
+                        {b.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setReallocatingBatch({
+                            id: `${b.itemCode}-${b.batchNo}`,
+                            batchNo: b.batchNo,
+                            itemName: b.itemName,
+                            itemCode: b.itemCode,
+                            category: 'Consumables',
+                            warehouse: b.facility,
+                            location: b.binLocation,
+                            currentWarehouse: b.facility,
+                            quantity: b.availableUnits,
+                            unit: b.unit,
+                            daysRemaining: 45,
+                            expiryDate: b.expiryDate,
+                            estimatedValue: b.availableUnits * 15,
+                            shelfLifeProgress: 60,
+                            status: b.status === 'Critical' ? 'Critical' : 'Optimal',
+                            suggestedAction: 'FIFO Priority Rotation',
+                          })
+                        }
+                        className="text-[#008a90] hover:text-[#006e73] font-semibold text-xs cursor-pointer"
+                      >
+                        Reallocate
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -276,11 +307,11 @@ export default function ManagerStockPage() {
 
       {reallocatingBatch && (
         <BatchReallocationModal
-          isOpen={!!reallocatingBatch}
           batch={reallocatingBatch}
+          isOpen={Boolean(reallocatingBatch)}
           onClose={() => setReallocatingBatch(null)}
-          onReallocate={(id, targetLoc, qty) => {
-            showToast(`Reallocated ${qty} units of batch ${reallocatingBatch.batchNo} to ${targetLoc}.`);
+          onReallocate={(batchId, targetWard, qty) => {
+            showToast(`Batch reallocation request for ${qty} units of ${reallocatingBatch.itemCode} submitted.`);
             setReallocatingBatch(null);
           }}
         />

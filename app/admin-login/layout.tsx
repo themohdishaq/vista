@@ -2,8 +2,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Administrator Security Gateway | VISTA Portal',
-  description: 'Dedicated administrative authentication gateway for VISTA System Administrators.',
+  title: 'Administrator Security Gateway | Field Inventory Management',
+  description: 'Dedicated administrative authentication gateway for Field Inventory Management System Administrators.',
 };
 
 export default function AdminLoginLayout({

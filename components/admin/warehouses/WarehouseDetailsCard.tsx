@@ -100,7 +100,7 @@ export function WarehouseDetailsCard({
   // Real client-side text/audit report download
   const handleDownloadDoc = (docTitle: string, docType: string) => {
     const content = `=====================================================
-VISTA LOGISTICS AUDIT & COMPLIANCE CERTIFICATE
+FIELD INVENTORY MANAGEMENT AUDIT & COMPLIANCE CERTIFICATE
 =====================================================
 Facility Code:        ${warehouse.code}
 Facility Name:        ${warehouse.name}
@@ -133,7 +133,7 @@ ${warehouse.zones
 
 =====================================================
 DIGITAL AUTHENTICATION KEY:
-VISTA-AUDIT-CERT-${warehouse.code}-${Date.now().toString(36).toUpperCase()}
+FIM-AUDIT-CERT-${warehouse.code}-${Date.now().toString(36).toUpperCase()}
 =====================================================`;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
@@ -387,7 +387,7 @@ VISTA-AUDIT-CERT-${warehouse.code}-${Date.now().toString(36).toUpperCase()}
                   </span>
                   <span className="flex items-center gap-1">
                     <Mail className="h-3 w-3 text-slate-400" />
-                    {warehouse.manager.toLowerCase().replace(' ', '.')}@vista.gov.np
+                    {warehouse.manager.toLowerCase().replace(' ', '.')}@fieldinventory.gov.np
                   </span>
                 </div>
               </div>
@@ -404,6 +404,27 @@ VISTA-AUDIT-CERT-${warehouse.code}-${Date.now().toString(36).toUpperCase()}
               Edit Facility
             </button>
             <button
+              onClick={async () => {
+                const newStatus = warehouse.status === 'Operational' ? 'Inactive' : 'Operational';
+                try {
+                  await fetch(`/api/warehouses/${warehouse.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus }),
+                  });
+                  warehouse.status = newStatus as any;
+                  setActiveTab('overview');
+                } catch {}
+              }}
+              className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
+                warehouse.status === 'Operational'
+                  ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+              }`}
+            >
+              {warehouse.status === 'Operational' ? 'Deactivate Facility' : 'Activate Facility'}
+            </button>
+            <button
               onClick={() => onAddBin(warehouse)}
               className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-[#008a90] transition-colors"
             >
@@ -412,10 +433,10 @@ VISTA-AUDIT-CERT-${warehouse.code}-${Date.now().toString(36).toUpperCase()}
             </button>
             <button
               onClick={() => onTransferStock(warehouse)}
-              className="col-span-2 flex items-center justify-center gap-1.5 rounded-xl bg-[#008a90] px-3 py-2 text-xs font-semibold text-white hover:bg-[#007378] shadow-xs transition-colors"
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-[#008a90] px-3 py-2 text-xs font-semibold text-white hover:bg-[#007378] shadow-xs transition-colors"
             >
               <ArrowRightLeft className="h-3.5 w-3.5" />
-              Initiate Stock Transfer
+              Stock Transfer
             </button>
           </div>
         </div>

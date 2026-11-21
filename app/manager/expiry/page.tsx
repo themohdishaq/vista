@@ -43,15 +43,15 @@ export default function ManagerExpiryPage() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const handleReallocate = (batchId: string, ward: string, qty: number) => {
+  const handleReallocate = (batchId: string, destination: string, qty: number) => {
     setBatches((prev) =>
       prev.map((b) =>
         b.id === batchId
-          ? { ...b, location: `Re-allocated to ${ward}` }
+          ? { ...b, location: `Re-allocated to ${destination}` }
           : b
       )
     );
-    showToast(`Batch re-allocated to ${ward} (${qty} units via FIFO priority).`);
+    showToast(`Batch re-allocated to ${destination} (${qty} units via FIFO priority).`);
   };
 
   const handleExportCSV = () => {
@@ -73,7 +73,7 @@ export default function ManagerExpiryPage() {
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Expiry-Ledger-${Date.now()}.csv`;
+    link.download = `FIM-Expiry-Ledger-${Date.now()}.csv`;
     link.click();
     showToast('Exported batch expiry ledger CSV.');
   };

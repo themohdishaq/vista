@@ -25,17 +25,8 @@ import { TransferRecord } from '@/types/transfers';
 
 export default function StaffTransfersPage() {
   const [transfers, setTransfers] = useState<TransferRecord[]>([]);
-  const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string }>>([
-    { id: 'wh-001', name: 'Central Medical Store Kathmandu' },
-    { id: 'wh-002', name: 'Western Regional Medical Depot Pokhara' },
-    { id: 'wh-003', name: 'Eastern Distribution Center Biratnagar' },
-  ]);
-  const [items, setItems] = useState<Array<{ id: string; code: string; name: string; unit: string }>>([
-    { id: 'item-001', code: 'VST-001', name: 'Surgical Mask 3-Ply', unit: 'Box' },
-    { id: 'item-002', code: 'VST-002', name: 'Nitrile Examination Gloves', unit: 'Box' },
-    { id: 'item-003', code: 'VST-003', name: 'Sterile Elastic Bandage', unit: 'Pack' },
-    { id: 'item-004', code: 'VST-004', name: 'Disposable Syringe 5ml', unit: 'Box' },
-  ]);
+  const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string }>>([]);
+  const [items, setItems] = useState<Array<{ id: string; code: string; name: string; unit: string }>>([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'In Transit' | 'Completed'>('All');
@@ -43,10 +34,10 @@ export default function StaffTransfersPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Form State
-  const [fromWarehouseId, setFromWarehouseId] = useState('wh-001');
-  const [toWarehouseId, setToWarehouseId] = useState('wh-002');
-  const [itemCode, setItemCode] = useState('VST-001');
-  const [itemName, setItemName] = useState('Surgical Mask 3-Ply');
+  const [fromWarehouseId, setFromWarehouseId] = useState('');
+  const [toWarehouseId, setToWarehouseId] = useState('');
+  const [itemCode, setItemCode] = useState('');
+  const [itemName, setItemName] = useState('');
   const [quantity, setQuantity] = useState('100');
   const [notes, setNotes] = useState('Routine inter-depot stock rebalancing.');
 
@@ -191,7 +182,7 @@ export default function StaffTransfersPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `VISTA-Transfers-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `FIM-Transfers-${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

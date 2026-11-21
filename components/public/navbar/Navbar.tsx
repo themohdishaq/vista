@@ -50,9 +50,9 @@ export default function Navbar() {
             href="/"
             onClick={() => setActiveTab('home')}
             className="group flex items-center gap-3 transition-opacity hover:opacity-95"
-            aria-label="VISTA Portal Home"
+            aria-label="Field Inventory Management Home"
           >
-            {/* VISTA Geometric Isometric Cube Icon */}
+            {/* Geometric Isometric Cube Icon */}
             <div className="relative flex h-10 w-10 items-center justify-center transition-transform group-hover:scale-105">
               <svg
                 className="h-10 w-10"
@@ -102,9 +102,9 @@ export default function Navbar() {
               </svg>
             </div>
 
-            {/* VISTA Brand Typography */}
-            <span className="font-sans text-2xl font-black tracking-tight text-[#0a2540]">
-              VISTA
+            {/* Brand Typography */}
+            <span className="font-sans text-lg sm:text-xl font-black tracking-tight text-[#0a2540]">
+              Field Inventory Management
             </span>
           </Link>
 

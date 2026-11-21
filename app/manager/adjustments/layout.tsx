@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Stock Adjustments & Recounts | VISTA Manager',
+  title: 'Stock Adjustments & Recounts | Field Inventory Manager',
   description:
     'Approve physical count discrepancies, authorize bin adjustments, or mandate physical recounts.',
 };

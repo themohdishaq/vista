@@ -28,7 +28,7 @@ export function AdjustmentDetailsCard({
 
   // Real download handler
   const handleDownloadReport = () => {
-    const content = `VISTA LOGISTICS AUDIT REPORT
+    const content = `FIELD INVENTORY MANAGEMENT AUDIT REPORT
 ===================================================
 Adjustment Reference: ${adjustment.referenceNumber}
 Internal Audit Ref:   ${adjustment.internalRef}
@@ -45,7 +45,7 @@ Authorized Officer:   ${adjustment.performedBy} (${adjustment.performedByRole})
 Status:               ${adjustment.status}
 Inspection Notes:     ${adjustment.notes}
 ===================================================
-Digital Verification Signature: VISTA-SECURE-AUDIT-${Date.now().toString(36).toUpperCase()}`;
+Digital Verification Signature: FIM-SECURE-AUDIT-${Date.now().toString(36).toUpperCase()}`;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

@@ -88,7 +88,7 @@ export default function StaffKitsPage() {
             {
               id: 'hist-init-1',
               kitCode: 'KIT-001',
-              name: 'First Aid Kit Standard (Clinic)',
+              name: 'First Aid Kit Standard (Field)',
               qtyPacked: 25,
               packingBay: 'Assembly Bay 2',
               packedBy: 'Floor Specialist',
@@ -177,7 +177,7 @@ export default function StaffKitsPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `VISTA-Kit-Packing-History-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `FIM-Kit-Packing-History-${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -128,7 +128,7 @@ export default function ManagerApprovalsPage() {
               Manager Approvals Center
             </h1>
             <p className="text-xs text-slate-500">
-              Sign-off on ward requisitions, inter-facility transfers, local emergency spot buys, and stock adjustments
+              Sign-off on field requisitions, inter-facility transfers, local emergency spot buys, and stock adjustments
             </p>
           </div>
         </div>

@@ -42,8 +42,15 @@ export async function getManagerDashboardData(facility?: string): Promise<Manage
       getIncidents(facility),
       getLocalPurchases(facility),
       getAdjustments(facility),
-      getUsers({ roleFilter: 'Staff' }),
-      getWarehouses(),
+      getUsers({
+        userRole: facility ? 'manager' : undefined,
+        assignedWarehouseId: facility || undefined,
+        roleFilter: 'Staff',
+      }),
+      getWarehouses({
+        userRole: facility ? 'manager' : undefined,
+        assignedWarehouseId: facility || undefined,
+      }),
       getKits(),
     ]);
 

@@ -62,7 +62,7 @@ VST-104,Chlorhexidine Gluconate 4%,Hygiene,Bottle,120,30,Surgical hand scrub ant
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'VISTA_Item_Import_Template.csv');
+    link.setAttribute('download', 'FIM_Item_Import_Template.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

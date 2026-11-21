@@ -1,11 +1,11 @@
-# VISTA Logistics & Medical Inventory Management System
+# Field Inventory Management System
 ## Complete Operational Flow, Role Architecture, and System Execution Guide
 
 ---
 
 ## 1. Executive Overview
 
-The **VISTA Portal** (Vaccine & Integrated Supply-chain Tracking Architecture) is an enterprise-grade medical logistics, pharmaceutical warehouse, and clinical inventory management platform. It is engineered with a strict, hierarchical **Role-Based Access Control (RBAC)** model that links three operational tiers:
+The **Field Inventory Management System** is an enterprise-grade warehouse control, supply-chain tracking, and clinical inventory management platform. It is engineered with a strict, hierarchical **Role-Based Access Control (RBAC)** model that links three operational tiers:
 
 ```mermaid
 flowchart TD

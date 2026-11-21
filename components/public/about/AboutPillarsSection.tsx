@@ -74,7 +74,7 @@ export function AboutPillarsSection() {
             — CORE CAPABILITIES —
           </span>
           <h2 className="mt-2 text-2xl sm:text-4xl font-black tracking-tight text-[#0a2540]">
-            The Four Pillars of VISTA Architecture
+            The Four Pillars of Field Inventory Management Architecture
           </h2>
           <p className="mt-3 text-sm sm:text-base text-slate-600">
             Designed from the ground up for high reliability in high-stakes warehousing environments.

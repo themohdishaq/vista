@@ -26,7 +26,7 @@ import {
 interface ReturnItem {
   id: string;
   ticketNo: string;
-  type: 'Ward Return' | 'Floor Consumption' | 'Expired Quarantine' | 'Damaged in Transit';
+  type: 'Field Return' | 'Ward Return' | 'Floor Consumption' | 'Expired Quarantine' | 'Damaged in Transit';
   source: string;
   itemCode: string;
   itemName: string;
@@ -40,14 +40,14 @@ interface ReturnItem {
 
 export default function StaffReturnsPage() {
   const [records, setRecords] = useState<ReturnItem[]>([]);
-  const [activeTab, setActiveTab] = useState<'All' | 'Ward Return' | 'Floor Consumption'>('All');
+  const [activeTab, setActiveTab] = useState<'All' | 'Field Return' | 'Ward Return' | 'Floor Consumption'>('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Form State
-  const [type, setType] = useState<'Ward Return' | 'Floor Consumption'>('Ward Return');
-  const [source, setSource] = useState('Emergency Department');
+  const [type, setType] = useState<'Field Return' | 'Ward Return' | 'Floor Consumption'>('Field Return');
+  const [source, setSource] = useState('Field Operations Unit Alpha');
   const [items, setItems] = useState<Array<{ id: string; code: string; name: string; unit: string }>>([
     { id: 'item-001', code: 'VST-001', name: 'Surgical Mask 3-Ply', unit: 'Box' },
     { id: 'item-002', code: 'VST-002', name: 'Nitrile Examination Gloves', unit: 'Box' },
@@ -59,7 +59,7 @@ export default function StaffReturnsPage() {
   const [quantity, setQuantity] = useState('10');
   const [unit, setUnit] = useState('Box');
   const [condition, setCondition] = useState<'Intact / Sealed' | 'Opened / Partial' | 'Damaged / Compromised'>('Intact / Sealed');
-  const [reason, setReason] = useState('Unopened excess returned from ward.');
+  const [reason, setReason] = useState('Unopened excess returned from field site.');
 
   const fetchReturns = async () => {
     try {
@@ -70,7 +70,7 @@ export default function StaffReturnsPage() {
           id: r.id,
           ticketNo: r.docNo || r.id,
           type: r.type,
-          source: r.origin || r.warehouse || 'Clinical Ward',
+          source: r.origin || r.warehouse || 'Field Unit',
           itemCode: r.itemCode,
           itemName: r.itemName,
           quantity: Number(r.quantity) || 1,
@@ -122,8 +122,6 @@ export default function StaffReturnsPage() {
         body: JSON.stringify({
           type,
           origin: source,
-          warehouseId: 'wh-001',
-          warehouseName: 'Central Medical Store Kathmandu',
           itemId: foundItem?.id || itemCode,
           itemCode,
           itemName,
@@ -159,7 +157,11 @@ export default function StaffReturnsPage() {
 
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
-      const matchTab = activeTab === 'All' || r.type === activeTab;
+      const matchTab =
+        activeTab === 'All' ||
+        (activeTab === 'Field Return'
+          ? r.type === 'Field Return' || r.type === 'Ward Return'
+          : r.type === activeTab);
       const q = searchTerm.toLowerCase();
       const matchSearch =
         !searchTerm ||
@@ -191,13 +193,13 @@ export default function StaffReturnsPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `VISTA-Returns-And-Usage-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `FIM-Returns-And-Usage-${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const wardReturnsCount = records.filter((r) => r.type === 'Ward Return').length;
+  const wardReturnsCount = records.filter((r) => r.type === 'Field Return' || r.type === 'Ward Return').length;
   const consumptionCount = records.filter((r) => r.type === 'Floor Consumption').length;
   const pendingCount = records.filter((r) => r.status === 'Pending Manager Authorization').length;
   const restockedCount = records.filter((r) => r.status === 'Restocked').length;
@@ -227,14 +229,14 @@ export default function StaffReturnsPage() {
             <span className="text-slate-300">•</span>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
               <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-              <span>Ward Restocking &amp; Internal Floor Consumption</span>
+              <span>Field Restocking &amp; Internal Floor Consumption</span>
             </div>
           </div>
           <h1 className="font-sans text-2xl font-black tracking-tight text-[#0a2540] mt-1">
             Record Consumption and Returned Items
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Responsibility 5 • Track unopened items returned from clinical wards and log internal floor supply usage.
+            Responsibility 5 • Track unopened items returned from field units and log internal floor supply usage.
           </p>
         </div>
 
@@ -262,11 +264,11 @@ export default function StaffReturnsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="rounded-2xl bg-white p-4 border border-slate-200/90 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Ward Returns</span>
+            <span className="text-xs font-semibold text-slate-500">Field Returns</span>
             <RotateCcw className="w-4 h-4 text-indigo-600" />
           </div>
           <p className="font-mono text-2xl font-black text-indigo-600 mt-1">{wardReturnsCount}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Returned unopened from wards</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Returned unopened from field sites</p>
         </div>
 
         <div className="rounded-2xl bg-white p-4 border border-slate-200/90 shadow-xs">
@@ -300,7 +302,7 @@ export default function StaffReturnsPage() {
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/90 shadow-xs">
         <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-full sm:w-auto">
-          {(['All', 'Ward Return', 'Floor Consumption'] as const).map((tab) => (
+          {(['All', 'Field Return', 'Floor Consumption'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -439,7 +441,7 @@ export default function StaffReturnsPage() {
                     onChange={(e) => setType(e.target.value as any)}
                     className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-indigo-600 focus:outline-none"
                   >
-                    <option value="Ward Return">Ward Return</option>
+                    <option value="Field Return">Field Return</option>
                     <option value="Floor Consumption">Floor Consumption</option>
                   </select>
                 </div>

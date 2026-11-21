@@ -165,15 +165,15 @@ export function ManagerSidebar({
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="font-sans text-xl font-black tracking-tight text-white leading-tight">
-                  VISTA
+                <span className="font-sans text-base font-black tracking-tight text-white leading-tight">
+                  Field Inventory
                 </span>
                 <span className="bg-[#008a90]/25 text-[#00c4b4] border border-[#00c4b4]/30 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide">
                   Manager
                 </span>
               </div>
               <span className="text-[10px] font-medium text-slate-400 tracking-wide">
-                Inventory Operations Portal
+                Operations & Governance
               </span>
             </div>
           </Link>
@@ -277,7 +277,7 @@ export function ManagerSidebar({
           </button>
         </div>
         <div className="mt-2 text-center text-[10px] text-slate-500 font-mono">
-          VISTA Portal v1.0.0 • Manager Workspace
+          Field Inventory Management v1.0.0 • Manager Workspace
         </div>
       </div>
     </div>

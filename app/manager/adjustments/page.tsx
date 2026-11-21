@@ -56,7 +56,7 @@ interface AdjustmentRecord {
   notes?: string;
 }
 
-const VISTA_WAREHOUSES = [
+const FIM_WAREHOUSES = [
   'Central Medical Store (Kathmandu)',
   'Pokhara Regional Depot',
   'Biratnagar Distribution Depot',
@@ -64,7 +64,7 @@ const VISTA_WAREHOUSES = [
   'Dhangadhi Regional Depot',
 ];
 
-const VISTA_ITEMS_CATALOG = [
+const FIM_ITEMS_CATALOG = [
   { id: 'item-001', code: 'VST-001', name: 'Surgical Mask 3-Ply', unit: 'Box', cost: 18.5 },
   { id: 'item-002', code: 'VST-002', name: 'Examination Gloves (Nitrile)', unit: 'Box', cost: 22.0 },
   { id: 'item-003', code: 'VST-003', name: 'Gauze Bandage 10cm x 5m', unit: 'Roll', cost: 12.0 },
@@ -74,7 +74,7 @@ const VISTA_ITEMS_CATALOG = [
   { id: 'item-007', code: 'VST-007', name: 'Digital Infrared Thermometer', unit: 'Unit', cost: 450.0 },
   { id: 'item-008', code: 'VST-008', name: 'Blood Pressure Monitor Digital', unit: 'Unit', cost: 850.0 },
   { id: 'item-009', code: 'VST-009', name: 'Hand Sanitizer Gel 500ml', unit: 'Bottle', cost: 45.0 },
-  { id: 'item-010', code: 'VST-010', name: 'Hospital Disinfectant 5L', unit: 'Canister', cost: 180.0 },
+  { id: 'item-010', code: 'VST-010', name: 'Industrial Disinfectant 5L', unit: 'Canister', cost: 180.0 },
 ];
 
 export default function ManagerAdjustmentsPage() {
@@ -88,8 +88,8 @@ export default function ManagerAdjustmentsPage() {
 
   // Modal State for New Adjustment
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalWarehouse, setModalWarehouse] = useState(VISTA_WAREHOUSES[0]);
-  const [modalItemId, setModalItemId] = useState(VISTA_ITEMS_CATALOG[0].id);
+  const [modalWarehouse, setModalWarehouse] = useState(FIM_WAREHOUSES[0]);
+  const [modalItemId, setModalItemId] = useState(FIM_ITEMS_CATALOG[0].id);
   const [modalSystemQty, setModalSystemQty] = useState(500);
   const [modalPhysicalQty, setModalPhysicalQty] = useState(480);
   const [modalReason, setModalReason] = useState('Physical cycle count discrepancy during scheduled floor audit.');
@@ -193,12 +193,12 @@ export default function ManagerAdjustmentsPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const selectedItem = VISTA_ITEMS_CATALOG.find((i) => i.id === modalItemId) || VISTA_ITEMS_CATALOG[0];
+      const selectedItem = FIM_ITEMS_CATALOG.find((i) => i.id === modalItemId) || FIM_ITEMS_CATALOG[0];
       const res = await fetch('/api/adjustments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          warehouseId: `wh-00${VISTA_WAREHOUSES.indexOf(modalWarehouse) + 1}`,
+          warehouseId: `wh-00${FIM_WAREHOUSES.indexOf(modalWarehouse) + 1}`,
           warehouseName: modalWarehouse,
           itemId: selectedItem.id,
           itemCode: selectedItem.code,
@@ -265,7 +265,7 @@ export default function ManagerAdjustmentsPage() {
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Adjustments-Audit-${Date.now()}.csv`;
+    link.download = `FIM-Adjustments-Audit-${Date.now()}.csv`;
     link.click();
     showToast('Exported adjustments ledger to CSV.');
   };
@@ -435,7 +435,7 @@ export default function ManagerAdjustmentsPage() {
             className="text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3 py-2 outline-none cursor-pointer"
           >
             <option value="All">All Facilities</option>
-            {VISTA_WAREHOUSES.map((wh) => (
+            {FIM_WAREHOUSES.map((wh) => (
               <option key={wh} value={wh}>{wh}</option>
             ))}
           </select>
@@ -708,7 +708,7 @@ export default function ManagerAdjustmentsPage() {
                   onChange={(e) => setModalWarehouse(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium cursor-pointer"
                 >
-                  {VISTA_WAREHOUSES.map((wh) => (
+                  {FIM_WAREHOUSES.map((wh) => (
                     <option key={wh} value={wh}>{wh}</option>
                   ))}
                 </select>
@@ -723,7 +723,7 @@ export default function ManagerAdjustmentsPage() {
                   onChange={(e) => setModalItemId(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium cursor-pointer"
                 >
-                  {VISTA_ITEMS_CATALOG.map((item) => (
+                  {FIM_ITEMS_CATALOG.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.code} — {item.name} ({item.unit})
                     </option>

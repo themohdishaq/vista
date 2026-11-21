@@ -100,7 +100,7 @@ function loadAdminProfile(): AdminProfileStorage {
 
   const defaultAdmin: AdminProfileStorage = {
     fullName: 'System Administrator',
-    email: adminEmail || 'admin@vista.com',
+    email: adminEmail || 'admin@fieldinventory.com',
     phone: '+1 (555) 019-2831',
     department: 'Global Supply Chain & Logistics Operations',
     title: 'Super Administrator',
@@ -202,7 +202,8 @@ export async function getProfileForSession(sessionUser: AuthUser): Promise<Compl
         `SELECT 
            u.id, u.full_name, u.username, u.email, u.role, u.status,
            u.department, u.phone, u.assigned_warehouse_id,
-           w.name as warehouse_name
+           w.name as warehouse_name,
+           w.code as warehouse_code
          FROM users u
          LEFT JOIN warehouses w ON u.assigned_warehouse_id = w.id
          WHERE u.id = $1 OR LOWER(u.email) = LOWER($2)
@@ -211,6 +212,10 @@ export async function getProfileForSession(sessionUser: AuthUser): Promise<Compl
       );
       if (rows && rows.length > 0) {
         const r = rows[0] as any;
+        const resolvedWhName = r.warehouse_name
+          ? `${r.warehouse_code ? `[${r.warehouse_code}] ` : ''}${r.warehouse_name}`
+          : sessionUser.warehouseName || 'Unassigned Facility';
+
         userRecord = {
           id: r.id,
           fullName: r.full_name,
@@ -220,8 +225,8 @@ export async function getProfileForSession(sessionUser: AuthUser): Promise<Compl
           status: 'Active',
           lastLogin: 'Active Now',
           phone: r.phone || '+1 (555) 234-5678',
-          warehouseId: r.assigned_warehouse_id || sessionUser.assignedWarehouseId || 'wh-001',
-          warehouseAccess: r.warehouse_name || sessionUser.warehouseName || 'Main Central Warehouse',
+          warehouseId: r.assigned_warehouse_id || sessionUser.assignedWarehouseId || null,
+          warehouseAccess: resolvedWhName,
           department: r.department || (sessionUser.role === 'manager' ? 'Inventory Operations' : 'Warehouse Floor Distribution'),
         };
       }
@@ -234,8 +239,8 @@ export async function getProfileForSession(sessionUser: AuthUser): Promise<Compl
   const fullName = userRecord?.fullName || sessionUser.name || (isManager ? 'Sarah Johnson' : 'Mike Chen');
   const email = userRecord?.email || sessionUser.email;
   const phone = userRecord?.phone || (isManager ? '+1 (555) 345-6789' : '+1 (555) 456-7890');
-  const warehouseAccess = userRecord?.warehouseAccess || sessionUser.warehouseName || 'Main Central Warehouse';
-  const warehouseId = userRecord?.warehouseId || sessionUser.assignedWarehouseId || 'wh-001';
+  const warehouseAccess = userRecord?.warehouseAccess || sessionUser.warehouseName || (sessionUser.assignedWarehouseId ? 'Assigned Facility' : 'Unassigned Facility');
+  const warehouseId = userRecord?.warehouseId || sessionUser.assignedWarehouseId || null;
 
   return {
     id: sessionUser.id,

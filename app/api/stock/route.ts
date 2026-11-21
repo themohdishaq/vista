@@ -1,19 +1,29 @@
 // filepath: app/api/stock/route.ts
 import { NextResponse } from 'next/server';
-import { getCurrentSession } from '@/lib/auth';
+import { getAuthScope } from '@/lib/auth-scope';
 import { getStockOverview } from '@/lib/services/stock-service';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const session = await getCurrentSession();
+    const scope = await getAuthScope();
     const { searchParams } = new URL(request.url);
 
-    // If manager or staff, enforce their warehouse ID
+    // If non-admin and unassigned, strictly return empty stock data
+    if (!scope.isAdmin && scope.isUnassigned) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        unassigned: true,
+        message: 'No warehouse facility assigned. Please contact the administrator.',
+      });
+    }
+
+    // If manager or staff, lock warehouse ID strictly to their assigned warehouse
     let warehouseId = searchParams.get('warehouseId') || undefined;
-    if (session?.user.role !== 'admin' && (session?.user as any)?.assignedWarehouseId) {
-      warehouseId = (session?.user as any).assignedWarehouseId;
+    if (!scope.isAdmin) {
+      warehouseId = scope.warehouseId || undefined;
     }
 
     const stock = await getStockOverview(warehouseId);

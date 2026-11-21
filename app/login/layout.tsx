@@ -2,8 +2,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Login | VISTA Inventory Management",
-  description: "Sign in to access your VISTA inventory management portal.",
+  title: "Login | Field Inventory Management",
+  description: "Sign in to access your Field Inventory Management portal.",
 };
 
 export default function LoginLayout({

@@ -99,8 +99,8 @@ export const INITIAL_STOCK_REQUESTS: StockRequestRecord[] = [
     totalQuantity: 50,
     priority: 'High',
     status: 'Approved',
-    purpose: 'First Aid Kit for Clinic',
-    remarks: 'For upcoming health program',
+    purpose: 'Safety & First Aid Kit for Field Crew',
+    remarks: 'For upcoming field maintenance program',
     items: [
       { name: 'Surgical Mask', quantity: 50, unit: 'Box', code: 'VST-001' },
       { name: 'Gloves', quantity: 50, unit: 'Pack', code: 'VST-002' },
@@ -115,9 +115,9 @@ export const INITIAL_STOCK_REQUESTS: StockRequestRecord[] = [
         step: 'Request Submitted',
         time: 'Apr 30, 2025 14:20',
         actor: 'Jane Smith',
-        role: 'Field Health Officer',
+        role: 'Field Logistics Officer',
         completed: true,
-        notes: 'Submitted for upcoming mobile clinic outreach.',
+        notes: 'Submitted for upcoming field deployment outreach.',
       },
       {
         step: 'Technical Review Passed',

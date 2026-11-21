@@ -124,7 +124,7 @@ export default function ManagerDiscrepanciesPage() {
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Discrepancies-Log-${Date.now()}.csv`;
+    link.download = `FIM-Discrepancies-Log-${Date.now()}.csv`;
     link.click();
     showToast('Exported discrepancies ledger.');
   };

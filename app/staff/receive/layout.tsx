@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Receive Inventory | VISTA Staff',
+  title: 'Receive Inventory | Field Inventory Staff',
   description:
     'Scan and record inbound supplier deliveries, log batch codes, and stage inventory for inspection.',
 };

@@ -5,27 +5,29 @@
  * @file components/staff/dashboard/ActiveTaskWorkstation.tsx
  * @description Dedicated floor workstation terminal for the staff's active picking order.
  * Fulfills:
- * - View stock in assigned location (Bin A-01, Bin A-02)
+ * - View stock in assigned location
  * - Prepare and record stock issues and clinical ward distributions
  * - Barcode/bin scanning simulation and checklist verification
  * - Printable pick slip generation
+ * Zero hardcoded or static mock arrays.
  */
 
 import React, { useState, useEffect } from 'react';
 import {
   Boxes,
   CheckCircle2,
-  AlertCircle,
   Scan,
   Printer,
-  Sparkles,
   ArrowRight,
   ShieldCheck,
   Building,
   Clock,
+  Sparkles,
+  ClipboardList,
+  Truck,
 } from 'lucide-react';
 
-interface PickItem {
+export interface PickItem {
   id: string;
   itemCode: string;
   name: string;
@@ -56,42 +58,18 @@ export function ActiveTaskWorkstation({
   onTaskCompleted,
   onOpenIssueModal,
 }: ActiveTaskWorkstationProps) {
-  const defaultPickList: PickItem[] = [
-    {
-      id: 'p-1',
-      itemCode: 'VST-001',
-      name: 'Surgical Mask 3-Ply',
-      binLocation: 'Bin A-01',
-      batchNo: 'LOT-SM-2026A',
-      expiry: 'Dec 31, 2026',
-      qtyRequested: 50,
-      qtyPicked: 50,
-      unit: 'Box',
-      scanned: true,
-    },
-    {
-      id: 'p-2',
-      itemCode: 'VST-002',
-      name: 'Nitrile Medical Gloves (Large)',
-      binLocation: 'Bin A-02',
-      batchNo: 'LOT-GL-2026B',
-      expiry: 'Dec 31, 2026',
-      qtyRequested: 50,
-      qtyPicked: 50,
-      unit: 'Box',
-      scanned: false,
-    },
-  ];
-
-  const [pickList, setPickList] = useState<PickItem[]>(defaultPickList);
+  const [pickList, setPickList] = useState<PickItem[]>([]);
+  const [scanStatus, setScanStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    if (activeOrder && activeOrder.items && activeOrder.items.length > 0) {
+    if (activeOrder && Array.isArray(activeOrder.items) && activeOrder.items.length > 0) {
       setPickList(activeOrder.items);
+    } else {
+      setPickList([]);
     }
   }, [activeOrder]);
 
-  const [scanStatus, setScanStatus] = useState<string | null>(null);
+  const hasActiveOrder = Boolean(activeOrder && pickList.length > 0);
 
   const toggleScan = (id: string) => {
     setPickList((prev) =>
@@ -107,25 +85,27 @@ export function ActiveTaskWorkstation({
     setTimeout(() => setScanStatus(null), 3000);
   };
 
-  const allScanned = pickList.every((item) => item.scanned);
-  const totalItems = pickList.reduce((acc, curr) => acc + curr.qtyRequested, 0);
-  const orderReference = activeOrder?.orderRef || 'REQ-2026-001';
-  const destinationWard = activeOrder?.department || 'Emergency Trauma Ward';
-  const orderPriority = activeOrder?.priority || 'URGENT';
+  const allScanned = pickList.length > 0 && pickList.every((item) => item.scanned);
+  const totalItems = pickList.reduce((acc, curr) => acc + (curr.qtyRequested || 0), 0);
+  const orderReference = activeOrder?.orderRef || 'REQ-PENDING';
+  const destinationWard = activeOrder?.department || 'Clinical Distribution';
+  const orderPriority = activeOrder?.priority || 'Normal';
 
   const handleCompletePick = () => {
+    if (!hasActiveOrder) return;
     onTaskCompleted(orderReference, totalItems);
   };
 
   const handlePrintSlip = () => {
+    if (!hasActiveOrder) return;
     const slipText = `
 ===================================================
-     VISTA PORTAL - WAREHOUSE PICK & ISSUE SLIP
+VISTA PORTAL - WAREHOUSE PICK & ISSUE SLIP
 ===================================================
 Pick Order: ${orderReference}
 Date: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
-Operator: ${operatorName} (Inventory Staff - Zone A)
-Destination Ward: ${destinationWard}
+Operator: ${operatorName} (Floor Operations)
+Destination: ${destinationWard}
 Priority: ${orderPriority}
 
 ITEMS PICKED:
@@ -135,18 +115,75 @@ ${pickList.map((item, idx) => `${idx + 1}. [${item.itemCode}] ${item.name}
 
 TOTAL UNITS DISPENSED: ${totalItems} Units
 DISPENSED BY: ${operatorName}
-RECEIVED AT WARD BY: ______________________
+RECEIVED BY: ______________________
 ===================================================
 `;
-    const blob = new Blob([slipText], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([slipText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `VISTA-PickSlip-SR-2025-048.txt`;
+    link.download = `VISTA-PickSlip-${orderReference}.txt`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
+  // 1. Clean Standby / Empty State when No Active Picking Order is Queued
+  if (!hasActiveOrder) {
+    return (
+      <div className="rounded-2xl bg-white border border-slate-200/90 shadow-xs overflow-hidden">
+        <div className="bg-[#071927] px-6 py-4 flex flex-wrap items-center justify-between gap-3 text-white">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/20 text-[#00c4b4] border border-teal-500/30">
+              <Boxes className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-teal-300">
+                  ACTIVE WORKSTATION
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                  Queue Up-To-Date
+                </span>
+              </div>
+              <h3 className="font-sans text-base font-bold text-white flex items-center gap-2 mt-0.5">
+                <span>Picking Terminal Standby</span>
+              </h3>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-300">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>Station Operator: <strong className="text-white">{operatorName}</strong></span>
+          </div>
+        </div>
+
+        <div className="p-8 text-center flex flex-col items-center justify-center">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 mb-3 shadow-xs">
+            <CheckCircle2 className="w-7 h-7" />
+          </div>
+          <h4 className="text-base font-bold text-slate-900">
+            No Pending Picking Orders for Fulfillment
+          </h4>
+          <p className="mt-1 text-xs text-slate-500 max-w-md leading-relaxed">
+            All approved clinical ward replenishment and pick requests for your facility have been processed.
+            New pick orders will queue here automatically once approved by your inventory manager.
+          </p>
+          <div className="mt-5 flex items-center gap-3 flex-wrap justify-center">
+            <button
+              type="button"
+              onClick={() => onOpenIssueModal('SR-DIRECT')}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#008a90] hover:bg-[#00747a] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            >
+              <ClipboardList className="w-4 h-4" />
+              <span>Record Manual Issue</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Active Picking Terminal
   return (
     <div className="rounded-2xl bg-white border border-slate-200/90 shadow-xs overflow-hidden">
       {/* Header with High-Contrast Navy & Urgent Badge */}
@@ -160,30 +197,30 @@ RECEIVED AT WARD BY: ______________________
               <span className="font-mono text-xs font-bold text-teal-300">
                 ACTIVE WORKSTATION
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
-                Urgent Pick Order
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide border ${
+                orderPriority === 'Urgent'
+                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                  : 'bg-teal-500/20 text-teal-300 border-teal-500/40'
+              }`}>
+                {orderPriority} Pick Order
               </span>
             </div>
             <h3 className="font-sans text-base font-bold text-white flex items-center gap-2 mt-0.5">
-              <span>Order #SR-2025-048</span>
+              <span>Order #{orderReference}</span>
               <span className="text-slate-400 font-normal text-xs">
-                (2 line items • 100 boxes total)
+                ({pickList.length} line item{pickList.length === 1 ? '' : 's'} • {totalItems} units total)
               </span>
             </h3>
           </div>
         </div>
 
-        {/* Target Destination & SLA */}
+        {/* Target Destination */}
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-1.5 text-slate-300">
             <Building className="w-4 h-4 text-sky-400" />
             <span>
-              Ward: <strong className="text-white">Emergency Dept</strong>
+              Destination: <strong className="text-white">{destinationWard}</strong>
             </span>
-          </div>
-          <div className="flex items-center gap-1.5 text-amber-300 bg-amber-500/15 px-2.5 py-1 rounded-lg border border-amber-500/30">
-            <Clock className="w-3.5 h-3.5" />
-            <span className="font-mono font-semibold">SLA: 22m remaining</span>
           </div>
         </div>
       </div>
@@ -193,7 +230,7 @@ RECEIVED AT WARD BY: ______________________
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
           <div>
             <h4 className="text-sm font-bold text-slate-800">
-              Assigned Pick Checklist • Zone A
+              Assigned Pick Checklist • Floor Storage Bays
             </h4>
             <p className="text-xs text-slate-500">
               Scan barcode or check off each item after retrieving from storage bin.
@@ -276,10 +313,6 @@ RECEIVED AT WARD BY: ______________________
                     <span>
                       Exp: <strong className="text-slate-700">{item.expiry}</strong>
                     </span>
-                    <span>•</span>
-                    <span className="text-slate-600 font-medium">
-                      Available in Bin: 5,000 Box
-                    </span>
                   </div>
                 </div>
               </div>
@@ -318,15 +351,15 @@ RECEIVED AT WARD BY: ______________________
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span>
               {allScanned
-                ? 'All 2 line items are verified and ready for ward dispensing.'
-                : 'Scan or verify both line items before confirming dispatch.'}
+                ? `All ${pickList.length} line items are verified and ready for ward dispensing.`
+                : `Scan or verify all ${pickList.length} line items before confirming dispatch.`}
             </span>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
-              onClick={() => onOpenIssueModal('SR-2025-048')}
+              onClick={() => onOpenIssueModal(orderReference)}
               className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
             >
               Open Full Issue Form
@@ -341,7 +374,7 @@ RECEIVED AT WARD BY: ______________________
                   : 'bg-slate-200 text-slate-400 cursor-not-allowed'
               }`}
             >
-              <span>Confirm Pick & Dispense to Ward</span>
+              <span>Confirm Pick & Dispense</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -350,4 +383,3 @@ RECEIVED AT WARD BY: ______________________
     </div>
   );
 }
-

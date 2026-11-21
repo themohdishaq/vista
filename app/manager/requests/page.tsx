@@ -58,18 +58,18 @@ export default function ManagerRequestsPage() {
         setRequests(
           json.data.map((r: any) => ({
             id: r.id,
-            requestNo: r.requestId,
-            requesterName: r.requestedBy || 'Clinical Staff',
-            department: r.department || 'Clinical Operations',
-            targetWarehouse: r.warehouse || 'Central Medical Store Kathmandu',
-            itemCode: r.items?.[0]?.itemCode || 'VST-001',
-            itemName: r.items?.[0]?.itemName || 'Medical Supplies Requisition',
-            quantityRequested: r.totalQuantity || r.itemCount || 50,
-            unit: 'Units',
+            requestNo: r.requestId || r.requestNumber || r.request_number || r.id,
+            requesterName: r.requestedBy || 'Field Staff',
+            department: r.department || 'Field Operations',
+            targetWarehouse: r.warehouse || r.warehouseName || 'Assigned Facility',
+            itemCode: r.itemCode || r.items?.[0]?.itemCode || r.items?.[0]?.code || 'SKU',
+            itemName: r.itemName || r.items?.[0]?.itemName || r.items?.[0]?.name || 'Field Supplies Requisition',
+            quantityRequested: r.quantity || r.totalQuantity || r.items?.[0]?.quantity || 1,
+            unit: r.unit || r.items?.[0]?.unit || 'Units',
             priority: r.priority === 'Urgent' ? 'Urgent' : r.priority === 'High' ? 'High' : 'Normal',
-            purpose: r.purpose || 'Clinical stock replenishment.',
+            purpose: r.purpose || 'Field operational stock replenishment.',
             status: r.status === 'Approved' ? 'Approved' : r.status === 'Rejected' ? 'Rejected' : 'Pending Review',
-            date: r.dateTime || 'Recently',
+            date: r.dateTime || r.date || 'Recently',
           }))
         );
       }
@@ -86,35 +86,43 @@ export default function ManagerRequestsPage() {
 
   const handleApprove = async (id: string, requestNo: string) => {
     try {
-      await fetch('/api/requests', {
+      const res = await fetch('/api/requests', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, action: 'approve' }),
       });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'Failed to approve request.');
+      }
       setRequests((prev) =>
         prev.map((r) => (r.id === id ? { ...r, status: 'Approved' } : r))
       );
       showToast(`Approved stock request ${requestNo}! Dispatched for floor picking.`);
       fetchRequests();
-    } catch {
-      showToast('Failed to record approval.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to record approval.');
     }
   };
 
   const handleReject = async (id: string, requestNo: string) => {
     try {
-      await fetch('/api/requests', {
+      const res = await fetch('/api/requests', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, action: 'reject', reason: 'Denied by facility manager' }),
       });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'Failed to reject request.');
+      }
       setRequests((prev) =>
         prev.map((r) => (r.id === id ? { ...r, status: 'Rejected' } : r))
       );
       showToast(`Stock request ${requestNo} denied.`);
       fetchRequests();
-    } catch {
-      showToast('Failed to record rejection.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to record rejection.');
     }
   };
 
@@ -138,7 +146,7 @@ export default function ManagerRequestsPage() {
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Stock-Requests-${Date.now()}.csv`;
+    link.download = `FIM-Stock-Requests-${Date.now()}.csv`;
     link.click();
     showToast('Exported stock requests ledger.');
   };
@@ -180,14 +188,14 @@ export default function ManagerRequestsPage() {
             <span className="text-slate-300">•</span>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
               <ClipboardCheck className="w-3.5 h-3.5 text-slate-400" />
-              <span>Ward Requisitions &amp; Replenishment</span>
+              <span>Field Requisitions &amp; Replenishment</span>
             </div>
           </div>
           <h1 className="font-sans text-2xl font-black tracking-tight text-[#0a2540] mt-1">
             Review &amp; Approve Stock Requests
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Review ward demands, authorize allocation from warehouse stock, and release orders to floor picking queues.
+            Review field demands, authorize allocation from warehouse stock, and release orders to floor picking queues.
           </p>
         </div>
 

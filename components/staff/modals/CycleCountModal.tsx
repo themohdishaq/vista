@@ -5,9 +5,10 @@
  * @file components/staff/modals/CycleCountModal.tsx
  * @description Physical cycle count audit modal for warehouse floor staff.
  * Fulfills Responsibility 7: "Perform physical stock counts."
+ * Grounded in assigned facility bins.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ClipboardList,
   X,
@@ -22,6 +23,8 @@ interface CycleCountModalProps {
   onClose: () => void;
   targetBin?: AssignedBinItem | null;
   onRecordCount: (record: CycleCountRecord) => void;
+  operatorName?: string;
+  bins?: AssignedBinItem[];
 }
 
 export function CycleCountModal({
@@ -29,16 +32,28 @@ export function CycleCountModal({
   onClose,
   targetBin,
   onRecordCount,
+  operatorName = 'Floor Specialist',
+  bins = [],
 }: CycleCountModalProps) {
-  const binCode = targetBin ? targetBin.binCode : 'Bin A-06';
-  const itemCode = targetBin ? targetBin.itemCode : 'VST-009';
-  const itemName = targetBin ? targetBin.itemName : 'Hand Sanitizer 500ml';
-  const systemCount = targetBin ? targetBin.availableStock : 280;
+  const [selectedBin, setSelectedBin] = useState<AssignedBinItem | null>(null);
+  const [physicalCount, setPhysicalCount] = useState('0');
+  const [notes, setNotes] = useState('Routine cycle audit. Shelf condition inspected.');
 
-  const [physicalCount, setPhysicalCount] = useState(String(systemCount));
-  const [notes, setNotes] = useState('Routine morning cycle audit. Shelf condition clean.');
+  useEffect(() => {
+    if (isOpen) {
+      const active = targetBin || (bins.length > 0 ? bins[0] : null);
+      setSelectedBin(active);
+      setPhysicalCount(active ? String(active.availableStock) : '0');
+    }
+  }, [isOpen, targetBin, bins]);
 
   if (!isOpen) return null;
+
+  const binCode = selectedBin ? selectedBin.binCode : 'Bin A-01';
+  const itemCode = selectedBin ? selectedBin.itemCode : 'N/A';
+  const itemName = selectedBin ? selectedBin.itemName : 'Unassigned Bay';
+  const systemCount = selectedBin ? selectedBin.availableStock : 0;
+  const unit = selectedBin ? selectedBin.unit : 'Units';
 
   const physNum = parseInt(physicalCount, 10) || 0;
   const variance = physNum - systemCount;
@@ -53,7 +68,7 @@ export function CycleCountModal({
       systemCount,
       physicalCount: physNum,
       variance,
-      countedBy: 'Mike Chen (Zone A)',
+      countedBy: operatorName,
       timestamp: new Date().toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
@@ -94,36 +109,62 @@ export function CycleCountModal({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
+          {/* Bin Select if multiple bins exist and no targetBin locked */}
+          {!targetBin && bins.length > 1 && (
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">
+                Select Assigned Storage Bay to Audit
+              </label>
+              <select
+                value={selectedBin?.binCode || ''}
+                onChange={(e) => {
+                  const b = bins.find((item) => item.binCode === e.target.value);
+                  if (b) {
+                    setSelectedBin(b);
+                    setPhysicalCount(String(b.availableStock));
+                  }
+                }}
+                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
+              >
+                {bins.map((b) => (
+                  <option key={b.binCode + b.itemCode} value={b.binCode}>
+                    {b.binCode} • {b.itemCode} - {b.itemName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Bin & Item Card */}
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
             <div className="flex items-center justify-between">
               <span className="font-mono text-xs font-bold text-[#008a90] bg-teal-50 px-2 py-0.5 rounded border border-teal-200/70">
                 {binCode}
               </span>
-              <span className="font-mono text-xs text-slate-500 font-semibold">
-                {itemCode}
+              <span className="text-[11px] font-mono text-slate-500">
+                Lot: {selectedBin?.lotNumber || 'N/A'}
               </span>
             </div>
-            <h4 className="font-sans text-sm font-bold text-slate-900 mt-1">
+            <div className="mt-2 font-bold text-slate-900 text-sm">
               {itemName}
-            </h4>
+            </div>
+            <div className="text-[11px] font-mono text-slate-500 mt-0.5">
+              SKU: {itemCode}
+            </div>
           </div>
 
-          {/* Counts Comparison */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-xl bg-slate-100/80 border border-slate-200 text-center">
-              <span className="text-[11px] font-semibold text-slate-500 block">
-                System Balance
-              </span>
-              <span className="font-mono text-xl font-black text-slate-800">
-                {systemCount}
-              </span>
-              <span className="text-[10px] text-slate-400 block">units recorded</span>
-            </div>
-
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Actual Physical Count
+                System Book Count
+              </label>
+              <div className="rounded-xl border border-slate-200 bg-slate-100 p-2.5 font-mono text-sm font-bold text-slate-700">
+                {systemCount} {unit}
+              </div>
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">
+                Physical Shelf Count
               </label>
               <input
                 type="number"
@@ -131,42 +172,31 @@ export function CycleCountModal({
                 required
                 value={physicalCount}
                 onChange={(e) => setPhysicalCount(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xl font-black text-center text-[#0a2540] focus:border-[#008a90] focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 font-mono text-sm font-bold text-teal-800 focus:border-[#008a90] focus:outline-none"
               />
             </div>
           </div>
 
-          {/* Live Variance Calculation Banner */}
+          {/* Variance Pill */}
           <div
-            className={`p-3 rounded-xl border flex items-center justify-between ${
+            className={`p-3 rounded-xl border flex items-center justify-between transition-colors ${
               variance === 0
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                : variance < 0
-                ? 'bg-rose-50 border-rose-200 text-rose-800'
-                : 'bg-sky-50 border-sky-200 text-sky-800'
+                : 'bg-rose-50 border-rose-200 text-rose-800'
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 font-semibold">
               <Scale className="w-4 h-4" />
-              <span className="font-semibold">Calculated Variance:</span>
+              <span>Calculated Audit Variance:</span>
             </div>
             <span className="font-mono font-bold text-sm">
-              {variance > 0 ? `+${variance}` : variance} units
+              {variance > 0 ? `+${variance}` : variance} {unit}
             </span>
           </div>
 
-          {variance !== 0 && (
-            <p className="text-[11px] text-amber-700 font-semibold bg-amber-50 p-2.5 rounded-lg border border-amber-200 flex items-center gap-1.5">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>
-                Non-zero variance will automatically create a discrepancy ticket for manager review.
-              </span>
-            </p>
-          )}
-
           <div>
             <label className="block font-semibold text-slate-700 mb-1">
-              Audit Notes / Comments
+              Inspection Notes / Reason
             </label>
             <textarea
               rows={2}
@@ -177,25 +207,29 @@ export function CycleCountModal({
           </div>
 
           {/* Action Buttons */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Confirm & Log Count</span>
-            </button>
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-[11px] text-slate-400">
+              Auditor: <strong className="text-slate-600">{operatorName}</strong>
+            </span>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Confirm Count Audit</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>
     </div>
   );
 }
-

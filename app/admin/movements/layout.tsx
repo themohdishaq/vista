@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Stock Movements & Audit Log | VISTA Portal',
+  title: 'Stock Movements & Audit Log | Field Inventory Management',
   description:
     'Full traceability of all inventory receipts, issues, transfers, and barcode scans across facilities.',
 };

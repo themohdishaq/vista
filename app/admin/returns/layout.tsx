@@ -2,9 +2,9 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Returns & Consumption | VISTA Portal',
+  title: 'Returns & Consumption | Field Inventory Management',
   description:
-    'Track returns, ward consumption activities, RMA vouchers, and stock write-offs across all warehouse facilities.',
+    'Track field returns, operational consumption activities, RMA vouchers, and stock write-offs across all warehouse facilities.',
 };
 
 export default function ReturnsLayout({

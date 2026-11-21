@@ -13,6 +13,7 @@ declare global {
 }
 
 function initRuntimeTransfers(): TransferRecord[] {
+  return [];
   if (!globalThis.__vista_runtime_transfers__) {
     globalThis.__vista_runtime_transfers__ = [
       {
@@ -193,31 +194,223 @@ export async function getTransfers(options: { warehouseId?: string | null; statu
   });
 }
 
+export async function executeTransferBalances(data: {
+  fromWarehouseId: string;
+  toWarehouseId: string;
+  items: Array<{ itemId: string; quantity: number; batchNumber?: string }>;
+  transferNumber: string;
+  user: { id: string };
+  notes?: string;
+}): Promise<void> {
+  for (let i = 0; i < data.items.length; i++) {
+    const it = data.items[i];
+    const qty = Math.max(1, Number(it.quantity) || 1);
+    const batch = it.batchNumber || 'LOT-TRANSFER';
+
+    try {
+      // 1. Resolve Item
+      const itemRows = await sql.query(
+        `SELECT id, code, name, unit FROM items WHERE id = $1 OR code = $1 LIMIT 1;`,
+        [it.itemId]
+      );
+      if (!itemRows || itemRows.length === 0) continue;
+      const realItemId = itemRows[0].id;
+
+      // 2. Outflow from source warehouse
+      let sourceBinId: string | null = null;
+      let prevSourceBal = 0;
+      let newSourceBal = 0;
+
+      const sourceBalRows = await sql.query(
+        `SELECT id, bin_id, quantity_on_hand FROM stock_balances
+         WHERE warehouse_id = $1 AND item_id = $2
+         ORDER BY quantity_on_hand DESC LIMIT 1;`,
+        [data.fromWarehouseId, realItemId]
+      );
+
+      if (sourceBalRows && sourceBalRows.length > 0) {
+        const bal = sourceBalRows[0];
+        sourceBinId = bal.bin_id;
+        prevSourceBal = Number(bal.quantity_on_hand) || 0;
+        newSourceBal = Math.max(0, prevSourceBal - qty);
+
+        await sql.query(
+          `UPDATE stock_balances
+           SET quantity_on_hand = $1, updated_at = NOW()
+           WHERE id = $2;`,
+          [newSourceBal, bal.id]
+        );
+      }
+
+      const movOutId = `mov-${Date.now()}-out-${i}`;
+      const movOutNum = `MOV-TRF-OUT-${Math.floor(1000 + Math.random() * 9000)}`;
+      await sql.query(
+        `INSERT INTO stock_movements (
+           id, movement_number, warehouse_id, item_id, bin_id, type, quantity,
+           previous_balance, new_balance, batch_number, reference_id, performed_by_id, notes
+         ) VALUES (
+           $1, $2, $3, $4, $5, 'TRANSFER_OUT'::movement_type, $6, $7, $8, $9, $10, $11, $12
+         ) ON CONFLICT DO NOTHING;`,
+        [
+          movOutId,
+          movOutNum,
+          data.fromWarehouseId,
+          realItemId,
+          sourceBinId,
+          qty,
+          prevSourceBal,
+          newSourceBal,
+          batch,
+          data.transferNumber,
+          data.user.id,
+          data.notes || 'Inter-facility transfer dispatch',
+        ]
+      );
+
+      // 3. Inflow to destination warehouse
+      let destBinId: string | null = null;
+      const destBins = await sql.query(
+        `SELECT id FROM storage_bins WHERE warehouse_id = $1 AND is_active = TRUE LIMIT 1;`,
+        [data.toWarehouseId]
+      );
+
+      if (destBins && destBins.length > 0) {
+        destBinId = destBins[0].id;
+      } else {
+        // Ensure at least 1 default zone and bin exists in destination warehouse
+        const autoZoneId = `z-${Date.now()}-${i}`;
+        const autoBinId = `bin-${Date.now()}-${i}`;
+        await sql.query(
+          `INSERT INTO storage_zones (id, warehouse_id, code, name, temp_range)
+           VALUES ($1, $2, 'Zone A', 'General Receiving Bay', 'Ambient')
+           ON CONFLICT (id) DO NOTHING;`,
+          [autoZoneId, data.toWarehouseId]
+        );
+        await sql.query(
+          `INSERT INTO storage_bins (id, zone_id, warehouse_id, bin_code, is_active)
+           VALUES ($1, $2, $3, 'A1-01', TRUE)
+           ON CONFLICT (id) DO NOTHING;`,
+          [autoBinId, autoZoneId, data.toWarehouseId]
+        );
+        destBinId = autoBinId;
+      }
+
+      let prevTargetBal = 0;
+      let newTargetBal = qty;
+
+      const targetBalRows = await sql.query(
+        `SELECT id, quantity_on_hand FROM stock_balances
+         WHERE warehouse_id = $1 AND item_id = $2
+         LIMIT 1;`,
+        [data.toWarehouseId, realItemId]
+      );
+
+      if (targetBalRows && targetBalRows.length > 0) {
+        prevTargetBal = Number(targetBalRows[0].quantity_on_hand) || 0;
+        newTargetBal = prevTargetBal + qty;
+        await sql.query(
+          `UPDATE stock_balances
+           SET quantity_on_hand = $1, updated_at = NOW()
+           WHERE id = $2;`,
+          [newTargetBal, targetBalRows[0].id]
+        );
+      } else {
+        const newBalId = `sb-${Date.now()}-${i}`;
+        await sql.query(
+          `INSERT INTO stock_balances (
+             id, warehouse_id, item_id, bin_id, batch_number, quantity_on_hand, quantity_reserved, updated_at
+           ) VALUES (
+             $1, $2, $3, $4, $5, $6, 0, NOW()
+           );`,
+          [newBalId, data.toWarehouseId, realItemId, destBinId, batch, qty]
+        );
+      }
+
+      const movInId = `mov-${Date.now()}-in-${i}`;
+      const movInNum = `MOV-TRF-IN-${Math.floor(1000 + Math.random() * 9000)}`;
+      await sql.query(
+        `INSERT INTO stock_movements (
+           id, movement_number, warehouse_id, item_id, bin_id, type, quantity,
+           previous_balance, new_balance, batch_number, reference_id, performed_by_id, notes
+         ) VALUES (
+           $1, $2, $3, $4, $5, 'TRANSFER_IN'::movement_type, $6, $7, $8, $9, $10, $11, $12
+         ) ON CONFLICT DO NOTHING;`,
+        [
+          movInId,
+          movInNum,
+          data.toWarehouseId,
+          realItemId,
+          destBinId,
+          qty,
+          prevTargetBal,
+          newTargetBal,
+          batch,
+          data.transferNumber,
+          data.user.id,
+          data.notes || 'Inter-facility transfer receipt',
+        ]
+      );
+    } catch (err) {
+      console.error(`Error updating balances for transferred item ${it.itemId}:`, err);
+    }
+  }
+}
+
 export async function createTransfer(data: {
   fromWarehouseId: string;
   toWarehouseId: string;
   notes?: string;
   items: Array<{ itemId: string; quantity: number; batchNumber?: string }>;
+  autoComplete?: boolean;
 }, user: { id: string }): Promise<string> {
   const transferId = `trf-${Date.now()}`;
   const transferNumber = `TRF-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+  const initialStatus = data.autoComplete ? 'Completed' : 'Pending';
 
   try {
     await sql.query(
-      `INSERT INTO transfers (id, transfer_number, from_warehouse_id, to_warehouse_id, status, requested_by_id, notes)
-       VALUES ($1, $2, $3, $4, 'Pending'::transfer_status, $5, $6);`,
-      [transferId, transferNumber, data.fromWarehouseId, data.toWarehouseId, user.id, data.notes || 'Inter-facility transfer.']
+      `INSERT INTO transfers (id, transfer_number, from_warehouse_id, to_warehouse_id, status, requested_by_id, approved_by_id, notes)
+       VALUES ($1, $2, $3, $4, $5::transfer_status, $6, $7, $8);`,
+      [
+        transferId,
+        transferNumber,
+        data.fromWarehouseId,
+        data.toWarehouseId,
+        initialStatus,
+        user.id,
+        data.autoComplete ? user.id : null,
+        data.notes || 'Inter-facility transfer.',
+      ]
     );
 
     for (let i = 0; i < data.items.length; i++) {
       const item = data.items[i];
+      // Resolve item ID if code was passed
+      const itemLookup = await sql.query(
+        `SELECT id FROM items WHERE id = $1 OR code = $1 LIMIT 1;`,
+        [item.itemId]
+      );
+      const resolvedId = itemLookup && itemLookup.length > 0 ? itemLookup[0].id : item.itemId;
+
       await sql.query(
         `INSERT INTO transfer_items (id, transfer_id, item_id, batch_number, quantity)
          VALUES ($1, $2, $3, $4, $5);`,
-        [`ti-${Date.now()}-${i}`, transferId, item.itemId, item.batchNumber || 'LOT-GENERAL', item.quantity]
+        [`ti-${Date.now()}-${i}`, transferId, resolvedId, item.batchNumber || 'LOT-TRANSFER', item.quantity]
       );
     }
-  } catch {
+
+    if (data.autoComplete) {
+      await executeTransferBalances({
+        fromWarehouseId: data.fromWarehouseId,
+        toWarehouseId: data.toWarehouseId,
+        items: data.items,
+        transferNumber,
+        user,
+        notes: data.notes,
+      });
+    }
+  } catch (dbErr) {
+    console.error('Error creating transfer in database:', dbErr);
     // Runtime fallback
     const list = initRuntimeTransfers();
     list.unshift({
@@ -229,9 +422,9 @@ export async function createTransfer(data: {
       toWarehouse: 'Destination Depot',
       itemCount: data.items.length,
       quantity: data.items.reduce((s, it) => s + (it.quantity || 0), 0),
-      status: 'Pending',
-      performedBy: 'Floor Staff',
-      performedByRole: 'Warehouse Staff',
+      status: initialStatus as TransferStatus,
+      performedBy: 'Operations Admin',
+      performedByRole: 'Warehouse Lead',
       reference: 'TRF-REQ',
       primaryItem: {
         itemCode: 'VST-ITEM',
@@ -242,14 +435,14 @@ export async function createTransfer(data: {
       },
       allItems: [],
       notes: data.notes || 'Transfer created.',
-      approvedBy: 'Pending Manager Approval',
-      approvalDate: 'Pending',
+      approvedBy: data.autoComplete ? 'System Administrator' : 'Pending Manager Approval',
+      approvalDate: data.autoComplete ? 'Approved Just Now' : 'Pending',
       documentName: `Transfer_${transferNumber}.pdf`,
       timeline: [
-        { step: 'Transfer Requisition Created', time: 'Just now', actor: 'Floor Staff', role: 'Staff', completed: true },
-        { step: 'Approved by Facility Manager', time: 'Pending', actor: 'Facility Manager', role: 'Manager', completed: false },
-        { step: 'In-Transit Freight Dispatch', time: 'Pending', actor: 'Logistics', role: 'Logistics', completed: false },
-        { step: 'Received & Stored at Destination', time: 'Pending', actor: 'Floor Staff', role: 'Staff', completed: false },
+        { step: 'Transfer Requisition Created', time: 'Just now', actor: 'Operations Admin', role: 'Staff', completed: true },
+        { step: 'Approved by Facility Manager', time: data.autoComplete ? 'Just now' : 'Pending', actor: 'Operations Admin', role: 'Manager', completed: Boolean(data.autoComplete) },
+        { step: 'In-Transit Freight Dispatch', time: data.autoComplete ? 'Just now' : 'Pending', actor: 'MedFreight Express', role: 'Logistics', completed: Boolean(data.autoComplete) },
+        { step: 'Received & Stored at Destination', time: data.autoComplete ? 'Just now' : 'Pending', actor: 'Receiving Specialist', role: 'Staff', completed: Boolean(data.autoComplete) },
       ],
     });
   }
@@ -280,11 +473,42 @@ export async function approveTransfer(transferId: string, user: { id: string }) 
 
 export async function completeTransfer(transferId: string, user: { id: string }) {
   try {
+    // Fetch transfer details to move balances
+    const rows = await sql.query(
+      `SELECT t.from_warehouse_id, t.to_warehouse_id, t.transfer_number, t.notes
+       FROM transfers t WHERE t.id = $1 OR t.transfer_number = $1 LIMIT 1;`,
+      [transferId]
+    );
+
+    if (rows && rows.length > 0) {
+      const tr = rows[0];
+      const itemRows = await sql.query(
+        `SELECT item_id, batch_number, quantity FROM transfer_items WHERE transfer_id = $1;`,
+        [transferId]
+      );
+
+      if (itemRows && itemRows.length > 0) {
+        await executeTransferBalances({
+          fromWarehouseId: tr.from_warehouse_id,
+          toWarehouseId: tr.to_warehouse_id,
+          items: itemRows.map((it: any) => ({
+            itemId: it.item_id,
+            quantity: Number(it.quantity),
+            batchNumber: it.batch_number,
+          })),
+          transferNumber: tr.transfer_number,
+          user,
+          notes: tr.notes,
+        });
+      }
+    }
+
     await sql.query(
       `UPDATE transfers SET status = 'Completed'::transfer_status, approved_by_id = $2, updated_at = NOW() WHERE id = $1 OR transfer_number = $1;`,
       [transferId, user.id]
     );
-  } catch {
+  } catch (err) {
+    console.error('Error completing transfer in DB:', err);
     // Runtime fallback
     const list = initRuntimeTransfers();
     const match = list.find((t) => t.id === transferId || t.transferId === transferId);

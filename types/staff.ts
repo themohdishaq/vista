@@ -40,9 +40,11 @@ export interface AssignedBinItem {
   reservedStock: number;
   unit: string;
   batchNo: string;
+  lotNumber?: string;
   expiryDate: string;
   isLowStock: boolean;
   minThreshold: number;
+  isEmpty?: boolean;
 }
 
 export interface StaffTaskItem {
@@ -109,6 +111,7 @@ export interface StaffIncidentReport {
   itemCode: string;
   itemName: string;
   batchNo?: string;
+  batchNumber?: string;
   quantity: number;
   unit: string;
   binLocation: string;

@@ -5,42 +5,86 @@
  * @file components/staff/modals/ReceiveStockModal.tsx
  * @description Inbound inventory receiving modal for warehouse staff.
  * Fulfills Responsibility 3: "Record received inventory from suppliers/docks."
+ * Dynamic items and bins fetched from backend database.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Truck,
   X,
   CheckCircle2,
   AlertCircle,
-  QrCode,
-  Download,
   Building,
 } from 'lucide-react';
-import { ReceivedInventoryRecord } from '@/types/staff';
+import { ReceivedInventoryRecord, AssignedBinItem } from '@/types/staff';
 
 interface ReceiveStockModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRecordReceived: (record: ReceivedInventoryRecord) => void;
+  operatorName?: string;
+  assignedWarehouseId?: string | null;
+  bins?: AssignedBinItem[];
 }
 
 export function ReceiveStockModal({
   isOpen,
   onClose,
   onRecordReceived,
+  operatorName = 'Staff Specialist',
+  assignedWarehouseId,
+  bins = [],
 }: ReceiveStockModalProps) {
-  const [poNumber, setPoNumber] = useState('PO-2025-112');
-  const [supplier, setSupplier] = useState('Apex Healthcare Supplies');
-  const [itemCode, setItemCode] = useState('VST-004');
-  const [itemName, setItemName] = useState('Disposable Syringe 5ml');
-  const [quantity, setQuantity] = useState('500');
+  const [items, setItems] = useState<Array<{ id: string; code: string; name: string; unit: string }>>([]);
+  const [poNumber, setPoNumber] = useState('');
+  const [supplier, setSupplier] = useState('');
+  const [itemCode, setItemCode] = useState('');
+  const [itemName, setItemName] = useState('');
+  const [quantity, setQuantity] = useState('100');
   const [unit, setUnit] = useState('Box');
-  const [batchNo, setBatchNo] = useState(`LOT-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`);
-  const [expiryDate, setExpiryDate] = useState('2027-06-30');
-  const [targetBin, setTargetBin] = useState('Bin A-04');
+  const [batchNo, setBatchNo] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [targetBin, setTargetBin] = useState('');
   const [damageNoted, setDamageNoted] = useState(false);
-  const [notes, setNotes] = useState('Delivered via Dock 2. Temperature log normal.');
+  const [notes, setNotes] = useState('');
+
+  // Reset & load live registered items from database when opened
+  useEffect(() => {
+    if (isOpen) {
+      const year = new Date().getFullYear();
+      setPoNumber(`PO-${year}-${Math.floor(100 + Math.random() * 900)}`);
+      setBatchNo(`LOT-${year}-${Math.floor(100 + Math.random() * 900)}`);
+
+      // Set default expiry 18 months in the future
+      const d = new Date();
+      d.setMonth(d.getMonth() + 18);
+      setExpiryDate(d.toISOString().split('T')[0]);
+
+      if (bins.length > 0) {
+        setTargetBin(bins[0].binCode);
+      } else {
+        setTargetBin('Bin A-01');
+      }
+
+      fetch('/api/items')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            const mapped = json.data.map((i: any) => ({
+              id: i.id,
+              code: i.code,
+              name: i.name,
+              unit: i.unit || 'Unit',
+            }));
+            setItems(mapped);
+            setItemCode(mapped[0].code);
+            setItemName(mapped[0].name);
+            setUnit(mapped[0].unit);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, bins]);
 
   if (!isOpen) return null;
 
@@ -49,17 +93,17 @@ export function ReceiveStockModal({
     const qty = parseInt(quantity, 10) || 1;
     const newRecord: ReceivedInventoryRecord = {
       id: `rec-${Date.now()}`,
-      poNumber,
-      supplier,
+      poNumber: poNumber.trim() || `PO-${Date.now()}`,
+      supplier: supplier.trim() || 'Direct Supplier Inbound',
       itemCode,
       itemName,
       quantityReceived: qty,
       unit,
-      batchNo,
+      batchNo: batchNo.trim() || 'LOT-GENERAL',
       expiryDate,
-      targetBin,
+      targetBin: targetBin.trim() || 'Bin A-01',
       damageNoted,
-      receivedBy: 'Mike Chen (Floor Specialist)',
+      receivedBy: operatorName,
       date: new Date().toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -69,6 +113,15 @@ export function ReceiveStockModal({
 
     onRecordReceived(newRecord);
     onClose();
+  };
+
+  const handleItemSelect = (code: string) => {
+    setItemCode(code);
+    const selected = items.find((i) => i.code === code);
+    if (selected) {
+      setItemName(selected.name);
+      setUnit(selected.unit);
+    }
   };
 
   return (
@@ -110,6 +163,7 @@ export function ReceiveStockModal({
                 required
                 value={poNumber}
                 onChange={(e) => setPoNumber(e.target.value)}
+                placeholder="e.g. PO-2026-112"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 font-mono text-xs focus:border-[#008a90] focus:bg-white focus:outline-none"
               />
             </div>
@@ -122,6 +176,7 @@ export function ReceiveStockModal({
                 required
                 value={supplier}
                 onChange={(e) => setSupplier(e.target.value)}
+                placeholder="e.g. Apex Healthcare Supplies"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs focus:border-[#008a90] focus:bg-white focus:outline-none"
               />
             </div>
@@ -130,52 +185,67 @@ export function ReceiveStockModal({
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <label className="block font-semibold text-slate-700 mb-1">
-                Item Description
+                Registered Item SKU & Name
               </label>
-              <select
-                value={itemCode}
-                onChange={(e) => {
-                  setItemCode(e.target.value);
-                  if (e.target.value === 'VST-001') {
-                    setItemName('Surgical Mask 3-Ply');
-                    setTargetBin('Bin A-01');
-                  } else if (e.target.value === 'VST-002') {
-                    setItemName('Nitrile Medical Gloves');
-                    setTargetBin('Bin A-02');
-                  } else if (e.target.value === 'VST-003') {
-                    setItemName('Sterile Elastic Bandage');
-                    setTargetBin('Bin A-03');
-                  } else {
-                    setItemName('Disposable Syringe 5ml');
-                    setTargetBin('Bin A-04');
-                  }
-                }}
-                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
-              >
-                <option value="VST-001">VST-001 • Surgical Mask 3-Ply</option>
-                <option value="VST-002">VST-002 • Nitrile Medical Gloves</option>
-                <option value="VST-003">VST-003 • Sterile Elastic Bandage</option>
-                <option value="VST-004">VST-004 • Disposable Syringe 5ml</option>
-              </select>
+              {items.length > 0 ? (
+                <select
+                  value={itemCode}
+                  onChange={(e) => handleItemSelect(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
+                >
+                  {items.map((it) => (
+                    <option key={it.code} value={it.code}>
+                      {it.code} • {it.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={itemCode}
+                  onChange={(e) => {
+                    setItemCode(e.target.value);
+                    setItemName(e.target.value);
+                  }}
+                  placeholder="Item SKU Code"
+                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
+                />
+              )}
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Target Bin
+                Target Storage Bin
               </label>
-              <input
-                type="text"
-                required
-                value={targetBin}
-                onChange={(e) => setTargetBin(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-teal-50/60 p-2.5 font-mono text-xs font-bold text-[#008a90] focus:border-[#008a90] focus:outline-none"
-              />
+              {bins.length > 0 ? (
+                <select
+                  value={targetBin}
+                  onChange={(e) => setTargetBin(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-teal-50/60 p-2.5 font-mono text-xs font-bold text-[#008a90] focus:border-[#008a90] focus:outline-none"
+                >
+                  {bins.map((b) => (
+                    <option key={b.binCode} value={b.binCode}>
+                      {b.binCode}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={targetBin}
+                  onChange={(e) => setTargetBin(e.target.value)}
+                  placeholder="e.g. Bin A-01"
+                  className="w-full rounded-xl border border-slate-200 bg-teal-50/60 p-2.5 font-mono text-xs font-bold text-[#008a90] focus:border-[#008a90] focus:outline-none"
+                />
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Quantity
+                Quantity Received
               </label>
               <input
                 type="number"
@@ -188,18 +258,14 @@ export function ReceiveStockModal({
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Unit
+                Unit of Measure
               </label>
-              <select
+              <input
+                type="text"
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
-              >
-                <option value="Box">Box</option>
-                <option value="Pack">Pack</option>
-                <option value="Bottle">Bottle</option>
-                <option value="Unit">Unit</option>
-              </select>
+              />
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
@@ -238,7 +304,7 @@ export function ReceiveStockModal({
                 className="rounded text-[#008a90] focus:ring-[#008a90]"
               />
               <span className="font-semibold text-slate-800">
-                Outer cartons inspected & intact (no seal breach or water damage)
+                Outer cartons inspected &amp; intact (no seal breach or water damage)
               </span>
             </label>
             {damageNoted && (
@@ -249,25 +315,29 @@ export function ReceiveStockModal({
           </div>
 
           {/* Action Buttons */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Confirm Inbound Receipt</span>
-            </button>
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-[11px] text-slate-400">
+              Receiving Operator: <strong className="text-slate-600">{operatorName}</strong>
+            </span>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Confirm Inbound Receipt</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>
     </div>
   );
 }
-

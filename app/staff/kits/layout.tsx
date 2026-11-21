@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Kit Packing & Box Records | VISTA Staff',
+  title: 'Kit Packing & Box Records | Field Inventory Staff',
   description:
     'Assemble medical trauma kits, verify component checklists, and log pack completion.',
 };

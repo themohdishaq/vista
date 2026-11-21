@@ -85,6 +85,26 @@ export async function receiveStock(data: {
     resolvedItemId = itemMatch[0].id;
   }
 
+  // Resolve bin ID to a valid foreign key in storage_bins, or null
+  let resolvedBinId: string | null = null;
+  if (data.binId) {
+    const binMatch = await sql.query(
+      `SELECT id FROM storage_bins WHERE (id = $1 OR bin_code = $1) AND warehouse_id = $2 LIMIT 1;`,
+      [data.binId, data.warehouseId]
+    );
+    if (binMatch.length > 0) {
+      resolvedBinId = binMatch[0].id;
+    } else {
+      const anyBin = await sql.query(
+        `SELECT id FROM storage_bins WHERE id = $1 LIMIT 1;`,
+        [data.binId]
+      );
+      if (anyBin.length > 0) {
+        resolvedBinId = anyBin[0].id;
+      }
+    }
+  }
+
   // 1. Get or initialize balance
   const currentBalances = await sql.query(
     `SELECT id, quantity_on_hand FROM stock_balances 
@@ -109,7 +129,7 @@ export async function receiveStock(data: {
     await sql.query(
       `INSERT INTO stock_balances (id, warehouse_id, item_id, bin_id, batch_number, expiry_date, quantity_on_hand, quantity_reserved)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 0);`,
-      [`bal-${Date.now()}`, data.warehouseId, resolvedItemId, data.binId || null, batch, data.expiryDate || null, qty]
+      [`bal-${Date.now()}`, data.warehouseId, resolvedItemId, resolvedBinId, batch, data.expiryDate || null, qty]
     );
   }
 
@@ -125,7 +145,7 @@ export async function receiveStock(data: {
       movementNumber,
       data.warehouseId,
       resolvedItemId,
-      data.binId || null,
+      resolvedBinId,
       qty,
       prevBalance,
       newBalance,
@@ -207,7 +227,7 @@ export async function issueStock(data: {
       batch,
       data.requisitionRef || 'SR-DIRECT',
       user.id,
-      data.notes || `Issued to: ${data.destinationWard || 'Ward Dispensing'}`
+      data.notes || `Issued to: ${data.destinationWard || 'Field Dispensing'}`
     ]
   );
 
@@ -404,6 +424,7 @@ declare global {
 }
 
 function initRuntimeAdjustments(): AdjustmentRecord[] {
+  return [];
   if (!globalThis.__vista_runtime_adjustments__) {
     const today = new Date();
     const formatDate = (daysAgo: number, hours: number, mins: number) => {

@@ -58,9 +58,11 @@ export function AddItemModal({
       setDescription('');
       if (warehouses.length > 0) {
         setWarehouseId(warehouses[0].id);
+      } else {
+        setWarehouseId('');
       }
     }
-  }, [isOpen]);
+  }, [isOpen, warehouses]);
 
   if (!isOpen) return null;
 
@@ -72,8 +74,9 @@ export function AddItemModal({
       ? customCategory.trim()
       : category;
 
-    const qty = Number(stockQuantity) || 0;
-    const reorder = Number(reorderLevel) || 100;
+    const qty = Math.max(0, Number(stockQuantity) || 0);
+    const reorder = Math.max(0, Number(reorderLevel) || 100);
+    const chosenWarehouseId = warehouseId || (warehouses[0]?.id || '');
 
     const newItem: InventoryItem = {
       id: `item-${Date.now()}`,
@@ -91,6 +94,8 @@ export function AddItemModal({
       batchTracking: true,
       expiryTracking: true,
       reorderLevel: reorder,
+      warehouseId: chosenWarehouseId,
+      initialWarehouseId: chosenWarehouseId,
     };
 
     onAddItem(newItem);

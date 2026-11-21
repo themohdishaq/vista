@@ -565,7 +565,7 @@ export async function generateLiveReport(params: {
   if (format === 'CSV') {
     mimeType = 'text/csv;charset=utf-8;';
     const lines: string[] = [
-      `"VISTA Analytics Report - ${reportType}"`,
+      `"Field Inventory Management Report - ${reportType}"`,
       `"Report ID","${reportId}"`,
       `"Generated At","${timestamp}"`,
       `"Author","${author}"`,
@@ -607,7 +607,7 @@ export async function generateLiveReport(params: {
     // Formatted Text / Printable Document
     mimeType = 'text/plain;charset=utf-8;';
     fileContent = `========================================================================================
-VISTA ENTERPRISE HEALTHCARE SUPPLY CHAIN - OFFICIAL AUDIT & ANALYTICS REPORT
+FIELD INVENTORY MANAGEMENT - OFFICIAL AUDIT & ANALYTICS REPORT
 ========================================================================================
 Report Identifier: ${reportId}
 Report Title:      ${reportType}
@@ -643,7 +643,7 @@ ${data.allExpiryAlerts.slice(0, 10).map((a, idx) => `${idx + 1}. ${a.itemName.pa
 
 ========================================================================================
 DIGITAL AUDIT SIGNATURE
-Certified by VISTA Inventory Engine SHA-256: ${Math.random().toString(36).substring(2)}${Date.now().toString(36).toUpperCase()}
+Certified by Field Inventory Engine SHA-256: ${Math.random().toString(36).substring(2)}${Date.now().toString(36).toUpperCase()}
 ========================================================================================`;
   }
 

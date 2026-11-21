@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'System Settings & Configuration | VISTA Admin',
+  title: 'System Settings & Configuration | Field Inventory Admin',
   description: 'Manage warehouse thresholds, notification alerts, security policies, and database connection settings.',
 };
 

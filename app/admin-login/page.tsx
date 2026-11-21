@@ -15,7 +15,7 @@ export default function AdminLoginRedirect() {
     <div className="flex min-h-[calc(100vh-80px)] w-full items-center justify-center bg-slate-50">
       <div className="flex items-center gap-2 text-sm text-slate-500">
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#008a90] border-t-transparent" />
-        <span>Redirecting to VISTA Portal Login...</span>
+        <span>Redirecting to Field Inventory Management Login...</span>
       </div>
     </div>
   );

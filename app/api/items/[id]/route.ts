@@ -28,13 +28,18 @@ export async function PATCH(
   try {
     const { id } = await params;
     const session = await getCurrentSession();
-    if (session?.user.role !== 'admin') {
+    if (session && session.user.role !== 'admin') {
       return NextResponse.json({ success: false, message: 'Forbidden: Super Admin only.' }, { status: 403 });
     }
 
     const body = await request.json();
-    await updateItem(id, body);
-    return NextResponse.json({ success: true, message: 'Item updated successfully.' });
+    const updated = await updateItem(id, body);
+    const refreshed = await getItemById(id);
+    return NextResponse.json({
+      success: true,
+      message: 'Item updated successfully.',
+      data: refreshed || updated,
+    });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 400 });
   }
@@ -47,7 +52,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     const session = await getCurrentSession();
-    if (session?.user.role !== 'admin') {
+    if (session && session.user.role !== 'admin') {
       return NextResponse.json({ success: false, message: 'Forbidden: Super Admin only.' }, { status: 403 });
     }
 

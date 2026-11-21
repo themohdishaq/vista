@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Receiving & Issuing Approvals | VISTA Manager',
+  title: 'Receiving & Issuing Approvals | Field Inventory Manager',
   description:
     'Authorize high-volume inbound consignments and department issue vouchers.',
 };

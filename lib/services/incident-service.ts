@@ -55,118 +55,14 @@ declare global {
 
 function initRuntimeIncidents(): IncidentRecord[] {
   if (!globalThis.__vista_runtime_incidents__) {
-    globalThis.__vista_runtime_incidents__ = [
-      {
-        id: 'inc-init-001',
-        ticket_number: 'INC-2025-042',
-        warehouse_id: 'wh-001',
-        warehouse_name: 'Central Medical Store Kathmandu',
-        type: 'Shortage',
-        item_id: 'item-001',
-        item_code: 'VST-001',
-        item_name: 'Surgical Mask 3-Ply',
-        batch_number: 'LOT-2024-001',
-        quantity: 20,
-        description: 'Physical count 1,400 vs system ledger 1,420 in Zone A.',
-        reported_by_id: 'usr-staff-001',
-        reported_by_name: 'David Kim',
-        status: 'Under Investigation',
-        created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
-      },
-      {
-        id: 'inc-init-002',
-        ticket_number: 'INC-2025-043',
-        warehouse_id: 'wh-002',
-        warehouse_name: 'Western Regional Medical Depot Pokhara',
-        type: 'Damaged',
-        item_id: 'item-005',
-        item_code: 'VST-005',
-        item_name: 'IV Infusion Set Sterile',
-        batch_number: 'LOT-2024-055',
-        quantity: 12,
-        description: 'Outer carton crushed during transit unloading at dock.',
-        reported_by_id: 'usr-staff-002',
-        reported_by_name: 'Sarah Wilson',
-        status: 'Under Investigation',
-        created_at: new Date(Date.now() - 3600000 * 8).toISOString(),
-      },
-      {
-        id: 'inc-init-003',
-        ticket_number: 'INC-2025-044',
-        warehouse_id: 'wh-001',
-        warehouse_name: 'Central Medical Store Kathmandu',
-        type: 'Variance',
-        item_id: 'item-002',
-        item_code: 'VST-002',
-        item_name: 'Nitrile Examination Gloves',
-        batch_number: 'LOT-2024-042',
-        quantity: 5,
-        description: 'Discrepancy found during routine cycle count in Bay B-03.',
-        reported_by_id: 'usr-staff-001',
-        reported_by_name: 'David Kim',
-        status: 'Under Investigation',
-        created_at: new Date(Date.now() - 3600000 * 12).toISOString(),
-      },
-    ];
+    globalThis.__vista_runtime_incidents__ = [];
   }
   return globalThis.__vista_runtime_incidents__;
 }
 
 function initRuntimePurchases(): LocalPurchaseRecord[] {
   if (!globalThis.__vista_runtime_purchases__) {
-    globalThis.__vista_runtime_purchases__ = [
-      {
-        id: 'pur-init-001',
-        invoice_number: 'LOC-2025-014',
-        warehouse_id: 'wh-001',
-        warehouse_name: 'Central Medical Store Kathmandu',
-        vendor_name: 'Apex Medical Supplies',
-        item_description: 'Syringe 5ml Sterile with Needle',
-        quantity: 500,
-        unit: 'Box',
-        amount: 7750,
-        payment_mode: 'Direct Invoice',
-        reason: 'Emergency ICU requisition spike.',
-        recorded_by_id: 'usr-staff-001',
-        recorded_by_name: 'David Kim',
-        status: 'Pending',
-        created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
-      },
-      {
-        id: 'pur-init-002',
-        invoice_number: 'LOC-2025-013',
-        warehouse_id: 'wh-002',
-        warehouse_name: 'Western Regional Medical Depot Pokhara',
-        vendor_name: 'Local Health Depot',
-        item_description: 'Sterile Gauze Rolls 10cm x 5m',
-        quantity: 200,
-        unit: 'Box',
-        amount: 1200,
-        payment_mode: 'Petty Cash',
-        reason: 'Depot stock depleted before scheduled weekly delivery.',
-        recorded_by_id: 'usr-staff-002',
-        recorded_by_name: 'Sarah Wilson',
-        status: 'Delivered',
-        created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-      },
-      {
-        id: 'pur-init-003',
-        invoice_number: 'LOC-2025-012',
-        warehouse_id: 'wh-003',
-        warehouse_name: 'Eastern Distribution Center Biratnagar',
-        vendor_name: 'BioClean Industrial',
-        item_description: 'Disinfectant Solution 5L Cannister',
-        quantity: 40,
-        unit: 'Can',
-        amount: 1600,
-        payment_mode: 'Bank Transfer',
-        reason: 'Sanitization protocol surge supply.',
-        recorded_by_id: 'usr-staff-001',
-        recorded_by_name: 'Mike Chen',
-        status: 'Delivered',
-        created_at: new Date(Date.now() - 86400000 * 4).toISOString(),
-      },
-    ];
+    globalThis.__vista_runtime_purchases__ = [];
   }
   return globalThis.__vista_runtime_purchases__;
 }

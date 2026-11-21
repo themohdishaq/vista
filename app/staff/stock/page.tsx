@@ -4,9 +4,8 @@
 /**
  * @file app/staff/stock/page.tsx
  * @description Dedicated staff view for Available Stock in assigned locations and storage bins.
- * Fulfills Responsibility 1: "View available stock in assigned locations."
- * Live real-time integration with /api/stock, /api/adjustments, and /api/requests.
- * Zero static or hardcoded mock arrays.
+ * Scoped strictly to the staff member's assigned warehouse facility.
+ * Displays an Unassigned Facility warning banner if not yet assigned by a manager or admin.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -19,6 +18,8 @@ import {
   Download,
   RefreshCw,
   CheckCircle2,
+  Building2,
+  ShieldAlert,
 } from 'lucide-react';
 import { AssignedBinsBrowser } from '@/components/staff/dashboard/AssignedBinsBrowser';
 import { CycleCountModal } from '@/components/staff/modals/CycleCountModal';
@@ -28,6 +29,9 @@ import { AssignedBinItem, CycleCountRecord, StockIssueRecord } from '@/types/sta
 
 export default function StaffStockPage() {
   const [bins, setBins] = useState<AssignedBinItem[]>([]);
+  const [assignedWarehouseName, setAssignedWarehouseName] = useState<string>('Loading Facility...');
+  const [assignedWarehouseId, setAssignedWarehouseId] = useState<string | null>(null);
+  const [isUnassigned, setIsUnassigned] = useState(false);
   const [selectedBinForCount, setSelectedBinForCount] = useState<AssignedBinItem | null>(null);
   const [selectedBinForRequest, setSelectedBinForRequest] = useState<AssignedBinItem | null>(null);
   const [isCountOpen, setIsCountOpen] = useState(false);
@@ -44,9 +48,23 @@ export default function StaffStockPage() {
   const fetchStaffStock = async () => {
     try {
       setIsLoading(true);
+
+      // 1. Fetch live session & warehouse scope
+      const meRes = await fetch('/api/auth/me');
+      const meData = await meRes.json();
+      if (meData.authenticated) {
+        setIsUnassigned(Boolean(meData.isUnassigned));
+        setAssignedWarehouseId(meData.warehouseId || null);
+        setAssignedWarehouseName(meData.warehouseName || (meData.isUnassigned ? 'Unassigned Facility' : 'Assigned Warehouse'));
+      }
+
+      // 2. Fetch stock
       const res = await fetch('/api/stock');
       const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
+      if (json.unassigned) {
+        setIsUnassigned(true);
+        setBins([]);
+      } else if (json.success && Array.isArray(json.data)) {
         const dynamicBins: AssignedBinItem[] = json.data.map((item: any, idx: number) => {
           const binNo = String(idx + 1).padStart(2, '0');
           const isLow = item.available <= 100 || item.status === 'Low Stock' || item.status === 'Out of Stock';
@@ -81,12 +99,17 @@ export default function StaffStockPage() {
 
   const handleRecordCycleCount = async (rec: CycleCountRecord) => {
     try {
+      if (isUnassigned || !assignedWarehouseId) {
+        showToast('You must be assigned to a warehouse to record cycle counts.');
+        return;
+      }
+
       await fetch('/api/adjustments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          warehouseId: 'wh-001',
-          warehouseName: 'Central Medical Store (Kathmandu)',
+          warehouseId: assignedWarehouseId,
+          warehouseName: assignedWarehouseName,
           itemId: rec.itemCode,
           itemCode: rec.itemCode,
           itemName: rec.itemName,
@@ -127,7 +150,7 @@ export default function StaffStockPage() {
     const encoded = encodeURI(csvContent);
     const link = document.createElement('a');
     link.href = encoded;
-    link.download = `VISTA-Assigned-Bins-${Date.now()}.csv`;
+    link.download = `FIM-Assigned-Bins-${Date.now()}.csv`;
     link.click();
     showToast('Exported bin stock report to CSV.');
   };
@@ -148,66 +171,77 @@ export default function StaffStockPage() {
         </div>
       )}
 
-      {/* Header */}
+      {/* Unassigned Warning Banner */}
+      {isUnassigned && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-xs">
+          <div className="flex items-start gap-3.5">
+            <div className="rounded-xl bg-amber-500/10 p-2 text-amber-600">
+              <ShieldAlert className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-amber-900">No Warehouse Facility Assigned</h3>
+              <p className="mt-1 text-xs text-amber-700 leading-relaxed">
+                Your staff profile is not currently assigned to any warehouse facility.
+                Stock balances and storage bins are visible only when your manager assigns you to a warehouse.
+                Please contact your warehouse manager or Super Administrator.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl bg-white p-6 border border-slate-200/90 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs font-bold text-[#008a90] bg-teal-50 px-2 py-0.5 rounded border border-teal-200/80">
-              ZONE A ASSIGNED BINS
+              WAREHOUSE FLOOR OPS
             </span>
             <span className="text-slate-300">•</span>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
-              <MapPin className="w-3.5 h-3.5 text-slate-400" />
-              <span>Main Warehouse • Aisles 1 to 3</span>
+              <Building2 className="w-3.5 h-3.5 text-slate-400" />
+              <span className="font-semibold text-slate-700">{assignedWarehouseName}</span>
             </div>
           </div>
           <h1 className="font-sans text-2xl font-black tracking-tight text-[#0a2540] mt-1">
-            Available Stock in Assigned Locations
+            Available Stock in Assigned Bins
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Responsibility 1 • Monitor live stock balances, batch numbers, expiry dates, and min safety levels.
+            Physical balance verification, bin status indicators, and discrepancy reporting strictly within your assigned facility.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
           <button
             type="button"
-            onClick={fetchStaffStock}
-            className="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
-            title="Refresh Bins"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#008a90]' : ''}`} />
-          </button>
-          <button
-            type="button"
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            disabled={isUnassigned || bins.length === 0}
+            className="px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Export Bins</span>
           </button>
+
           <button
             type="button"
-            onClick={() => {
-              setSelectedBinForRequest(bins.find((b) => b.isLowStock) || bins[0] || null);
-              setIsRequestOpen(true);
-            }}
-            className="px-4 py-2.5 rounded-xl bg-[#008a90] hover:bg-[#00747a] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+            onClick={() => setIsIssueOpen(true)}
+            disabled={isUnassigned}
+            className="px-4 py-2 rounded-xl bg-[#008a90] hover:bg-[#00747a] disabled:opacity-50 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
           >
-            <PlusSquare className="w-4 h-4" />
-            <span>Request Replenishment</span>
+            <Send className="w-3.5 h-3.5" />
+            <span>Issue Stock</span>
           </button>
         </div>
       </div>
 
-      {/* Browser */}
+      {/* Main Assigned Bins Browser */}
       <AssignedBinsBrowser
         bins={bins}
-        onStartCycleCount={(bin: AssignedBinItem) => {
+        onStartCycleCount={(bin) => {
           setSelectedBinForCount(bin);
           setIsCountOpen(true);
         }}
-        onRequestRestock={(bin: AssignedBinItem) => {
+        onRequestRestock={(bin) => {
           setSelectedBinForRequest(bin);
           setIsRequestOpen(true);
         }}
@@ -216,53 +250,61 @@ export default function StaffStockPage() {
         }}
       />
 
-      {/* Modals */}
-      <CycleCountModal
-        isOpen={isCountOpen}
-        onClose={() => {
-          setIsCountOpen(false);
-          setSelectedBinForCount(null);
-        }}
-        targetBin={selectedBinForCount}
-        onRecordCount={handleRecordCycleCount}
-      />
+      {/* Cycle Count Modal */}
+      {selectedBinForCount && (
+        <CycleCountModal
+          isOpen={isCountOpen}
+          targetBin={selectedBinForCount}
+          onClose={() => setIsCountOpen(false)}
+          onRecordCount={handleRecordCycleCount}
+        />
+      )}
 
-      <SubmitRequestModal
-        isOpen={isRequestOpen}
-        onClose={() => {
-          setIsRequestOpen(false);
-          setSelectedBinForRequest(null);
-        }}
-        targetBin={selectedBinForRequest}
-        onSubmitRequest={async () => {
-          showToast('Stock replenishment request submitted to Manager for approval.');
-          fetchStaffStock();
-        }}
-      />
+      {/* Stock Requisition Modal */}
+      {selectedBinForRequest && (
+        <SubmitRequestModal
+          isOpen={isRequestOpen}
+          targetBin={selectedBinForRequest}
+          onClose={() => setIsRequestOpen(false)}
+          onSubmitRequest={async (reqData) => {
+            try {
+              const res = await fetch('/api/requests', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  warehouseId: reqData.warehouseId,
+                  itemId: reqData.itemId || reqData.itemCode,
+                  itemCode: reqData.itemCode,
+                  itemName: reqData.itemName,
+                  quantity: reqData.quantity,
+                  purpose: reqData.reason,
+                  priority: reqData.priority,
+                  binCode: reqData.binCode,
+                }),
+              });
+              const json = await res.json();
+              if (json.success) {
+                showToast(`Replenishment requisition for ${reqData.itemName} submitted to Manager.`);
+              } else {
+                showToast(json.message || 'Error submitting replenishment request.');
+              }
+              fetchStaffStock();
+            } catch {
+              showToast('Error submitting replenishment request.');
+            }
+            setIsRequestOpen(false);
+          }}
+        />
+      )}
 
+      {/* Issue Stock Modal */}
       <IssueStockModal
         isOpen={isIssueOpen}
         onClose={() => setIsIssueOpen(false)}
-        defaultRef="REQ-2026-001"
-        onRecordIssued={async (record: StockIssueRecord) => {
-          try {
-            await fetch('/api/movements/issue', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                warehouseId: 'wh-001',
-                itemId: record.itemCode,
-                quantity: record.quantityIssued,
-                batchNumber: record.batchNo,
-                destinationWard: record.ward,
-                notes: `Floor issue from ${record.requisitionRef}.`,
-              }),
-            });
-            showToast(`Issued ${record.quantityIssued} ${record.unit} to ${record.ward}.`);
-            fetchStaffStock();
-          } catch {
-            showToast('Error issuing stock.');
-          }
+        onRecordIssued={(rec) => {
+          showToast(`Stock issue recorded for ${rec.itemCode}.`);
+          fetchStaffStock();
+          setIsIssueOpen(false);
         }}
       />
     </div>

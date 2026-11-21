@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Stock Requests & Requisitions | VISTA Portal',
+  title: 'Stock Requests & Requisitions | Field Inventory Management',
   description:
     'Review, approve, and track departmental stock requests, emergency orders, and fulfillment pipelines.',
 };

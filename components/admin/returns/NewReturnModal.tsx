@@ -36,7 +36,7 @@ export function NewReturnModal({
   const [reference, setReference] = useState(
     `RMA-2025-0${Math.floor(18 + Math.random() * 80)}`
   );
-  const [remarks, setRemarks] = useState('Outer carton dented with torn sterile seal.');
+  const [remarks, setRemarks] = useState('Outer carton dented with torn protective packaging.');
   const [requestedBy, setRequestedBy] = useState('Jane Smith');
   const [reviewedBy, setReviewedBy] = useState('Michael Brown');
   const [approvedBy, setApprovedBy] = useState('Sarah Wilson');

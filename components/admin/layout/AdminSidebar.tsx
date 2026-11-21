@@ -202,11 +202,11 @@ export function AdminSidebar({ mobileOpen = false, onCloseMobile }: AdminSidebar
                 </svg>
               </div>
               <div className="flex flex-col">
-                <span className="font-sans text-xl font-black tracking-tight text-white leading-tight">
-                  VISTA
+                <span className="font-sans text-lg font-black tracking-tight text-white leading-tight">
+                  Field Inventory
                 </span>
                 <span className="text-[10px] font-medium text-slate-400 tracking-wide">
-                  Inventory Management
+                  Management • Admin
                 </span>
               </div>
             </Link>
@@ -310,7 +310,7 @@ export function AdminSidebar({ mobileOpen = false, onCloseMobile }: AdminSidebar
             </button>
           </div>
           <div className="mt-2 text-center text-[10px] text-slate-500 font-mono">
-            VISTA Portal v1.0.0 • Admin Workspace
+            Field Inventory Management v1.0.0 • Admin Workspace
           </div>
         </div>
       </aside>

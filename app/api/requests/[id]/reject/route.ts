@@ -16,8 +16,7 @@ export async function PATCH(
       return NextResponse.json({ success: false, message: 'Forbidden: Admin or Manager only.' }, { status: 403 });
     }
 
-    const body = await request.json().catch(() => ({}));
-    await rejectRequest(id, { id: session.user.id }, body.reason);
+    await rejectRequest(id, { id: session.user.id });
     return NextResponse.json({ success: true, message: 'Stock request rejected.' });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 400 });

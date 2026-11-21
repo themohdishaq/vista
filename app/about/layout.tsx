@@ -3,9 +3,9 @@ import type { Metadata } from 'next';
 import React from 'react';
 
 export const metadata: Metadata = {
-  title: 'About VISTA | Smart Inventory Management & Precision Logistics',
+  title: 'About Field Inventory Management | Smart Inventory Control & Precision Logistics',
   description:
-    'Discover VISTA (Vendor Inventory, Shipment & Tracking Application) — purpose-built for hospital-grade inventory control, real-time batch traceability, and audit-ready governance.',
+    'Discover Field Inventory Management — purpose-built for enterprise-grade inventory control, real-time batch traceability, and audit-ready governance.',
 };
 
 export default function AboutLayout({

@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Physical Stock Counts | VISTA Staff',
+  title: 'Physical Stock Counts | Field Inventory Staff',
   description:
     'Perform physical stock counts, verify bin balances, and report count variances.',
 };

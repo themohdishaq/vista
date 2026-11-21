@@ -30,11 +30,11 @@ export function NewConsumptionModal({
   const [quantity, setQuantity] = useState(100);
   const [warehouse, setWarehouse] = useState('West Warehouse');
   const [location, setLocation] = useState('Zone B - Shelf 3');
-  const [department, setDepartment] = useState('Emergency Department');
+  const [department, setDepartment] = useState('Field Operations Unit');
   const [reference, setReference] = useState(
     `REQ-2025-${Math.floor(120 + Math.random() * 80)}`
   );
-  const [remarks, setRemarks] = useState('Routine ward patient care allocation and sterile replenishment.');
+  const [remarks, setRemarks] = useState('Routine operational field unit replenishment and maintenance allocation.');
   const [requestedBy, setRequestedBy] = useState('David Kim');
   const [reviewedBy, setReviewedBy] = useState('Sarah Wilson');
   const [approvedBy, setApprovedBy] = useState('Michael Brown');

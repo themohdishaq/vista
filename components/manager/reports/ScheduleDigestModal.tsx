@@ -27,7 +27,7 @@ export function ScheduleDigestModal({
   const [frequency, setFrequency] = useState('Daily');
   const [time, setTime] = useState('06:00');
   const [facility, setFacility] = useState('Main Warehouse (Primary)');
-  const [recipients, setRecipients] = useState('sarah.johnson@vista.org');
+  const [recipients, setRecipients] = useState('sarah.johnson@fieldinventory.org');
 
   if (!isOpen) return null;
 
@@ -143,7 +143,7 @@ export function ScheduleDigestModal({
               value={recipients}
               onChange={(e) => setRecipients(e.target.value)}
               required
-              placeholder="e.g. manager@vista.org, lead@vista.org"
+              placeholder="e.g. manager@fieldinventory.org, lead@fieldinventory.org"
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-hidden focus:border-[#008a90]"
             />
           </div>

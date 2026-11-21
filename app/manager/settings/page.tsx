@@ -32,12 +32,12 @@ export default function ManagerSettingsPage() {
 
   // Profile Fields
   const [fullName, setFullName] = useState('Sarah Johnson');
-  const [email, setEmail] = useState('manager@vista.com');
+  const [email, setEmail] = useState('manager@fieldinventory.com');
   const [phone, setPhone] = useState('+1 (555) 234-5678');
   const [department, setDepartment] = useState('Inventory Operations & Control');
   const [title, setTitle] = useState('Inventory Operations Manager');
-  const [warehouseName, setWarehouseName] = useState('Main Central Warehouse');
-  const [warehouseId, setWarehouseId] = useState('wh-001');
+  const [warehouseName, setWarehouseName] = useState('Loading Facility...');
+  const [warehouseId, setWarehouseId] = useState('');
 
   // Password Fields
   const [currentPassword, setCurrentPassword] = useState('');
@@ -75,12 +75,12 @@ export default function ManagerSettingsPage() {
         if (data.success && data.profile) {
           const p = data.profile;
           setFullName(p.fullName || 'Sarah Johnson');
-          setEmail(p.email || 'manager@vista.com');
+          setEmail(p.email || 'manager@fieldinventory.com');
           setPhone(p.phone || '+1 (555) 234-5678');
           setDepartment(p.department || 'Inventory Operations & Control');
           setTitle(p.title || 'Inventory Operations Manager');
-          setWarehouseName(p.warehouseName || 'Main Central Warehouse');
-          setWarehouseId(p.warehouseId || 'wh-001');
+          setWarehouseName(p.warehouseName || 'Unassigned Facility');
+          setWarehouseId(p.warehouseId || '');
           if (p.notificationPreferences) {
             setNotifications((prev) => ({ ...prev, ...p.notificationPreferences }));
           }

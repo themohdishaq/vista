@@ -22,7 +22,7 @@ export default function HowItWorksSection() {
           {/* ================= LEFT COLUMN: HEADLINE & COPY ================= */}
           <div className="lg:col-span-5 space-y-5">
             <p className="text-xs sm:text-sm font-bold tracking-widest text-[#00a896] uppercase">
-              — HOW VISTA WORKS —
+              — HOW IT WORKS —
             </p>
 
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#0a2540] leading-tight">

@@ -27,7 +27,7 @@ export function ScheduleReportModal({
   const [name, setName] = useState('Weekly Inventory & Reorder Summary');
   const [category, setCategory] = useState('Inventory');
   const [frequency, setFrequency] = useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
-  const [recipients, setRecipients] = useState('admin@vista.com, logistics@vista.com');
+  const [recipients, setRecipients] = useState('admin@fieldinventory.com, logistics@fieldinventory.com');
   const [deliveryTime, setDeliveryTime] = useState('08:00 AM');
   const [isSubmitting, setIsSubmitting] = useState(false);
 

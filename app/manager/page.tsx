@@ -92,7 +92,8 @@ const DEFAULT_KPIS: ManagerKPIData = {
 };
 
 export default function ManagerDashboard() {
-  const [selectedFacility, setSelectedFacility] = useState('All');
+  const [assignedWarehouseName, setAssignedWarehouseName] = useState('Loading Facility...');
+  const [isUnassigned, setIsUnassigned] = useState(false);
   const [kpis, setKpis] = useState<ManagerKPIData>(DEFAULT_KPIS);
   const [approvals, setApprovals] = useState<PendingApprovalItem[]>([]);
   const [expiringBatches, setExpiringBatches] = useState<ExpiringBatchItem[]>([]);
@@ -119,12 +120,22 @@ export default function ManagerDashboard() {
   const fetchManagerData = async () => {
     try {
       setIsLoading(true);
-      const url = selectedFacility && selectedFacility !== 'All'
-        ? `/api/manager/dashboard?facility=${encodeURIComponent(selectedFacility)}`
-        : '/api/manager/dashboard';
 
-      const res = await fetch(url, { cache: 'no-store' });
+      // 1. Fetch live session & warehouse scope
+      const meRes = await fetch('/api/auth/me');
+      const meData = await meRes.json();
+      if (meData.authenticated) {
+        setIsUnassigned(Boolean(meData.isUnassigned));
+        setAssignedWarehouseName(meData.warehouseName || (meData.isUnassigned ? 'Unassigned Facility' : 'Assigned Warehouse'));
+      }
+
+      // 2. Fetch manager dashboard telemetry
+      const res = await fetch('/api/manager/dashboard', { cache: 'no-store' });
       const json = await res.json();
+
+      if (json.unassigned) {
+        setIsUnassigned(true);
+      }
 
       if (json.success && json.data) {
         setKpis(json.data.kpis || DEFAULT_KPIS);
@@ -144,7 +155,7 @@ export default function ManagerDashboard() {
 
   useEffect(() => {
     fetchManagerData();
-  }, [selectedFacility]);
+  }, []);
 
   // Listen to Quick Actions triggered from the Topbar
   useEffect(() => {
@@ -278,6 +289,25 @@ export default function ManagerDashboard() {
         </div>
       )}
 
+      {/* Unassigned Warning Banner */}
+      {isUnassigned && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-xs">
+          <div className="flex items-start gap-3.5">
+            <div className="rounded-xl bg-amber-500/10 p-2 text-amber-600 font-bold text-lg">
+              ⚠️
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-amber-900">Facility Assignment Required</h3>
+              <p className="mt-1 text-xs text-amber-700 leading-relaxed">
+                Your manager account has not yet been assigned to a warehouse facility by the Super Administrator.
+                Operational telemetry, stock balances, pending approvals, and staff duty logs are scoped strictly to your assigned warehouse.
+                Please contact your Super Administrator to assign your facility.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Facility Filter Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs">
         <div className="flex items-center gap-2.5">
@@ -286,27 +316,19 @@ export default function ManagerDashboard() {
           </div>
           <div>
             <h2 className="text-sm font-bold text-slate-800">Operational Facility Scope</h2>
-            <p className="text-[11px] text-slate-500">Live operational oversight of assigned healthcare inventory warehouses</p>
+            <p className="text-[11px] text-slate-500">Live operational oversight strictly locked to your assigned facility</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <select
-            value={selectedFacility}
-            onChange={(e) => setSelectedFacility(e.target.value)}
-            className="text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-[#008a90]/20"
-          >
-            <option value="All">All Assigned Facilities</option>
-            <option value="Central Medical Store Kathmandu">Central Medical Store Kathmandu</option>
-            <option value="Western Regional Medical Depot Pokhara">Western Regional Medical Depot Pokhara</option>
-            <option value="Eastern Distribution Center Biratnagar">Eastern Distribution Center Biratnagar</option>
-            <option value="Mid-Western Logistics Hub Nepalgunj">Mid-Western Logistics Hub Nepalgunj</option>
-            <option value="Far-Western Medical Hub Dhangadhi">Far-Western Medical Hub Dhangadhi</option>
-          </select>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-800 text-xs font-semibold border border-slate-200">
+            <Building2 className="w-3.5 h-3.5 text-[#008a90]" />
+            {assignedWarehouseName}
+          </span>
 
           <button
             onClick={() => fetchManagerData()}
-            className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors"
+            className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
             title="Refresh Live Telemetry"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-[#008a90]' : ''}`} />
@@ -422,7 +444,7 @@ export default function ManagerDashboard() {
       <OperationalReportModal
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
-        selectedWarehouse={selectedFacility}
+        selectedWarehouse={assignedWarehouseName}
         onDownloaded={(rep) => showToast(`Downloaded ${rep}.`)}
       />
     </div>

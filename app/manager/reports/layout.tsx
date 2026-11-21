@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Operational Reports & Audits | VISTA Manager',
+  title: 'Operational Reports & Audits | Field Inventory Manager',
   description:
     'Generate and schedule operational inventory reports, shift reconciliations, batch expiry audits, and packing throughput across assigned facilities.',
 };

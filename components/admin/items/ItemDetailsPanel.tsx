@@ -220,7 +220,7 @@ export function ItemDetailsPanel({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `VISTA_Stock_History_${item.code}.csv`);
+    link.setAttribute('download', `FIM_Stock_History_${item.code}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1042,8 +1042,9 @@ export function ItemDetailsPanel({
         item={item}
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        onSave={(updated) => {
+        onSave={async (updated) => {
           onUpdateItem?.(updated);
+          await fetchItemDetails();
         }}
       />
 

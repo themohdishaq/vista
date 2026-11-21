@@ -45,7 +45,7 @@ export default function HeroSection() {
           {/* Main Headline */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.12]">
             Transform Your <br />
-            Inventory with <span className="text-[#00c4b4]">VISTA</span>
+            Field Inventory <span className="text-[#00c4b4]">Management</span>
           </h1>
 
           {/* Subtitle */}
@@ -59,7 +59,7 @@ export default function HeroSection() {
               href="/login"
               className="group inline-flex items-center gap-2 rounded-full bg-[#00a896] hover:bg-[#009282] px-7 py-3.5 text-sm sm:text-base font-bold text-white shadow-xl shadow-teal-950/40 transition-all duration-200 hover:scale-[1.02] active:scale-95"
             >
-              <span>Access VISTA</span>
+              <span>Access Portal</span>
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>

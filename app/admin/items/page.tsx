@@ -127,7 +127,10 @@ export default function AdminItemsPage() {
       const data = await res.json();
       if (data.success) {
         showToast(`Item "${newItem.name}" added successfully.`);
-        fetchItems();
+        await fetchItems();
+        if (data.data) {
+          setSelectedItem(data.data);
+        }
       } else {
         showToast(data.message || 'Failed to create item');
       }
@@ -138,21 +141,20 @@ export default function AdminItemsPage() {
 
   // Handle updating an existing item
   const handleUpdateItem = async (updatedItem: InventoryItem) => {
+    // Immediate optimistic state update
     setItems((prev) =>
-      prev.map((i) => (i.id === updatedItem.id ? updatedItem : i))
+      prev.map((i) =>
+        i.id === updatedItem.id || i.code === updatedItem.code ? updatedItem : i
+      )
     );
-    if (selectedItem?.id === updatedItem.id) {
+    if (
+      selectedItem?.id === updatedItem.id ||
+      selectedItem?.code === updatedItem.code
+    ) {
       setSelectedItem(updatedItem);
     }
-    try {
-      await fetch(`/api/items/${updatedItem.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedItem),
-      });
-      showToast(`Item "${updatedItem.name}" updated.`);
-      fetchItems();
-    } catch {}
+    showToast(`Item "${updatedItem.name}" updated successfully.`);
+    await fetchItems();
   };
 
   // Handle removing / deleting an item dynamically
@@ -292,6 +294,7 @@ export default function AdminItemsPage() {
         isOpen={Boolean(editingItem)}
         onClose={() => setEditingItem(null)}
         onSave={handleUpdateItem}
+        existingCategories={existingCategories}
       />
 
       {/* Import Items Spreadsheet Modal */}

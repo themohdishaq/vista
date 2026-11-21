@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Item Master Catalog | VISTA Portal',
+  title: 'Item Master Catalog | Field Inventory Management',
   description:
     'Catalog management, barcode generation, reorder thresholds, and medical SKU specifications.',
 };

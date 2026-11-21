@@ -7,38 +7,77 @@
  * Fulfills Responsibility 10: "Report stock shortages and discrepancies."
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert,
   X,
   CheckCircle2,
-  AlertTriangle,
   Scale,
 } from 'lucide-react';
-import { StaffIncidentReport } from '@/types/staff';
+import { StaffIncidentReport, AssignedBinItem } from '@/types/staff';
 
 interface ReportShortageModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRecordShortage: (incident: StaffIncidentReport) => void;
+  operatorName?: string;
+  bins?: AssignedBinItem[];
 }
 
 export function ReportShortageModal({
   isOpen,
   onClose,
   onRecordShortage,
+  operatorName = 'Floor Specialist',
+  bins = [],
 }: ReportShortageModalProps) {
-  const [binLocation, setBinLocation] = useState('Zone A - Bin A-04');
-  const [itemCode, setItemCode] = useState('VST-004');
-  const [itemName, setItemName] = useState('Disposable Syringe 5ml');
-  const [expectedQty, setExpectedQty] = useState('500');
-  const [actualQty, setActualQty] = useState('480');
-  const [unit, setUnit] = useState('Box');
-  const [batchNo, setBatchNo] = useState('LOT-2024-105');
+  const [binLocation, setBinLocation] = useState('');
+  const [itemCode, setItemCode] = useState('');
+  const [itemName, setItemName] = useState('');
+  const [expectedQty, setExpectedQty] = useState('0');
+  const [actualQty, setActualQty] = useState('0');
+  const [unit, setUnit] = useState('Unit');
+  const [batchNo, setBatchNo] = useState('');
   const [trigger, setTrigger] = useState('During Picking Order Fulfillment');
-  const [description, setDescription] = useState('System showed 500 boxes, actual bin count is 480 boxes. Discrepancy of -20 boxes.');
+  const [description, setDescription] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      if (bins.length > 0) {
+        const first = bins[0];
+        setBinLocation(first.binCode);
+        setItemCode(first.itemCode);
+        setItemName(first.itemName);
+        setExpectedQty(String(first.availableStock));
+        setActualQty(String(Math.max(0, first.availableStock - 1)));
+        setUnit(first.unit);
+        setBatchNo(first.lotNumber || first.batchNo || '');
+      } else {
+        setBinLocation('Bin A-01');
+        setItemCode('');
+        setItemName('');
+        setExpectedQty('0');
+        setActualQty('0');
+        setUnit('Unit');
+        setBatchNo('');
+      }
+    }
+  }, [isOpen, bins]);
 
   if (!isOpen) return null;
+
+  const handleBinSelect = (binCode: string) => {
+    setBinLocation(binCode);
+    const selected = bins.find((b) => b.binCode === binCode);
+    if (selected) {
+      setItemCode(selected.itemCode);
+      setItemName(selected.itemName);
+      setExpectedQty(String(selected.availableStock));
+      setActualQty(String(Math.max(0, selected.availableStock - 1)));
+      setUnit(selected.unit);
+      setBatchNo(selected.lotNumber || selected.batchNo || '');
+    }
+  };
 
   const exp = parseInt(expectedQty, 10) || 0;
   const act = parseInt(actualQty, 10) || 0;
@@ -52,11 +91,11 @@ export function ReportShortageModal({
       type: 'Shortage',
       itemCode,
       itemName,
-      batchNo,
+      batchNumber: batchNo || 'LOT-GENERAL',
       quantity: Math.abs(shortage),
       unit,
       binLocation,
-      description: `[Discovered: ${trigger}] ${description}`,
+      description: `[Discovered: ${trigger}] ${description.trim() || `Physical shortage of ${shortage} ${unit} noted against ledger system count of ${exp}.`}`,
       status: 'Pending Manager Review',
       reportedDate: 'Just now',
     };
@@ -76,7 +115,7 @@ export function ReportShortageModal({
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">
-                Report Stock Shortage & Discrepancy
+                Report Stock Shortage &amp; Discrepancy
               </h3>
               <p className="text-[11px] text-slate-300">
                 Responsibility 10 • Flag missing items or bin count variances
@@ -97,15 +136,29 @@ export function ReportShortageModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Bin Location
+                Storage Bay Location
               </label>
-              <input
-                type="text"
-                required
-                value={binLocation}
-                onChange={(e) => setBinLocation(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 font-mono text-xs focus:border-[#008a90] focus:outline-none"
-              />
+              {bins.length > 0 ? (
+                <select
+                  value={binLocation}
+                  onChange={(e) => handleBinSelect(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
+                >
+                  {bins.map((b) => (
+                    <option key={b.binCode + b.itemCode} value={b.binCode}>
+                      {b.binCode} • {b.itemCode}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={binLocation}
+                  onChange={(e) => setBinLocation(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
+                />
+              )}
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
@@ -116,7 +169,7 @@ export function ReportShortageModal({
                 onChange={(e) => setTrigger(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
               >
-                <option value="During Picking Order Fulfillment">Picking Order</option>
+                <option value="During Picking Order Fulfillment">Picking Order Fulfillment</option>
                 <option value="During Cycle Count Audit">Cycle Count Audit</option>
                 <option value="During Inbound Putaway">Inbound Putaway</option>
                 <option value="Routine Floor Inspection">Routine Floor Check</option>
@@ -126,35 +179,12 @@ export function ReportShortageModal({
 
           <div>
             <label className="block font-semibold text-slate-700 mb-1">
-              Item SKU & Name
+              Item SKU &amp; Name
             </label>
-            <select
-              value={itemCode}
-              onChange={(e) => {
-                setItemCode(e.target.value);
-                if (e.target.value === 'VST-004') {
-                  setItemName('Disposable Syringe 5ml');
-                  setExpectedQty('500');
-                  setActualQty('480');
-                  setBatchNo('LOT-2024-105');
-                } else if (e.target.value === 'VST-001') {
-                  setItemName('Surgical Mask 3-Ply');
-                  setExpectedQty('5000');
-                  setActualQty('4950');
-                  setBatchNo('LOT-2024-001');
-                } else {
-                  setItemName('Hand Sanitizer 500ml');
-                  setExpectedQty('280');
-                  setActualQty('260');
-                  setBatchNo('LOT-2024-201');
-                }
-              }}
-              className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
-            >
-              <option value="VST-004">VST-004 • Disposable Syringe 5ml (Bin A-04)</option>
-              <option value="VST-001">VST-001 • Surgical Mask 3-Ply (Bin A-01)</option>
-              <option value="VST-009">VST-009 • Hand Sanitizer 500ml (Bin A-06)</option>
-            </select>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs">
+              <span className="font-bold text-slate-800">{itemName || 'No item selected'}</span>
+              <span className="ml-2 font-mono text-[11px] text-slate-500">({itemCode || 'SKU'})</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -204,30 +234,35 @@ export function ReportShortageModal({
               required
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              placeholder="Explain where shortage occurred and shelf condition..."
               className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs focus:border-[#008a90] focus:outline-none"
             />
           </div>
 
           {/* Action Buttons */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Submit Discrepancy Report</span>
-            </button>
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-[11px] text-slate-400">
+              Reporter: <strong className="text-slate-600">{operatorName}</strong>
+            </span>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Submit Discrepancy Report</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>
     </div>
   );
 }
-

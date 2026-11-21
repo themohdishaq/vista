@@ -31,15 +31,15 @@ export function ImportUsersModal({
 
   const handleDownloadTemplate = () => {
     const csv = `Full Name,Email,Role,Department,Warehouse Access
-Alex Morgan,alex.morgan@vista.org,Inventory Staff,Logistics,Main Warehouse
-Jordan Reed,jordan.reed@vista.org,Inventory Manager,Operations,West Warehouse
-Taylor Brooks,taylor.brooks@vista.org,Auditor,Finance,All Facilities`;
+Alex Morgan,alex.morgan@fieldinventory.org,Inventory Staff,Logistics,Main Warehouse
+Jordan Reed,jordan.reed@fieldinventory.org,Inventory Manager,Operations,West Warehouse
+Taylor Brooks,taylor.brooks@fieldinventory.org,Auditor,Finance,All Facilities`;
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'VISTA_User_Import_Template.csv');
+    link.setAttribute('download', 'FIM_User_Import_Template.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -61,10 +61,10 @@ Taylor Brooks,taylor.brooks@vista.org,Auditor,Finance,All Facilities`;
 
       const parsedUsers: UserRecord[] = rawJson.map((row: any, i: number) => {
         const fullName = row['Full Name'] || row['Name'] || row['full_name'] || 'New Staff';
-        const email = row['Email'] || row['email'] || `user${i}@vista.org`;
+        const email = row['Email'] || row['email'] || `user${i}@fieldinventory.org`;
         const role = row['Role'] || row['role'] || 'Inventory Staff';
         const department = row['Department'] || row['department'] || 'Operations';
-        const warehouse = row['Warehouse Access'] || row['Warehouse'] || 'Main Central Warehouse';
+        const warehouse = row['Warehouse Access'] || row['Warehouse'] || 'Unassigned Facility';
 
         return {
           id: `usr-imp-${Date.now()}-${i}`,

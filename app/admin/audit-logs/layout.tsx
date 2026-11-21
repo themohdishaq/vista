@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'System Audit Logs | VISTA Portal',
+  title: 'System Audit Logs | Field Inventory Management',
   description: 'Immutable compliance ledger, security logs, and inventory movement audit records.',
 };
 

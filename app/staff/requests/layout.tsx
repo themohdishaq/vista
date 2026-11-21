@@ -2,9 +2,9 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Submit Stock Request | VISTA Staff',
+  title: 'Submit Stock Request | Field Inventory Staff',
   description:
-    'Submit replenishment stock requests for emergency and ward requisitions.',
+    'Submit replenishment stock requests for emergency and field requisitions.',
 };
 
 export default function StaffRequestsLayout({
