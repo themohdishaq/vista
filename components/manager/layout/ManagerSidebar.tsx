@@ -60,7 +60,7 @@ const MANAGER_NAV_SECTIONS = [
   {
     group: 'APPROVALS & DISPATCH',
     items: [
-      { title: 'Approvals Center', href: '/manager/approvals', icon: ClipboardCheck, badge: '12', badgeColor: 'bg-amber-500' },
+      { title: 'Approvals Center', href: '/manager/approvals', icon: ClipboardCheck, },
       { title: 'Stock Requests', href: '/manager/requests', icon: FileCheck },
       { title: 'Receiving & Issuing', href: '/manager/receiving-issuing', icon: Truck },
       { title: 'Stock Adjustments', href: '/manager/adjustments', icon: SlidersHorizontal },
@@ -71,7 +71,7 @@ const MANAGER_NAV_SECTIONS = [
     items: [
       { title: 'Inter-Location Transfers', href: '/manager/transfers', icon: ArrowLeftRight },
       { title: 'Kits & Packing Lists', href: '/manager/kits', icon: Boxes },
-      { title: 'Shortages & Discrepancies', href: '/manager/discrepancies', icon: ShieldAlert, badge: '3', badgeColor: 'bg-rose-500' },
+      { title: 'Shortages & Discrepancies', href: '/manager/discrepancies', icon: ShieldAlert},
     ],
   },
   {
@@ -225,14 +225,7 @@ export function ManagerSidebar({
                         <span className="truncate">{item.title}</span>
                       </div>
 
-                      {item.badge && (
-                        <span
-                          className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white shadow-xs shrink-0 ${item.badgeColor || 'bg-amber-500'
-                            }`}
-                        >
-                          {item.badge}
-                        </span>
-                      )}
+                      
                     </Link>
                   );
                 })}

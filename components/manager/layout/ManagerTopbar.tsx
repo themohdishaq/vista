@@ -85,24 +85,7 @@ export function ManagerTopbar({
 
         </button>
 
-        {/* User Profile Pill */}
-        <Link
-          href="/manager/settings"
-          className="flex items-center gap-3 pl-2 border-l border-slate-200 group hover:opacity-85 transition-opacity"
-          title="Manager Settings & Profile"
-        >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#008a90] to-teal-400 font-mono text-xs font-bold text-white shadow-xs ring-2 ring-teal-100 group-hover:scale-105 transition-transform">
-            SJ
-          </div>
-          <div className="hidden sm:flex flex-col text-left">
-            <span className="text-xs font-bold text-[#0a2540] leading-tight group-hover:text-[#008a90] transition-colors">
-              Sarah Johnson
-            </span>
-            <span className="text-[11px] text-[#008a90] font-medium leading-tight">
-              Settings &amp; Profile
-            </span>
-          </div>
-        </Link>
+      
       </div>
     </header>
   );
