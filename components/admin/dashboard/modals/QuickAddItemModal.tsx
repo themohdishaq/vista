@@ -137,22 +137,6 @@ export function QuickAddItemModal({
           </button>
         </div>
 
-        {/* Autofill helper bar */}
-        <div className="px-6 py-2.5 bg-[#e1f7f5]/40 border-b border-teal-100/60 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-teal-800 font-medium">
-            <Sparkles className="w-3.5 h-3.5 text-[#008a90]" />
-            <span>Need sample test data?</span>
-          </div>
-          <button
-            type="button"
-            onClick={handleAutofill}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#008a90] hover:bg-[#00747a] text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-          >
-            <Sparkles className="w-3 h-3" />
-            <span>Autofill Dummy Data</span>
-          </button>
-        </div>
-
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">

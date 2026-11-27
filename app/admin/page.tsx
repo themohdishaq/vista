@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   Calendar,
   ChevronDown,
@@ -10,6 +11,10 @@ import {
   RotateCcw,
   PlusCircle,
   X,
+  AlertTriangle,
+  ArrowRightLeft,
+  FileText,
+  ArrowRight,
 } from 'lucide-react';
 import { StatGrid } from '@/components/admin/dashboard/StatGrid';
 import { InventoryOverviewChart } from '@/components/admin/dashboard/InventoryOverviewChart';
@@ -60,6 +65,12 @@ export default function AdminDashboardPage() {
   const [totalStockVal, setTotalStockVal] = useState<string>('$0');
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [opsSummary, setOpsSummary] = useState({
+    outOfStock: 0,
+    lowStock: 0,
+    consumptionReturns: 0,
+    totalMovements: 0,
+  });
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -75,9 +86,22 @@ export default function AdminDashboardPage() {
         fetch('/api/stock').then((r) => r.json()).catch(() => ({})),
       ]);
 
-      const itemCount = Array.isArray(itemsRes.data) ? itemsRes.data.length : 0;
+      const itemsList = Array.isArray(itemsRes.data) ? itemsRes.data : [];
+      const itemCount = itemsList.length;
+      const outOfStockCount = itemsList.filter((i: any) => i.status === 'Out of Stock' || Number(i.totalStock || 0) === 0).length;
+      const lowStockCount = itemsList.filter((i: any) => i.status === 'Low Stock').length;
       const whCount = Array.isArray(whRes.data) ? whRes.data.length : 0;
       const movList = Array.isArray(movRes.data) ? movRes.data : [];
+      const consumptionReturnsCount = movList.filter(
+        (m: any) => m.type === 'ISSUE' || m.type === 'RETURN' || m.type === 'CONSUMPTION'
+      ).length;
+
+      setOpsSummary({
+        outOfStock: outOfStockCount,
+        lowStock: lowStockCount,
+        consumptionReturns: consumptionReturnsCount,
+        totalMovements: movList.length,
+      });
       const stockList = Array.isArray(stockRes.data) ? stockRes.data : [];
       const totalUnits = stockList.reduce((acc: number, s: any) => acc + (s.totalStock || 0), 0);
       const totalAvailable = stockList.reduce((acc: number, s: any) => acc + (s.available || 0), 0);
@@ -303,6 +327,75 @@ export default function AdminDashboardPage() {
 
       {/* Row 1: 4 Stat KPI Cards */}
       <StatGrid stats={stats} />
+
+      {/* Row 1.5: Live Operations & Alerts Snapshot */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Link
+          href="/admin/items"
+          className="group rounded-2xl border border-rose-200/80 bg-rose-50/50 hover:bg-rose-50 p-4 transition-all flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 text-rose-700">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700">Out of Stock / Low</p>
+              <p className="text-lg font-extrabold text-[#0a2540]">
+                {opsSummary.outOfStock} <span className="text-xs font-semibold text-amber-700">({opsSummary.lowStock} Low)</span>
+              </p>
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-rose-400 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
+
+        <Link
+          href="/admin/movements"
+          className="group rounded-2xl border border-slate-200 bg-white hover:border-[#008a90]/50 p-4 transition-all flex items-center justify-between shadow-2xs"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-[#008a90]">
+              <ArrowRightLeft className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Transactions Ledger</p>
+              <p className="text-lg font-extrabold text-[#0a2540]">{opsSummary.totalMovements.toLocaleString()}</p>
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
+
+        <Link
+          href="/admin/returns"
+          className="group rounded-2xl border border-slate-200 bg-white hover:border-[#008a90]/50 p-4 transition-all flex items-center justify-between shadow-2xs"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+              <RotateCcw className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Consumption &amp; Returns</p>
+              <p className="text-lg font-extrabold text-[#0a2540]">{opsSummary.consumptionReturns.toLocaleString()}</p>
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
+
+        <Link
+          href="/admin/audit-logs"
+          className="group rounded-2xl border border-slate-200 bg-white hover:border-[#008a90]/50 p-4 transition-all flex items-center justify-between shadow-2xs"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Manager Reports &amp; Audits</p>
+              <p className="text-xs font-bold text-[#008a90] mt-0.5">View Submitted Logs</p>
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
+      </div>
 
       {/* Row 2: Analytics Split (Donut Chart + Monthly Trend) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">

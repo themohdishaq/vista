@@ -78,6 +78,8 @@ const MANAGER_NAV_SECTIONS = [
     group: 'OPERATIONS & SUPERVISION',
     items: [
       { title: 'Returns & Consumption', href: '/manager/returns', icon: RotateCcw },
+      { title: 'Local Purchases', href: '/manager/purchases', icon: Receipt },
+      { title: 'Operational Reports', href: '/manager/reports', icon: BarChart3 },
       { title: 'Staff Supervision', href: '/manager/staff', icon: Users },
       { title: 'Settings & Profile', href: '/manager/settings', icon: Settings },
     ],

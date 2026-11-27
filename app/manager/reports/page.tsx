@@ -37,9 +37,10 @@ import {
 export default function ManagerReportsPage() {
   const [reports, setReports] = useState<ManagerGeneratedReport[]>([]);
   const [scheduledAudits, setScheduledAudits] = useState<ManagerScheduledAudit[]>([]);
-  const [selectedFacility, setSelectedFacility] = useState('All Assigned Facilities');
+  const [selectedFacility, setSelectedFacility] = useState('Assigned Warehouse');
   const [dateRange, setDateRange] = useState('Current Month (November 2026)');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmittingToAdmin, setIsSubmittingToAdmin] = useState(false);
 
   // Modals state
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
@@ -57,7 +58,14 @@ export default function ManagerReportsPage() {
   const fetchReportsData = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/reports?dateRange=30D', { cache: 'no-store' });
+      const [meRes, res] = await Promise.all([
+        fetch('/api/auth/me').then((r) => r.json()).catch(() => ({})),
+        fetch('/api/reports?dateRange=30D', { cache: 'no-store' }),
+      ]);
+      const facilityName = meRes?.warehouseName || selectedFacility;
+      if (meRes?.warehouseName) {
+        setSelectedFacility(meRes.warehouseName);
+      }
       const json = await res.json();
 
       if (json.success && json.data) {
@@ -67,7 +75,7 @@ export default function ManagerReportsPage() {
           reportCode: `AUD-2026-${String(idx + 101).padStart(3, '0')}`,
           name: r.name,
           category: r.category || 'Operational Audit',
-          facility: selectedFacility,
+          facility: facilityName,
           generatedAt: r.generatedOn || 'Recently',
           generatedBy: r.generatedBy || 'Inventory Manager',
           format: r.format || 'CSV',
@@ -174,6 +182,35 @@ export default function ManagerReportsPage() {
     showToast(`Downloaded ${report.reportCode}.csv`);
   };
 
+  const handleSubmitReportToAdmin = async () => {
+    try {
+      setIsSubmittingToAdmin(true);
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'submit_to_admin',
+          reportType: `Warehouse Summary Report (${selectedFacility})`,
+          category: 'Inventory & Operations',
+          warehouse: selectedFacility,
+          dateRange: 'Last 30 Days',
+          format: 'CSV',
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(json.message || `Warehouse report submitted to Super Admin.`);
+        await fetchReportsData();
+      } else {
+        showToast(json.message || 'Failed to submit report to Admin.');
+      }
+    } catch {
+      showToast('Network error submitting report to Admin.');
+    } finally {
+      setIsSubmittingToAdmin(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Toast Notification */}
@@ -214,6 +251,16 @@ export default function ManagerReportsPage() {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleSubmitReportToAdmin}
+            disabled={isSubmittingToAdmin}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[#008a90]/30 bg-teal-50 hover:bg-teal-100 px-3.5 py-2 text-xs font-bold text-[#008a90] transition-colors cursor-pointer disabled:opacity-60"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span>{isSubmittingToAdmin ? 'Submitting...' : 'Submit Report to Admin'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {

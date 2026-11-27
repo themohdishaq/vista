@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { sql } from '@/lib/db';
 import { UserRecord, UserRole, UserStatus } from '@/types/users';
-import { INITIAL_USER_RECORDS } from '@/lib/data/users-seed-data';
 import { ensureWarehouseExists } from './warehouse-service';
 
 /**

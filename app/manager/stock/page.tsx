@@ -29,6 +29,7 @@ export default function ManagerStockPage() {
   const [assignedWarehouseName, setAssignedWarehouseName] = useState<string>('Loading Facility...');
   const [isUnassigned, setIsUnassigned] = useState(false);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Optimal' | 'Low Stock' | 'Critical'>('All');
   const [reallocatingBatch, setReallocatingBatch] = useState<ExpiringBatchItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,6 +85,7 @@ export default function ManagerStockPage() {
   }, []);
 
   const filtered = balances.filter((b) => {
+    const matchStatus = statusFilter === 'All' || b.status === statusFilter;
     const matchSearch =
       b.itemCode.toLowerCase().includes(search.toLowerCase()) ||
       b.itemName.toLowerCase().includes(search.toLowerCase()) ||
@@ -91,7 +93,7 @@ export default function ManagerStockPage() {
       b.batchNo.toLowerCase().includes(search.toLowerCase()) ||
       (b.subkit || '').toLowerCase().includes(search.toLowerCase()) ||
       (b.module || '').toLowerCase().includes(search.toLowerCase());
-    return matchSearch;
+    return matchStatus && matchSearch;
   });
 
   const handleExportCSV = () => {
@@ -185,17 +187,39 @@ export default function ManagerStockPage() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            disabled={isUnassigned}
-            placeholder="Search SKU, item or bin..."
-            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#008a90] focus:outline-none shadow-2xs disabled:bg-slate-50"
-          />
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              disabled={isUnassigned}
+              placeholder="Search SKU, batch, subkit, module..."
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#008a90] focus:outline-none shadow-2xs disabled:bg-slate-50"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-1">
+            {(['All', 'Optimal', 'Low Stock', 'Critical'] as const).map((st) => {
+              const count = st === 'All' ? balances.length : balances.filter((b) => b.status === st).length;
+              return (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => setStatusFilter(st)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                    statusFilter === st
+                      ? 'bg-[#008a90] text-white'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {st === 'Critical' ? 'Out of Stock / Critical' : st} ({count})
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

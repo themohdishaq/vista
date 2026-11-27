@@ -1,7 +1,7 @@
 // filepath: components/admin/kits/PackingStatisticsChart.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, ChevronDown } from 'lucide-react';
 import {
   BarChart,
@@ -12,20 +12,31 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { PACKING_STATISTICS_DATA } from '@/lib/data/kits-seed-data';
 
 /**
  * @file components/admin/kits/PackingStatisticsChart.tsx
- * @description Dual-series Bar Chart for "Packing Statistics" matching design specification:
- * - Packed (#008a90) vs. Pending (#f59e0b)
- * - Period dropdown: Last 30 Days ⌵
- * - X-Axis: Apr 1, Apr 8, Apr 15, Apr 22, Apr 30
- * - Y-Axis: 0, 50, 100, 150
+ * @description Dual-series Bar Chart for "Packing Statistics" driven by live /api/kits data.
  */
 
 export function PackingStatisticsChart() {
   const [period, setPeriod] = useState('Last 30 Days');
-  const data = PACKING_STATISTICS_DATA;
+  const [data, setData] = useState<Array<{ date: string; packed: number; pending: number }>>([]);
+
+  useEffect(() => {
+    fetch('/api/kits', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const chartPoints = json.data.slice(0, 8).map((k: any) => ({
+            date: k.code || k.name?.slice(0, 12) || 'Kit',
+            packed: Number(k.packedCount ?? (k.isActive ? k.componentCount || 1 : 0)),
+            pending: Number(k.pendingCount ?? (!k.isActive ? k.componentCount || 1 : 0)),
+          }));
+          setData(chartPoints);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">

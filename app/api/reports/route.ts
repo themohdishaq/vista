@@ -1,6 +1,7 @@
 // filepath: app/api/reports/route.ts
 import { NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
+import { sql } from '@/lib/db';
 import {
   getRealtimeReportsData,
   generateLiveReport,
@@ -13,16 +14,20 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const session = await getCurrentSession();
-    if (!session || session.user.role !== 'admin') {
+    if (!session || (session.user.role !== 'admin' && session.user.role !== 'manager')) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized. Admin access required.' },
+        { success: false, message: 'Unauthorized. Admin or Manager access required.' },
         { status: 401 }
       );
     }
 
     const { searchParams } = new URL(request.url);
     const dateRange = searchParams.get('dateRange') || 'Last 30 Days';
-    const warehouse = searchParams.get('warehouse') || 'All Warehouses';
+    const requestedWarehouse = searchParams.get('warehouse') || 'All Warehouses';
+    const warehouse =
+      session.user.role === 'manager'
+        ? session.user.warehouseName || requestedWarehouse
+        : requestedWarehouse;
 
     const data = await getRealtimeReportsData({ dateRange, warehouse });
 
@@ -42,9 +47,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getCurrentSession();
-    if (!session || session.user.role !== 'admin') {
+    if (!session || (session.user.role !== 'admin' && session.user.role !== 'manager')) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized. Admin access required.' },
+        { success: false, message: 'Unauthorized. Admin or Manager access required.' },
         { status: 401 }
       );
     }
@@ -52,11 +57,13 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { action } = body;
 
-    if (action === 'generate') {
+    if (action === 'generate' || action === 'submit_to_admin') {
       const {
-        reportType = 'Inventory Summary Report',
+        reportType = 'Warehouse Operations Summary Report',
         category = 'Inventory',
-        warehouse = 'All Warehouses',
+        warehouse = session.user.role === 'manager'
+          ? session.user.warehouseName || 'Assigned Warehouse'
+          : 'All Warehouses',
         dateRange = 'Last 30 Days',
         format = 'CSV',
       } = body;
@@ -67,11 +74,36 @@ export async function POST(request: Request) {
         warehouse,
         dateRange,
         format,
-        author: session.user.name || 'System Administrator',
+        author: session.user.name || (session.user.role === 'manager' ? 'Inventory Manager' : 'System Administrator'),
       });
+
+      if (action === 'submit_to_admin' || session.user.role === 'manager') {
+        await sql.query(
+          `INSERT INTO system_audit_logs (id, actor_id, actor_name, action, entity_type, entity_id, details, created_at)
+           VALUES ($1, $2, $3, $4, 'REPORT', $5, $6::jsonb, NOW());`,
+          [
+            `aud-${Date.now()}`,
+            session.user.id,
+            session.user.name || 'Inventory Manager',
+            action === 'submit_to_admin' ? 'MANAGER_REPORT_SUBMITTED' : 'REPORT_GENERATED',
+            result.report?.id || `rep-${Date.now()}`,
+            JSON.stringify({
+              reportType,
+              warehouse,
+              dateRange,
+              format,
+              submittedByRole: session.user.role,
+            }),
+          ]
+        ).catch(() => {});
+      }
 
       return NextResponse.json({
         success: true,
+        message:
+          action === 'submit_to_admin'
+            ? `Report "${reportType}" submitted to Super Admin.`
+            : undefined,
         report: result.report,
         content: result.content,
         mimeType: result.mimeType,

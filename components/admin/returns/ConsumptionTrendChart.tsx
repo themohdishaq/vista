@@ -1,7 +1,7 @@
 // filepath: components/admin/returns/ConsumptionTrendChart.tsx
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { TrendingUp } from 'lucide-react';
 import {
   AreaChart,
@@ -12,18 +12,38 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { CONSUMPTION_TREND_DATA } from '@/lib/data/returns-seed-data';
 
 /**
  * @file components/admin/returns/ConsumptionTrendChart.tsx
- * @description Dual-series Area Chart for "Consumption Trend" matching design specification:
- * - Consumption (#008a90) vs. Returns (#38bdf8)
- * - X-Axis: Apr 1, Apr 8, Apr 15, Apr 22, Apr 30
- * - Y-Axis: 0, 100, 200, 300, 400, 500, 600
+ * @description Dual-series Area Chart for "Consumption Trend" driven by live /api/returns data.
  */
 
 export function ConsumptionTrendChart() {
-  const data = CONSUMPTION_TREND_DATA;
+  const [data, setData] = useState<Array<{ date: string; consumption: number; returns: number }>>([]);
+
+  useEffect(() => {
+    fetch('/api/returns', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const grouped = new Map<string, { consumption: number; returns: number }>();
+          for (const rec of json.data) {
+            const label = rec.dateTime ? String(rec.dateTime).split(',')[0] : 'Recent';
+            const prev = grouped.get(label) || { consumption: 0, returns: 0 };
+            const qty = Math.abs(Number(rec.quantity) || 0);
+            if (rec.type === 'Return') prev.returns += qty;
+            else prev.consumption += qty;
+            grouped.set(label, prev);
+          }
+          setData(
+            Array.from(grouped.entries())
+              .slice(-7)
+              .map(([date, vals]) => ({ date, ...vals }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">

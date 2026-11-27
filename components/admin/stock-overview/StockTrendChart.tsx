@@ -1,7 +1,7 @@
 // filepath: components/admin/stock-overview/StockTrendChart.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TrendingUp, ChevronDown } from 'lucide-react';
 import {
   AreaChart,
@@ -12,26 +12,46 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { STOCK_TREND_DATA } from '@/lib/data/stock-overview-seed-data';
 
 /**
  * @file components/admin/stock-overview/StockTrendChart.tsx
- * @description Dual-series Area Chart for Stock Trend matching design:
- * - Controls: Mode (Quantity / Value), Period toggle (Monthly / Weekly)
- * - Legend: Total Stock (#008a90) vs. Available Stock (#38bdf8)
- * - X-Axis: Apr 1, Apr 8, Apr 15, Apr 22, Apr 30
- * - Y-Axis: 0, 50K, 100K, 150K
+ * @description Dual-series Area Chart for Stock Trend driven by live /api/stock data.
  */
 
 export function StockTrendChart() {
   const [metricMode, setMetricMode] = useState<'Quantity' | 'Value'>('Quantity');
   const [timeframe, setTimeframe] = useState<'Monthly' | 'Weekly'>('Monthly');
+  const [rawTrend, setRawTrend] = useState<Array<{ date: string; totalStock: number; availableStock: number }>>([]);
+
+  useEffect(() => {
+    fetch('/api/stock', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const byLocation = new Map<string, { totalStock: number; availableStock: number }>();
+          for (const s of json.data) {
+            const loc = s.location || 'Warehouse';
+            const prev = byLocation.get(loc) || { totalStock: 0, availableStock: 0 };
+            prev.totalStock += Number(s.totalStock) || 0;
+            prev.availableStock += Number(s.available) || 0;
+            byLocation.set(loc, prev);
+          }
+          setRawTrend(
+            Array.from(byLocation.entries()).map(([date, vals]) => ({
+              date: date.length > 14 ? date.slice(0, 14) + '…' : date,
+              ...vals,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Value multiplier for currency view ($)
   const multiplier = metricMode === 'Value' ? 1.45 : 1;
   const prefix = metricMode === 'Value' ? '$' : '';
 
-  const chartData = STOCK_TREND_DATA.map((d) => ({
+  const chartData = rawTrend.map((d) => ({
     ...d,
     totalStockDisplay: Math.round(d.totalStock * multiplier),
     availableStockDisplay: Math.round(d.availableStock * multiplier),

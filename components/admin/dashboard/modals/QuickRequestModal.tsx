@@ -131,10 +131,9 @@ export function QuickRequestModal({
           <button
             type="button"
             onClick={handleAutofill}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+            className="hidden"
           >
-            <Sparkles className="w-3 h-3" />
-            <span>Autofill Dummy Data</span>
+            <span>Autofill</span>
           </button>
         </div>
 
