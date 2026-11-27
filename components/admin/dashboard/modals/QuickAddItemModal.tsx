@@ -24,6 +24,9 @@ const SAMPLE_PRESETS = [
     name: 'Sterile Surgical Gloves 7.5',
     category: 'Medical Supplies',
     warehouse: 'Main Warehouse',
+    batchNumber: 'LOT-GLV-2026',
+    subkit: 'Surgical Subkit A',
+    module: 'Operating Theatre',
     qty: 350,
     unit: 'Box',
     reorderLevel: 50,
@@ -33,6 +36,9 @@ const SAMPLE_PRESETS = [
     name: 'Ceftriaxone Antibiotic 1g Vial',
     category: 'Pharmaceuticals',
     warehouse: 'Cold Storage Depot',
+    batchNumber: 'LOT-CEF-2026',
+    subkit: 'Antibiotic Subkit',
+    module: 'Emergency Care',
     qty: 600,
     unit: 'Vial',
     reorderLevel: 100,
@@ -42,6 +48,9 @@ const SAMPLE_PRESETS = [
     name: 'N95 Clinical Face Respirator',
     category: 'PPE',
     warehouse: 'West Warehouse',
+    batchNumber: 'LOT-N95-2026',
+    subkit: 'PPE Isolation Subkit',
+    module: 'Infection Control',
     qty: 480,
     unit: 'Box',
     reorderLevel: 75,
@@ -58,6 +67,9 @@ export function QuickAddItemModal({
   const [itemName, setItemName] = useState(SAMPLE_PRESETS[0].name);
   const [category, setCategory] = useState(SAMPLE_PRESETS[0].category);
   const [warehouse, setWarehouse] = useState(SAMPLE_PRESETS[0].warehouse);
+  const [batchNumber, setBatchNumber] = useState(SAMPLE_PRESETS[0].batchNumber);
+  const [subkit, setSubkit] = useState(SAMPLE_PRESETS[0].subkit);
+  const [moduleName, setModuleName] = useState(SAMPLE_PRESETS[0].module);
   const [initialQty, setInitialQty] = useState(SAMPLE_PRESETS[0].qty);
   const [unit, setUnit] = useState(SAMPLE_PRESETS[0].unit);
   const [reorderLevel, setReorderLevel] = useState(SAMPLE_PRESETS[0].reorderLevel);
@@ -72,6 +84,9 @@ export function QuickAddItemModal({
     setItemName(p.name);
     setCategory(p.category);
     setWarehouse(p.warehouse);
+    setBatchNumber(p.batchNumber);
+    setSubkit(p.subkit);
+    setModuleName(p.module);
     setInitialQty(p.qty);
     setUnit(p.unit);
     setReorderLevel(p.reorderLevel);
@@ -186,6 +201,47 @@ export function QuickAddItemModal({
               required
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-hidden focus:border-[#008a90]"
             />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">
+                Batch Number
+              </label>
+              <input
+                type="text"
+                value={batchNumber}
+                onChange={(e) => setBatchNumber(e.target.value)}
+                placeholder="LOT-2026-01"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-900 font-mono focus:outline-hidden focus:border-[#008a90]"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">
+                Subkit
+              </label>
+              <input
+                type="text"
+                value={subkit}
+                onChange={(e) => setSubkit(e.target.value)}
+                placeholder="Surgical Subkit A"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-900 focus:outline-hidden focus:border-[#008a90]"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">
+                Module
+              </label>
+              <input
+                type="text"
+                value={moduleName}
+                onChange={(e) => setModuleName(e.target.value)}
+                placeholder="Operating Theatre"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-900 focus:outline-hidden focus:border-[#008a90]"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">

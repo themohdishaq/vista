@@ -123,6 +123,9 @@ export async function getItems(options: ItemFilterOptions = {}): Promise<Invento
         i.name,
         i.category,
         i.unit,
+        COALESCE(NULLIF(i.batch_number, ''), MAX(sb.batch_number), 'LOT-GENERAL') as batch_number,
+        COALESCE(i.subkit, 'General') as subkit,
+        COALESCE(i.module, 'Core') as module,
         i.description,
         i.reorder_level,
         i.batch_tracking,
@@ -157,12 +160,12 @@ export async function getItems(options: ItemFilterOptions = {}): Promise<Invento
     }
 
     if (search) {
-      query += ` AND (i.name ILIKE $${paramIdx} OR i.code ILIKE $${paramIdx} OR i.description ILIKE $${paramIdx})`;
+      query += ` AND (i.name ILIKE $${paramIdx} OR i.code ILIKE $${paramIdx} OR i.description ILIKE $${paramIdx} OR i.batch_number ILIKE $${paramIdx} OR i.subkit ILIKE $${paramIdx} OR i.module ILIKE $${paramIdx})`;
       params.push(`%${search}%`);
       paramIdx++;
     }
 
-    query += ` GROUP BY i.id, i.code, i.name, i.category, i.unit, i.description, i.reorder_level, i.batch_tracking, i.expiry_tracking, i.status, i.image_url
+    query += ` GROUP BY i.id, i.code, i.name, i.category, i.unit, i.batch_number, i.subkit, i.module, i.description, i.reorder_level, i.batch_tracking, i.expiry_tracking, i.status, i.image_url
                ORDER BY i.created_at DESC, i.code ASC;`;
 
     const rows = await sql.query(query, params);
@@ -199,6 +202,9 @@ export async function getItems(options: ItemFilterOptions = {}): Promise<Invento
           name: r.name,
           category: r.category as ItemCategory,
           unit: r.unit || 'Box',
+          batchNumber: r.batch_number || 'LOT-GENERAL',
+          subkit: r.subkit || 'General',
+          module: r.module || 'Core',
           stockQuantity: totalStock,
           status: computedStatus,
           expiryDate: formattedExpiry,
@@ -238,7 +244,10 @@ export async function getItems(options: ItemFilterOptions = {}): Promise<Invento
       if (
         !i.name.toLowerCase().includes(q) &&
         !i.code.toLowerCase().includes(q) &&
-        !(i.description && i.description.toLowerCase().includes(q))
+        !(i.description && i.description.toLowerCase().includes(q)) &&
+        !(i.batchNumber && i.batchNumber.toLowerCase().includes(q)) &&
+        !(i.subkit && i.subkit.toLowerCase().includes(q)) &&
+        !(i.module && i.module.toLowerCase().includes(q))
       ) {
         return false;
       }
@@ -258,6 +267,9 @@ export async function getItemById(id: string) {
         i.name,
         i.category,
         i.unit,
+        COALESCE(NULLIF(i.batch_number, ''), MAX(sb.batch_number), 'LOT-GENERAL') as batch_number,
+        COALESCE(i.subkit, 'General') as subkit,
+        COALESCE(i.module, 'Core') as module,
         i.description,
         i.reorder_level,
         i.batch_tracking,
@@ -271,7 +283,7 @@ export async function getItemById(id: string) {
       FROM items i
       LEFT JOIN stock_balances sb ON i.id = sb.item_id
       WHERE (i.id = $1 OR i.code = $1) AND i.deleted_at IS NULL
-      GROUP BY i.id, i.code, i.name, i.category, i.unit, i.description, i.reorder_level, i.batch_tracking, i.expiry_tracking, i.status, i.image_url;`,
+      GROUP BY i.id, i.code, i.name, i.category, i.unit, i.batch_number, i.subkit, i.module, i.description, i.reorder_level, i.batch_tracking, i.expiry_tracking, i.status, i.image_url;`,
       [id]
     );
     if (rows && rows.length > 0) {
@@ -440,23 +452,23 @@ export async function getItemById(id: string) {
         type: typeLabelMap[m.type] || 'Adjustment',
         qty: qtyStr,
         isPos,
-        operator: m.operator_name || 'System Operator',
+        operator: m.operator_name || 'Administrator',
         role: opRole,
         roleLink: opRole === 'Inventory Manager' ? '/manager/approvals' : opRole === 'Administrator' ? '/admin' : '/staff/stock',
         ref: m.reference_id || m.movement_number,
         refLink: '/admin/movements',
         facility: m.warehouse_name || 'Central Facility',
         notes: m.notes || `Stock movement ${m.type}`,
-        status: isTransfer ? 'In Transit' : 'Completed',
+        status: 'Completed',
         badge: badgeMap[m.type] || 'bg-slate-100 text-slate-800 border-slate-200',
       };
     });
 
     historyList = dbMovements.map((m: any) => {
-      const isPos = m.type === 'RECEIPT' || m.type === 'ADJUSTMENT_ADD' || m.type === 'RETURN';
+      const isPos = m.type === 'RECEIPT' || m.type === 'ADJUSTMENT_ADD' || m.type === 'RETURN' || m.type === 'TRANSFER_IN';
       const isTransfer = m.type === 'TRANSFER_IN' || m.type === 'TRANSFER_OUT';
       const qtyStr = isTransfer
-        ? `⇄ ${Number(m.quantity).toLocaleString()}`
+        ? `${m.type === 'TRANSFER_IN' ? '+' : '-'}${Number(m.quantity).toLocaleString()}`
         : isPos
         ? `+${Number(m.quantity).toLocaleString()}`
         : `-${Number(m.quantity).toLocaleString()}`;
@@ -482,7 +494,7 @@ export async function getItemById(id: string) {
         delta: qtyStr,
         isPos,
         balance: Number(m.new_balance) || 0,
-        operator: m.operator_name || 'System Operator',
+        operator: m.operator_name || 'Administrator',
         role: opRole,
         roleLink: opRole === 'Inventory Manager' ? '/manager/approvals' : opRole === 'Administrator' ? '/admin' : '/staff/stock',
         ref: m.reference_id || m.movement_number,
@@ -514,6 +526,9 @@ export async function getItemById(id: string) {
 
   return {
     ...itemObj,
+    batchNumber: itemObj.batch_number ?? itemObj.batchNumber ?? 'LOT-GENERAL',
+    subkit: itemObj.subkit ?? 'General',
+    module: itemObj.module ?? 'Core',
     status: computedStatus,
     reorderLevel: reorder,
     reorder_level: reorder,
@@ -571,13 +586,146 @@ export async function recordItemTransaction(
       : Math.max(0, currentAvailable - qty);
   const newTotal = newAvailable + Number(item.reservedStock || 0);
 
-  // Update item in runtime store and DB
-  await updateItem(item.id, {
-    availableStock: newAvailable,
-    stockQuantity: newTotal,
-    totalStock: newTotal,
-    status: newTotal === 0 ? 'Out of Stock' : newTotal <= item.reorderLevel ? 'Low Stock' : 'Active',
-  });
+  const refCode =
+    payload.ref?.trim() ||
+    `${payload.type.slice(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+
+  // Persist directly to Neon PostgreSQL stock_balances & stock_movements
+  try {
+    const resolveWarehouseByNameOrId = async (nameOrId?: string) => {
+      if (nameOrId) {
+        const rows = await sql.query(
+          `SELECT id, name FROM warehouses WHERE (id = $1 OR name = $1) AND deleted_at IS NULL LIMIT 1;`,
+          [nameOrId]
+        );
+        if (rows && rows.length > 0) return rows[0];
+      }
+      const fallbackId = await resolveValidWarehouseId();
+      return { id: fallbackId, name: nameOrId || 'Central Facility' };
+    };
+
+    const sourceWhObj = await resolveWarehouseByNameOrId(payload.warehouseName);
+    const operatorId = await resolveOperatorUserId();
+    const batch = item.batchNumber || 'LOT-GENERAL';
+
+    const upsertBalance = async (whId: string, delta: number) => {
+      const balRows = await sql.query(
+        `SELECT id, quantity_on_hand FROM stock_balances WHERE warehouse_id = $1 AND item_id = $2 LIMIT 1;`,
+        [whId, item.id]
+      );
+      if (balRows && balRows.length > 0) {
+        const prev = Number(balRows[0].quantity_on_hand) || 0;
+        const next = Math.max(0, prev + delta);
+        await sql.query(
+          `UPDATE stock_balances SET quantity_on_hand = $1, updated_at = NOW() WHERE id = $2;`,
+          [next, balRows[0].id]
+        );
+        return { prev, next };
+      } else {
+        const next = Math.max(0, delta);
+        await sql.query(
+          `INSERT INTO stock_balances (id, warehouse_id, item_id, batch_number, quantity_on_hand, quantity_reserved)
+           VALUES ($1, $2, $3, $4, $5, 0);`,
+          [`bal-${Date.now()}-${Math.floor(Math.random() * 1000)}`, whId, item.id, batch, next]
+        );
+        return { prev: 0, next };
+      }
+    };
+
+    if (payload.type === 'Transfer' && payload.destWarehouseName) {
+      const destWhObj = await resolveWarehouseByNameOrId(payload.destWarehouseName);
+      const outBal = await upsertBalance(sourceWhObj.id, -qty);
+      const inBal = await upsertBalance(destWhObj.id, qty);
+
+      await sql.query(
+        `INSERT INTO stock_movements (
+          id, movement_number, warehouse_id, item_id, type, quantity,
+          previous_balance, new_balance, batch_number, reference_id,
+          performed_by_id, notes, created_at
+        ) VALUES ($1, $2, $3, $4, 'TRANSFER_OUT'::movement_type, $5, $6, $7, $8, $9, $10, $11, NOW());`,
+        [
+          `mov-out-${Date.now()}`,
+          `MOV-TOUT-${Date.now().toString().slice(-6)}`,
+          sourceWhObj.id,
+          item.id,
+          qty,
+          outBal.prev,
+          outBal.next,
+          batch,
+          refCode,
+          operatorId,
+          payload.notes || `Transfer out to ${destWhObj.name}`,
+        ]
+      );
+
+      await sql.query(
+        `INSERT INTO stock_movements (
+          id, movement_number, warehouse_id, item_id, type, quantity,
+          previous_balance, new_balance, batch_number, reference_id,
+          performed_by_id, notes, created_at
+        ) VALUES ($1, $2, $3, $4, 'TRANSFER_IN'::movement_type, $5, $6, $7, $8, $9, $10, $11, NOW());`,
+        [
+          `mov-in-${Date.now() + 1}`,
+          `MOV-TIN-${(Date.now() + 1).toString().slice(-6)}`,
+          destWhObj.id,
+          item.id,
+          qty,
+          inBal.prev,
+          inBal.next,
+          batch,
+          refCode,
+          operatorId,
+          payload.notes || `Transfer in from ${sourceWhObj.name}`,
+        ]
+      );
+    } else {
+      const dbType =
+        payload.type === 'Receipt'
+          ? 'RECEIPT'
+          : payload.type === 'Issue'
+          ? 'ISSUE'
+          : 'ADJUSTMENT_SUB';
+      const delta = payload.type === 'Receipt' ? qty : -qty;
+      const bal = await upsertBalance(sourceWhObj.id, delta);
+
+      await sql.query(
+        `INSERT INTO stock_movements (
+          id, movement_number, warehouse_id, item_id, type, quantity,
+          previous_balance, new_balance, batch_number, reference_id,
+          performed_by_id, notes, created_at
+        ) VALUES ($1, $2, $3, $4, $5::movement_type, $6, $7, $8, $9, $10, $11, $12, NOW());`,
+        [
+          `mov-${Date.now()}`,
+          `MOV-${dbType.slice(0, 3)}-${Date.now().toString().slice(-6)}`,
+          sourceWhObj.id,
+          item.id,
+          dbType,
+          qty,
+          bal.prev,
+          bal.next,
+          batch,
+          refCode,
+          operatorId,
+          payload.notes || `${payload.type} operation`,
+        ]
+      );
+    }
+
+    // Recalculate total item stock & sync items.status
+    const sumRows = await sql.query(
+      `SELECT COALESCE(SUM(quantity_on_hand), 0)::int AS total FROM stock_balances WHERE item_id = $1;`,
+      [item.id]
+    );
+    const syncedTotal = Number(sumRows?.[0]?.total ?? newTotal);
+    const nextStatus: ItemStatus =
+      syncedTotal === 0 ? 'Out of Stock' : syncedTotal <= (item.reorderLevel || 100) ? 'Low Stock' : 'Active';
+    await sql.query(`UPDATE items SET status = $2::item_status, updated_at = NOW() WHERE id = $1;`, [
+      item.id,
+      nextStatus,
+    ]);
+  } catch (err) {
+    console.error('Failed to persist item transaction to Neon DB:', err);
+  }
 
   const badgeMap = {
     Receipt: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -612,10 +760,6 @@ export async function recordItemTransaction(
     now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
     ' ' +
     now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-
-  const refCode =
-    payload.ref?.trim() ||
-    `${payload.type.slice(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
 
   const newTxn = {
     id: `txn-${Date.now()}`,
@@ -670,6 +814,9 @@ export async function createItem(data: {
   name: string;
   category: ItemCategory;
   unit: string;
+  batchNumber?: string;
+  subkit?: string;
+  module?: string;
   stockQuantity?: number;
   reorderLevel?: number;
   description?: string;
@@ -684,6 +831,9 @@ export async function createItem(data: {
   const name = data.name.trim();
   const category = (data.category as ItemCategory) || 'Medical Supplies';
   const unit = data.unit?.trim() || 'Box';
+  const batchNumber = data.batchNumber?.trim() || data.initialBatch?.trim() || 'LOT-INIT-01';
+  const subkit = data.subkit?.trim() || 'General';
+  const moduleName = data.module?.trim() || 'Core';
   const qty = Math.max(0, Number(data.stockQuantity) || 0);
   const reorder = Math.max(0, Number(data.reorderLevel ?? 100));
   const reservedStock = Math.max(0, Number(data.reservedStock) || 0);
@@ -699,6 +849,9 @@ export async function createItem(data: {
     name,
     category,
     unit,
+    batchNumber,
+    subkit,
+    module: moduleName,
     stockQuantity: totalStock,
     status,
     expiryDate: expiryDateStr || '-',
@@ -718,21 +871,24 @@ export async function createItem(data: {
 
     // Insert into items table
     await sql.query(
-      `INSERT INTO items (id, code, name, category, unit, description, reorder_level, status)
-       VALUES ($1, $2, $3, $4::item_category, $5, $6, $7, $8::item_status)
+      `INSERT INTO items (id, code, name, category, unit, batch_number, subkit, module, description, reorder_level, status)
+       VALUES ($1, $2, $3, $4::item_category, $5, $6, $7, $8, $9, $10, $11::item_status)
        ON CONFLICT (code) DO UPDATE SET
          name = EXCLUDED.name,
          category = EXCLUDED.category,
          unit = EXCLUDED.unit,
+         batch_number = EXCLUDED.batch_number,
+         subkit = EXCLUDED.subkit,
+         module = EXCLUDED.module,
          description = EXCLUDED.description,
          reorder_level = EXCLUDED.reorder_level,
          status = EXCLUDED.status,
          deleted_at = NULL;`,
-      [id, code, name, category, unit, description, reorder, status]
+      [id, code, name, category, unit, batchNumber, subkit, moduleName, description, reorder, status]
     );
 
     // Insert or update stock_balances
-    const batch = data.initialBatch?.trim() || 'LOT-INIT-01';
+    const batch = batchNumber;
     let parsedExpiry: string | null = null;
     if (expiryDateStr) {
       const parsed = new Date(expiryDateStr);
@@ -827,6 +983,9 @@ export async function updateItem(
           name: data.name !== undefined ? data.name.trim() : i.name,
           category: (data.category || i.category) as ItemCategory,
           unit: data.unit || i.unit,
+          batchNumber: data.batchNumber !== undefined ? data.batchNumber.trim() : i.batchNumber,
+          subkit: data.subkit !== undefined ? data.subkit.trim() : i.subkit,
+          module: data.module !== undefined ? data.module.trim() : i.module,
           description: data.description !== undefined ? data.description : i.description,
           status: newStatus,
           availableStock: newAvail,
@@ -868,6 +1027,9 @@ export async function updateItem(
           status = COALESCE($7::item_status, status),
           batch_tracking = COALESCE($8, batch_tracking),
           expiry_tracking = COALESCE($9, expiry_tracking),
+          batch_number = COALESCE($10, batch_number),
+          subkit = COALESCE($11, subkit),
+          module = COALESCE($12, module),
           updated_at = NOW()
          WHERE (id = $1 OR code = $1) AND deleted_at IS NULL;`,
         [
@@ -880,6 +1042,9 @@ export async function updateItem(
           data.status || null,
           data.batchTracking !== undefined ? Boolean(data.batchTracking) : null,
           data.expiryTracking !== undefined ? Boolean(data.expiryTracking) : null,
+          data.batchNumber !== undefined ? data.batchNumber.trim() || null : null,
+          data.subkit !== undefined ? data.subkit.trim() || null : null,
+          data.module !== undefined ? data.module.trim() || null : null,
         ]
       );
 
@@ -1021,6 +1186,9 @@ export async function bulkImportItems(
     name: string;
     category?: string;
     unit?: string;
+    batchNumber?: string;
+    subkit?: string;
+    module?: string;
     stockQuantity?: number | string;
     reorderLevel?: number | string;
     description?: string;
@@ -1047,24 +1215,30 @@ export async function bulkImportItems(
       }
 
       const unit = row.unit?.trim() || 'Box';
+      const batchNumber = row.batchNumber?.trim() || 'LOT-EXCEL-IMPORT';
+      const subkit = row.subkit?.trim() || 'General';
+      const moduleName = row.module?.trim() || 'Core';
       const reorderLevel = parseInt(String(row.reorderLevel || 100), 10) || 100;
       const stockQty = Math.max(0, parseInt(String(row.stockQuantity || 0), 10) || 0);
       const itemId = `item-imp-${Date.now()}-${i}`;
       const status: ItemStatus = stockQty === 0 ? 'Out of Stock' : stockQty <= reorderLevel ? 'Low Stock' : 'Active';
 
       const insertRes = await sql.query(
-        `INSERT INTO items (id, code, name, category, unit, description, reorder_level, status)
-         VALUES ($1, $2, $3, $4::item_category, $5, $6, $7, $8::item_status)
+        `INSERT INTO items (id, code, name, category, unit, batch_number, subkit, module, description, reorder_level, status)
+         VALUES ($1, $2, $3, $4::item_category, $5, $6, $7, $8, $9, $10, $11::item_status)
          ON CONFLICT (code) DO UPDATE SET 
            name = EXCLUDED.name, 
            category = EXCLUDED.category,
            unit = EXCLUDED.unit,
+           batch_number = EXCLUDED.batch_number,
+           subkit = EXCLUDED.subkit,
+           module = EXCLUDED.module,
            description = EXCLUDED.description,
            reorder_level = EXCLUDED.reorder_level,
            status = EXCLUDED.status,
            deleted_at = NULL
          RETURNING id;`,
-        [itemId, code, name, category, unit, row.description || `${name} (${unit}).`, reorderLevel, status]
+        [itemId, code, name, category, unit, batchNumber, subkit, moduleName, row.description || `${name} (${unit}).`, reorderLevel, status]
       );
 
       const resolvedItemId = (insertRes && insertRes[0]?.id) || itemId;
@@ -1078,15 +1252,15 @@ export async function bulkImportItems(
       if (existingBal && existingBal.length > 0) {
         await sql.query(
           `UPDATE stock_balances 
-           SET quantity_on_hand = quantity_on_hand + $1, updated_at = NOW() 
-           WHERE id = $2;`,
-          [stockQty, existingBal[0].id]
+           SET quantity_on_hand = quantity_on_hand + $1, batch_number = COALESCE(NULLIF($2, ''), batch_number), updated_at = NOW() 
+           WHERE id = $3;`,
+          [stockQty, batchNumber, existingBal[0].id]
         );
       } else {
         await sql.query(
           `INSERT INTO stock_balances (id, warehouse_id, item_id, batch_number, quantity_on_hand, quantity_reserved)
-           VALUES ($1, $2, $3, 'LOT-EXCEL-IMPORT', $4, 0);`,
-          [`bal-imp-${Date.now()}-${i}`, validWarehouseId, resolvedItemId, stockQty]
+           VALUES ($1, $2, $3, $4, $5, 0);`,
+          [`bal-imp-${Date.now()}-${i}`, validWarehouseId, resolvedItemId, batchNumber, stockQty]
         );
       }
 
@@ -1099,8 +1273,8 @@ export async function bulkImportItems(
             performed_by_id, notes, created_at
           ) VALUES (
             $1, $2, $3, $4, 'RECEIPT'::movement_type, $5,
-            0, $5, 'LOT-EXCEL-IMPORT', $6,
-            $7, $8, NOW()
+            0, $5, $6, $7,
+            $8, $9, NOW()
           );`,
           [
             `mov-imp-${Date.now()}-${i}`,
@@ -1108,6 +1282,7 @@ export async function bulkImportItems(
             validWarehouseId,
             resolvedItemId,
             stockQty,
+            batchNumber,
             `IMP-${code}`,
             operatorId,
             `Spreadsheet batch import putaway for ${name}`,
@@ -1122,6 +1297,9 @@ export async function bulkImportItems(
         name,
         category,
         unit,
+        batchNumber,
+        subkit,
+        module: moduleName,
         stockQuantity: stockQty,
         status,
         expiryDate: '-',
@@ -1145,4 +1323,111 @@ export async function bulkImportItems(
     importedCount,
     errors,
   };
+}
+
+/**
+ * Share / allocate multiple catalog items to a target warehouse facility.
+ * Ensures each selected item has a stock_balances row in the target warehouse
+ * and optionally allocates an initial quantity + logs a RECEIPT movement.
+ */
+export async function bulkAllocateItemsToWarehouse(payload: {
+  itemIds: string[];
+  warehouseId: string;
+  quantityPerItem?: number;
+  notes?: string;
+}): Promise<{ allocatedCount: number; warehouseName: string }> {
+  const { itemIds, warehouseId, quantityPerItem = 0, notes } = payload;
+  if (!itemIds || itemIds.length === 0) {
+    throw new Error('Please select at least one item.');
+  }
+  if (!warehouseId) {
+    throw new Error('Target warehouse is required.');
+  }
+
+  const whRows = await sql.query(
+    `SELECT id, name FROM warehouses WHERE id = $1 AND deleted_at IS NULL LIMIT 1;`,
+    [warehouseId]
+  );
+  if (!whRows || whRows.length === 0) {
+    throw new Error('Selected target warehouse was not found.');
+  }
+  const warehouseName = whRows[0].name;
+  const operatorId = await resolveOperatorUserId();
+  const qty = Math.max(0, Number(quantityPerItem) || 0);
+
+  let allocatedCount = 0;
+
+  for (let i = 0; i < itemIds.length; i++) {
+    const idOrCode = itemIds[i];
+    const itemRows = await sql.query(
+      `SELECT id, code, name, batch_number, reorder_level, status FROM items WHERE (id = $1 OR code = $1) AND deleted_at IS NULL LIMIT 1;`,
+      [idOrCode]
+    );
+    if (!itemRows || itemRows.length === 0) continue;
+
+    const item = itemRows[0];
+    const batch = item.batch_number || 'LOT-GENERAL';
+
+    const existingBal = await sql.query(
+      `SELECT id, quantity_on_hand FROM stock_balances WHERE warehouse_id = $1 AND item_id = $2 LIMIT 1;`,
+      [warehouseId, item.id]
+    );
+
+    if (existingBal && existingBal.length > 0) {
+      if (qty > 0) {
+        const prev = Number(existingBal[0].quantity_on_hand) || 0;
+        const next = prev + qty;
+        await sql.query(
+          `UPDATE stock_balances SET quantity_on_hand = $1, updated_at = NOW() WHERE id = $2;`,
+          [next, existingBal[0].id]
+        );
+      }
+    } else {
+      await sql.query(
+        `INSERT INTO stock_balances (id, warehouse_id, item_id, batch_number, quantity_on_hand, quantity_reserved)
+         VALUES ($1, $2, $3, $4, $5, 0);`,
+        [`bal-share-${Date.now()}-${i}`, warehouseId, item.id, batch, qty]
+      );
+    }
+
+    if (qty > 0) {
+      const prev = existingBal && existingBal.length > 0 ? Number(existingBal[0].quantity_on_hand) || 0 : 0;
+      const next = prev + qty;
+      await sql.query(
+        `INSERT INTO stock_movements (
+          id, movement_number, warehouse_id, item_id, type, quantity,
+          previous_balance, new_balance, batch_number, reference_id,
+          performed_by_id, notes, created_at
+        ) VALUES ($1, $2, $3, $4, 'RECEIPT'::movement_type, $5, $6, $7, $8, $9, $10, $11, NOW());`,
+        [
+          `mov-share-${Date.now()}-${i}`,
+          `MOV-SHR-${Date.now().toString().slice(-5)}-${i}`,
+          warehouseId,
+          item.id,
+          qty,
+          prev,
+          next,
+          batch,
+          `SHARE-${warehouseId.slice(0, 6).toUpperCase()}`,
+          operatorId,
+          notes?.trim() || `Bulk shared to ${warehouseName}`,
+        ]
+      ).catch(() => {});
+
+      const sumRows = await sql.query(
+        `SELECT COALESCE(SUM(quantity_on_hand), 0)::int AS total FROM stock_balances WHERE item_id = $1;`,
+        [item.id]
+      );
+      const total = Number(sumRows?.[0]?.total ?? next);
+      const reorder = Number(item.reorder_level) || 100;
+      if (item.status !== 'Inactive') {
+        const nextStatus = total === 0 ? 'Out of Stock' : total <= reorder ? 'Low Stock' : 'Active';
+        await sql.query(`UPDATE items SET status = $2::item_status WHERE id = $1;`, [item.id, nextStatus]).catch(() => {});
+      }
+    }
+
+    allocatedCount++;
+  }
+
+  return { allocatedCount, warehouseName };
 }

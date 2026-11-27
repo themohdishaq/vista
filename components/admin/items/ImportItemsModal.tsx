@@ -52,11 +52,11 @@ export function ImportItemsModal({
   if (!isOpen) return null;
 
   const handleDownloadTemplate = () => {
-    const csv = `Item Code,Item Name,Category,Unit,Stock Quantity,Reorder Level,Description
-VST-101,Digital Blood Pressure Monitor,Equipment,Unit,50,15,Automatic upper arm digital BP monitor with cuff.
-VST-102,Sterile Surgical Blade #10,Consumables,Box,200,50,Carbon steel sterile surgical scalpel blades box of 100.
-VST-103,Ibuprofen 400mg Film-Coated,Pharmaceuticals,Pack,500,100,Nonsteroidal anti-inflammatory drug blister pack.
-VST-104,Chlorhexidine Gluconate 4%,Hygiene,Bottle,120,30,Surgical hand scrub antiseptic solution 500ml.`;
+    const csv = `Item Code,Item Name,Category,Unit,Batch Number,Subkit,Module,Stock Quantity,Reorder Level,Description
+VST-101,Digital Blood Pressure Monitor,Equipment,Unit,LOT-BP-2026,Diagnostics Subkit,Primary Care,50,15,Automatic upper arm digital BP monitor with cuff.
+VST-102,Sterile Surgical Blade #10,Consumables,Box,LOT-BLD-2026,Trauma Subkit A,Surgical Module,200,50,Carbon steel sterile surgical scalpel blades box of 100.
+VST-103,Ibuprofen 400mg Film-Coated,Pharmaceuticals,Pack,LOT-IBU-2026,Pharmacy Subkit,Outpatient Care,500,100,Nonsteroidal anti-inflammatory drug blister pack.
+VST-104,Chlorhexidine Gluconate 4%,Hygiene,Bottle,LOT-CHG-2026,Sterilization Subkit,Infection Control,120,30,Surgical hand scrub antiseptic solution 500ml.`;
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

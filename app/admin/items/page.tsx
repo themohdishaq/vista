@@ -8,13 +8,15 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, ChevronDown, FileSpreadsheet, CheckCircle2 } from 'lucide-react';
+import { Plus, ChevronDown, FileSpreadsheet, CheckCircle2, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { ItemsStatGrid } from '@/components/admin/items/ItemsStatGrid';
 import { ItemsTable } from '@/components/admin/items/ItemsTable';
 import { ItemDetailsPanel } from '@/components/admin/items/ItemDetailsPanel';
 import { AddItemModal } from '@/components/admin/items/AddItemModal';
 import { EditItemModal } from '@/components/admin/items/EditItemModal';
 import { ImportItemsModal } from '@/components/admin/items/ImportItemsModal';
+import { BulkShareWarehouseModal } from '@/components/admin/items/BulkShareWarehouseModal';
 import { InventoryItem, ItemsKPIData } from '@/types/items';
 
 export default function AdminItemsPage() {
@@ -25,6 +27,8 @@ export default function AdminItemsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [bulkShareItemIds, setBulkShareItemIds] = useState<string[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -177,6 +181,77 @@ export default function AdminItemsPage() {
     }
   };
 
+  // Export all items with latest updated data to Excel (.xlsx)
+  const handleExportExcel = async () => {
+    try {
+      setIsExporting(true);
+      let exportSource: InventoryItem[] = items;
+
+      // Fetch latest from DB to guarantee up-to-date data
+      try {
+        const res = await fetch('/api/items');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          exportSource = data.data;
+          setItems(data.data);
+        }
+      } catch {
+        // Fallback to current state if fetch fails
+      }
+
+      if (exportSource.length === 0) {
+        showToast('No items available to export.');
+        return;
+      }
+
+      const rows = exportSource.map((item) => ({
+        'Item Code': item.code,
+        'Item Name': item.name,
+        Category: item.category,
+        Unit: item.unit,
+        'Batch Number': item.batchNumber || (item as any)?.batch_number || 'LOT-GENERAL',
+        Subkit: item.subkit || 'General',
+        Module: item.module || 'Core',
+        'Stock Quantity': Number(item.totalStock ?? item.stockQuantity ?? 0),
+        'Available Stock': Number(item.availableStock ?? item.stockQuantity ?? 0),
+        'Reserved Stock': Number(item.reservedStock ?? 0),
+        'Reorder Level': Number(item.reorderLevel ?? 100),
+        Status: item.status,
+        'Expiry Date': item.expiryDate || '-',
+        Description: item.description || '',
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      worksheet['!cols'] = [
+        { wch: 14 }, // Item Code
+        { wch: 30 }, // Item Name
+        { wch: 18 }, // Category
+        { wch: 10 }, // Unit
+        { wch: 18 }, // Batch Number
+        { wch: 22 }, // Subkit
+        { wch: 20 }, // Module
+        { wch: 15 }, // Stock Quantity
+        { wch: 15 }, // Available Stock
+        { wch: 15 }, // Reserved Stock
+        { wch: 14 }, // Reorder Level
+        { wch: 14 }, // Status
+        { wch: 14 }, // Expiry Date
+        { wch: 36 }, // Description
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Items');
+
+      const dateTag = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(workbook, `VISTA_Items_Export_${dateTag}.xlsx`);
+      showToast(`Exported ${rows.length} items to Excel.`);
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to export items to Excel.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       {/* Toast Feedback */}
@@ -235,7 +310,17 @@ export default function AdminItemsPage() {
         </div>
 
         {/* Header Actions */}
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition-all cursor-pointer disabled:opacity-60"
+          >
+            <Download className="h-4 w-4 text-[#008a90]" />
+            <span>{isExporting ? 'Exporting...' : 'Export Excel'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setIsImportModalOpen(true)}
@@ -267,6 +352,7 @@ export default function AdminItemsPage() {
         onSelectItem={(item) => setSelectedItem(item)}
         onEditItem={(item) => setEditingItem(item)}
         onDeleteItem={handleDeleteItem}
+        onBulkShareToWarehouse={(ids) => setBulkShareItemIds(ids)}
       />
 
       {/* ================= ROW 3: ITEM DETAILS PANEL ================= */}
@@ -303,6 +389,19 @@ export default function AdminItemsPage() {
         onClose={() => setIsImportModalOpen(false)}
         onImportSuccess={fetchItems}
         warehouses={warehouses}
+      />
+
+      {/* Bulk Share Selected Items to Warehouse Modal */}
+      <BulkShareWarehouseModal
+        isOpen={bulkShareItemIds.length > 0}
+        onClose={() => setBulkShareItemIds([])}
+        selectedItemIds={bulkShareItemIds}
+        warehouses={warehouses}
+        onSuccess={async (msg) => {
+          showToast(msg);
+          setBulkShareItemIds([]);
+          await fetchItems();
+        }}
       />
     </div>
   );

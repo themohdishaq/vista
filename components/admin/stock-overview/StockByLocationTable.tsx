@@ -62,7 +62,10 @@ export function StockByLocationTable({ items, onUpdateItem }: StockByLocationTab
         const matchesName = item.name.toLowerCase().includes(q);
         const matchesLoc = item.location.toLowerCase().includes(q);
         const matchesCat = item.category.toLowerCase().includes(q);
-        if (!matchesCode && !matchesName && !matchesLoc && !matchesCat) return false;
+        const matchesBatch = (item.batchNumber || '').toLowerCase().includes(q);
+        const matchesSubkit = (item.subkit || '').toLowerCase().includes(q);
+        const matchesModule = (item.module || '').toLowerCase().includes(q);
+        if (!matchesCode && !matchesName && !matchesLoc && !matchesCat && !matchesBatch && !matchesSubkit && !matchesModule) return false;
       }
 
       return true;
@@ -78,11 +81,11 @@ export function StockByLocationTable({ items, onUpdateItem }: StockByLocationTab
 
   // Export CSV
   const handleExportCSV = () => {
-    const header = 'Item Code,Item Name,Category,Unit,Total Stock,Available,Reserved,In Transit,Location,Status\n';
+    const header = 'Item Code,Item Name,Category,Unit,Batch Number,Subkit,Module,Total Stock,Available,Reserved,In Transit,Location,Status\n';
     const rows = filteredItems
       .map(
         (i) =>
-          `"${i.code}","${i.name}","${i.category}","${i.unit}",${i.totalStock},${i.available},${i.reserved},${i.inTransit},"${i.location}","${i.status}"`
+          `"${i.code}","${i.name}","${i.category}","${i.unit}","${i.batchNumber || '-'}","${i.subkit || '-'}","${i.module || '-'}",${i.totalStock},${i.available},${i.reserved},${i.inTransit},"${i.location}","${i.status}"`
       )
       .join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
@@ -203,6 +206,9 @@ export function StockByLocationTable({ items, onUpdateItem }: StockByLocationTab
                 <th className="py-3 px-4 text-[#0a2540]">Item Name</th>
                 <th className="py-3 px-4 text-[#0a2540]">Category</th>
                 <th className="py-3 px-4 text-[#0a2540]">Unit</th>
+                <th className="py-3 px-4 text-[#0a2540]">Batch Number</th>
+                <th className="py-3 px-4 text-[#0a2540]">Subkit</th>
+                <th className="py-3 px-4 text-[#0a2540]">Module</th>
                 <th className="py-3 px-4 text-[#0a2540]">Total Stock</th>
                 <th className="py-3 px-4 text-[#0a2540]">Available</th>
                 <th className="py-3 px-4 text-[#0a2540]">Reserved</th>
@@ -216,7 +222,7 @@ export function StockByLocationTable({ items, onUpdateItem }: StockByLocationTab
             <tbody className="divide-y divide-slate-100">
               {paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-xs text-slate-400 font-medium">
+                  <td colSpan={14} className="py-12 text-center text-xs text-slate-400 font-medium">
                     No inventory stock records found for this location or category filter.
                   </td>
                 </tr>
@@ -244,6 +250,21 @@ export function StockByLocationTable({ items, onUpdateItem }: StockByLocationTab
                     {/* Unit */}
                     <td className="py-3 px-4 text-slate-600 font-medium">
                       {item.unit}
+                    </td>
+
+                    {/* Batch Number */}
+                    <td className="py-3 px-4 font-mono text-[11px] font-semibold text-slate-700 whitespace-nowrap">
+                      {item.batchNumber || '-'}
+                    </td>
+
+                    {/* Subkit */}
+                    <td className="py-3 px-4 text-slate-700 whitespace-nowrap">
+                      {item.subkit || '-'}
+                    </td>
+
+                    {/* Module */}
+                    <td className="py-3 px-4 text-[#008a90] font-medium whitespace-nowrap">
+                      {item.module || '-'}
                     </td>
 
                     {/* Total Stock */}

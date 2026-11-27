@@ -53,7 +53,9 @@ export function AssignedBinsBrowser({
         (bin.binCode || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (bin.itemCode || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (bin.itemName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (bin.batchNo || '').toLowerCase().includes(searchQuery.toLowerCase());
+        (bin.batchNo || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (bin.subkit || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (bin.module || '').toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchCategory =
         selectedCategory === 'All' || bin.category === selectedCategory;
@@ -72,6 +74,8 @@ export function AssignedBinsBrowser({
       'Reserved',
       'Unit',
       'Batch No',
+      'Subkit',
+      'Module',
       'Expiry Date',
       'Low Stock',
     ];
@@ -84,6 +88,8 @@ export function AssignedBinsBrowser({
       b.reservedStock,
       b.unit,
       b.batchNo,
+      `"${b.subkit || '-'}"`,
+      `"${b.module || '-'}"`,
       b.expiryDate,
       b.isLowStock ? 'YES' : 'NO',
     ]);
@@ -173,6 +179,8 @@ export function AssignedBinsBrowser({
               <th className="py-3 px-4 text-right">Available Stock</th>
               <th className="py-3 px-4 text-right">Reserved</th>
               <th className="py-3 px-4">Batch / Lot</th>
+              <th className="py-3 px-4">Subkit</th>
+              <th className="py-3 px-4">Module</th>
               <th className="py-3 px-4">Expiry Date</th>
               <th className="py-3 px-4 text-center">Bin Actions</th>
             </tr>
@@ -180,7 +188,7 @@ export function AssignedBinsBrowser({
           <tbody className="divide-y divide-slate-100 font-sans">
             {filteredBins.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-slate-400">
+                <td colSpan={10} className="py-8 text-center text-slate-400">
                   No assigned bins match your filter criteria.
                 </td>
               </tr>
@@ -254,6 +262,16 @@ export function AssignedBinsBrowser({
                     {/* Batch */}
                     <td className="py-3.5 px-4 font-mono text-slate-600 text-[11px]">
                       {bin.batchNo}
+                    </td>
+
+                    {/* Subkit */}
+                    <td className="py-3.5 px-4 text-slate-700 text-xs">
+                      {bin.subkit || '-'}
+                    </td>
+
+                    {/* Module */}
+                    <td className="py-3.5 px-4 text-[#008a90] font-medium text-xs">
+                      {bin.module || '-'}
                     </td>
 
                     {/* Expiry */}

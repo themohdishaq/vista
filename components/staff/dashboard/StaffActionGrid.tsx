@@ -40,82 +40,50 @@ export function StaffActionGrid({ onOpenAction }: StaffActionGridProps) {
     {
       key: 'stock',
       title: '1. View Assigned Stock',
-      desc: 'Check live balances, lots, and min thresholds in Zone A.',
+      desc: 'Check live quantities, batch numbers, subkits, and modules.',
       icon: Layers,
       color: 'bg-teal-50 text-[#008a90] border-teal-200/80',
-      actionLabel: 'Inspect Bins',
-    },
-    {
-      key: 'request',
-      title: '2. Submit Stock Request',
-      desc: 'Request bin replenishment or emergency floor supplies.',
-      icon: PlusSquare,
-      color: 'bg-sky-50 text-sky-700 border-sky-200/80',
-      actionLabel: 'Submit Request',
+      actionLabel: 'View Stock',
     },
     {
       key: 'receive',
-      title: '3. Record Received Stock',
-      desc: 'Log inbound delivery from PO, inspect cartons & assign bins.',
+      title: '2. Receive Stock',
+      desc: 'Log inbound deliveries and update warehouse balances.',
       icon: Truck,
       color: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
-      actionLabel: 'Scan Inbound',
+      actionLabel: 'Log Receipt',
     },
     {
       key: 'issue',
-      title: '4. Issue & Distribute',
-      desc: 'Dispense picked items to hospital wards and clinics.',
+      title: '3. Issue & Use Stock',
+      desc: 'Dispense supplies to wards or record daily consumption.',
       icon: ClipboardCheck,
       color: 'bg-blue-50 text-blue-700 border-blue-200/80',
-      actionLabel: 'Issue Supplies',
+      actionLabel: 'Issue Stock',
+    },
+    {
+      key: 'request',
+      title: '4. Request Restock',
+      desc: 'Send a replenishment request directly to your Manager.',
+      icon: PlusSquare,
+      color: 'bg-sky-50 text-sky-700 border-sky-200/80',
+      actionLabel: 'Request Stock',
     },
     {
       key: 'returns',
-      title: '5. Record Returns & Use',
-      desc: 'Log ward returns, excess items, and floor consumption.',
+      title: '5. Record Return',
+      desc: 'Log unused ward returns back into available stock.',
       icon: RotateCcw,
       color: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
       actionLabel: 'Log Return',
     },
     {
-      key: 'damaged',
-      title: '6. Log Damaged / Expired',
-      desc: 'Record broken, spoiled or expired stock for manager review.',
-      icon: AlertTriangle,
-      color: 'bg-rose-50 text-rose-700 border-rose-200/80',
-      actionLabel: 'Log Incident',
-    },
-    {
-      key: 'count',
-      title: '7. Physical Stock Count',
-      desc: 'Perform blind cycle count audits and record physical counts.',
-      icon: ClipboardList,
-      color: 'bg-amber-50 text-amber-800 border-amber-200/80',
-      actionLabel: 'Start Audit',
-    },
-    {
-      key: 'kit',
-      title: '8. Packing Lists & Kits',
-      desc: 'Assemble First Aid & Emergency kits, print packing slips.',
-      icon: Boxes,
-      color: 'bg-purple-50 text-purple-700 border-purple-200/80',
-      actionLabel: 'Pack Kit',
-    },
-    {
-      key: 'purchase',
-      title: '9. Record Local Purchase',
-      desc: 'Log spot invoice, receipt slip and items for manager approval.',
-      icon: Receipt,
-      color: 'bg-cyan-50 text-cyan-800 border-cyan-200/80',
-      actionLabel: 'Record Bill',
-    },
-    {
       key: 'shortage',
-      title: '10. Report Discrepancy',
-      desc: 'Report missing stock, bin mismatches and inventory variances.',
+      title: '6. Report Issue to Manager',
+      desc: 'Report shortages, damaged/expired items, or count variances.',
       icon: ShieldAlert,
-      color: 'bg-orange-50 text-orange-800 border-orange-200/80',
-      actionLabel: 'Report Shortage',
+      color: 'bg-rose-50 text-rose-700 border-rose-200/80',
+      actionLabel: 'Report Issue',
     },
   ];
 
@@ -123,14 +91,14 @@ export function StaffActionGrid({ onOpenAction }: StaffActionGridProps) {
     <div className="rounded-2xl bg-white border border-slate-200/90 shadow-xs p-5 sm:p-6">
       <div className="mb-5">
         <h3 className="font-sans text-base font-bold text-[#0a2540]">
-          Floor Duties & Action Terminal
+          Quick Floor Actions &amp; Manager Reporting
         </h3>
         <p className="text-xs text-slate-500 mt-0.5">
-          Direct 1-click execution for all 10 core inventory staff responsibilities.
+          Simple 1-click daily operations and direct reporting to your Facility Manager.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
         {actions.map((act) => {
           const Icon = act.icon;
           return (

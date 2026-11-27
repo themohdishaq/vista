@@ -47,39 +47,29 @@ interface StaffSidebarProps {
 
 const STAFF_NAV_SECTIONS = [
   {
-    group: 'DAILY FLOOR TASKS',
+    group: 'OVERVIEW & STOCK',
     items: [
       { title: 'Staff Dashboard', href: '/staff', icon: Home },
-      { title: 'Available Stock & Bins', href: '/staff/stock', icon: Layers },
-      { title: 'Physical Stock Counts', href: '/staff/cycle-counts', icon: ClipboardList },
+      { title: 'Warehouse Stock & Bins', href: '/staff/stock', icon: Layers },
     ],
   },
   {
-    group: 'INBOUND & OUTBOUND',
+    group: 'DAILY OPERATIONS',
     items: [
-      { title: 'Receive Inventory', href: '/staff/receive', icon: Truck },
+      { title: 'Receive Stock', href: '/staff/receive', icon: Truck },
       { title: 'Issue & Distribute', href: '/staff/issue', icon: ClipboardCheck },
-      { title: 'Inter-Location Moves', href: '/staff/transfers', icon: ArrowLeftRight },
+      { title: 'Returns & Use', href: '/staff/returns', icon: RotateCcw },
     ],
   },
   {
-    group: 'KITTING & PACKING',
+    group: 'MANAGER REPORTING',
     items: [
-      { title: 'Packing Lists & Kits', href: '/staff/kits', icon: Boxes },
-      { title: 'Submit Stock Request', href: '/staff/requests', icon: PlusSquare },
+      { title: 'Request Restock', href: '/staff/requests', icon: PlusSquare },
+      { title: 'Report Issue / Shortage', href: '/staff/discrepancies', icon: ShieldAlert },
     ],
   },
   {
-    group: 'AUDIT & LOGGING',
-    items: [
-      { title: 'Returns & Consumption', href: '/staff/returns', icon: RotateCcw },
-      { title: 'Damaged & Expired', href: '/staff/damages', icon: AlertTriangle },
-      { title: 'Shortages & Discrepancies', href: '/staff/discrepancies', icon: ShieldAlert },
-      { title: 'Local Spot Purchases', href: '/staff/purchases', icon: Receipt },
-    ],
-  },
-  {
-    group: 'SYSTEM & PREFERENCES',
+    group: 'ACCOUNT',
     items: [
       { title: 'Settings & Profile', href: '/staff/settings', icon: Settings },
     ],

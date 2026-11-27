@@ -100,6 +100,9 @@ const statements = [
     name VARCHAR(200) NOT NULL,
     category item_category NOT NULL DEFAULT 'Medical Supplies',
     unit VARCHAR(50) NOT NULL DEFAULT 'Box',
+    batch_number VARCHAR(100) DEFAULT 'LOT-GENERAL',
+    subkit VARCHAR(150) DEFAULT 'General',
+    module VARCHAR(150) DEFAULT 'Core',
     description TEXT,
     reorder_level INT NOT NULL DEFAULT 100,
     batch_tracking BOOLEAN NOT NULL DEFAULT TRUE,
@@ -110,6 +113,10 @@ const statements = [
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ NULL
   );`,
+
+  `ALTER TABLE items ADD COLUMN IF NOT EXISTS batch_number VARCHAR(100) DEFAULT 'LOT-GENERAL';`,
+  `ALTER TABLE items ADD COLUMN IF NOT EXISTS subkit VARCHAR(150) DEFAULT 'General';`,
+  `ALTER TABLE items ADD COLUMN IF NOT EXISTS module VARCHAR(150) DEFAULT 'Core';`,
 
   `CREATE TABLE IF NOT EXISTS kits (
     id VARCHAR(50) PRIMARY KEY,

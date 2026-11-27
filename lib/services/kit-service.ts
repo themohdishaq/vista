@@ -99,7 +99,8 @@ export async function getKits(): Promise<KitRecord[]> {
 
     const componentRows = await sql.query(`
       SELECT kc.kit_id, kc.quantity, kc.is_optional,
-             i.code as item_code, i.name as item_name, i.unit
+             i.code as item_code, i.name as item_name, i.unit,
+             i.batch_number, i.subkit, i.module
       FROM kit_components kc
       JOIN items i ON kc.item_id = i.id
       WHERE i.deleted_at IS NULL;
@@ -115,6 +116,9 @@ export async function getKits(): Promise<KitRecord[]> {
         itemName: c.item_name,
         quantity: c.quantity,
         unit: c.unit,
+        batchNumber: c.batch_number || 'LOT-GENERAL',
+        subkit: c.subkit || 'General',
+        module: c.module || 'Core',
         optional: c.is_optional,
       });
     }

@@ -1,17 +1,49 @@
 [
   {
+    "id": "usr-1795775309603",
+    "fullName": "nepal staff",
+    "username": "nepal.staff@vista.com",
+    "email": "nepal.staff@vista.com",
+    "role": "Warehouse Staff",
+    "status": "Active",
+    "lastLogin": "Never",
+    "phone": "+1 (555) 234-5678",
+    "warehouseId": "wh-1795773906270",
+    "warehouseAccess": "[WH-006-62] Nepal",
+    "permissionsCount": 18,
+    "password": "nepal.staff@vista.com",
+    "stationZone": "General Warehouse Floor",
+    "shiftSchedule": "Standard Day (08:00 - 16:30)",
+    "assignedBins": "Bin A-01 to A-12",
+    "assignedTask": "Inbound Verification & Barcode Scanning"
+  },
+  {
+    "id": "usr-1795773944873",
+    "fullName": "Nepal",
+    "username": "nepal.manager@vista.com",
+    "email": "nepal.manager@vista.com",
+    "role": "Inventory Manager",
+    "status": "Active",
+    "lastLogin": "Never",
+    "phone": "03477631929",
+    "warehouseId": "wh-1795773906270",
+    "warehouseAccess": "[WH-006-62] Nepal",
+    "permissionsCount": 36,
+    "password": "nepal.manager@vista.com"
+  },
+  {
     "id": "usr-1795251205207",
     "fullName": "QA Floor Specialist",
     "username": "qa.staff+1795251190038@example.com",
     "email": "qa.staff+1795251190038@example.com",
     "role": "Warehouse Staff",
-    "status": "Suspended",
+    "status": "Active",
     "lastLogin": "Never",
     "phone": "+977 61-980002",
     "warehouseId": "wh-qa-1795251190038",
     "warehouseAccess": "[QA-WH-0038] QA Regional Logistics Depot (QA-WH-0038)",
     "permissionsCount": 18,
-    "password": "QaPass!1795251190038"
+    "password": "qa.staff+1795251190038@example.com"
   },
   {
     "id": "usr-1795251199092",
@@ -19,13 +51,13 @@
     "username": "qa.manager+1795251190038@example.com",
     "email": "qa.manager+1795251190038@example.com",
     "role": "Inventory Manager",
-    "status": "Suspended",
+    "status": "Active",
     "lastLogin": "Never",
     "phone": "+977 61-980001",
     "warehouseId": "wh-qa-1795251190038",
     "warehouseAccess": "[QA-WH-0038] QA Regional Logistics Depot (QA-WH-0038)",
     "permissionsCount": 36,
-    "password": "QaPass!1795251190038"
+    "password": "qa.manager+1795251190038@example.com"
   },
   {
     "id": "usr-1795250927148",

@@ -105,6 +105,8 @@ export interface LocationStockBalance {
   reservedUnits: number;
   unit: string;
   batchNo: string;
+  subkit?: string;
+  module?: string;
   expiryDate: string;
   status: 'Optimal' | 'Low Stock' | 'Critical';
 }

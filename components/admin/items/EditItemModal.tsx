@@ -23,6 +23,9 @@ export function EditItemModal({
   const [name, setName] = useState('');
   const [category, setCategory] = useState<string>('Medical Supplies');
   const [unit, setUnit] = useState('Box');
+  const [batchNumber, setBatchNumber] = useState('');
+  const [subkit, setSubkit] = useState('');
+  const [moduleName, setModuleName] = useState('');
   const [status, setStatus] = useState<ItemStatus>('Active');
   const [availableStock, setAvailableStock] = useState<number>(0);
   const [reservedStock, setReservedStock] = useState<number>(0);
@@ -56,6 +59,9 @@ export function EditItemModal({
       setName(item.name || '');
       setCategory(item.category || 'Medical Supplies');
       setUnit(item.unit || 'Box');
+      setBatchNumber(item.batchNumber || (item as any)?.batch_number || '');
+      setSubkit(item.subkit || '');
+      setModuleName(item.module || '');
       setStatus(item.status || 'Active');
       setAvailableStock(
         Number(item.availableStock ?? (item as any)?.available_stock ?? item.stockQuantity ?? 0)
@@ -95,6 +101,9 @@ export function EditItemModal({
       name: name.trim(),
       category: category as ItemCategory,
       unit: unit.trim() || item.unit || 'Box',
+      batchNumber: batchNumber.trim() || item.batchNumber || 'LOT-GENERAL',
+      subkit: subkit.trim() || item.subkit || 'General',
+      module: moduleName.trim() || item.module || 'Core',
       status,
       stockQuantity: totalNum,
       availableStock: availNum,
@@ -229,6 +238,41 @@ export function EditItemModal({
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
                 placeholder="Box, Pack, Bottle..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 text-xs text-slate-900 focus:border-[#008a90] focus:bg-white focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700">Batch Number</label>
+              <input
+                type="text"
+                value={batchNumber}
+                onChange={(e) => setBatchNumber(e.target.value)}
+                placeholder="e.g. LOT-2026-01"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 text-xs font-mono text-slate-900 focus:border-[#008a90] focus:bg-white focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700">Subkit</label>
+              <input
+                type="text"
+                value={subkit}
+                onChange={(e) => setSubkit(e.target.value)}
+                placeholder="e.g. Trauma Subkit A"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 text-xs text-slate-900 focus:border-[#008a90] focus:bg-white focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700">Module</label>
+              <input
+                type="text"
+                value={moduleName}
+                onChange={(e) => setModuleName(e.target.value)}
+                placeholder="e.g. Emergency Care"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 text-xs text-slate-900 focus:border-[#008a90] focus:bg-white focus:outline-none"
               />
             </div>

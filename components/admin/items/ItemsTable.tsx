@@ -13,6 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
+  Share2,
+  X,
 } from 'lucide-react';
 import { InventoryItem, ItemCategory, ItemsTabFilter } from '@/types/items';
 
@@ -22,6 +24,7 @@ interface ItemsTableProps {
   onSelectItem: (item: InventoryItem) => void;
   onEditItem?: (item: InventoryItem) => void;
   onDeleteItem?: (item: InventoryItem) => void;
+  onBulkShareToWarehouse?: (selectedIds: string[]) => void;
 }
 
 export function ItemsTable({
@@ -30,6 +33,7 @@ export function ItemsTable({
   onSelectItem,
   onEditItem,
   onDeleteItem,
+  onBulkShareToWarehouse,
 }: ItemsTableProps) {
   const [activeTab, setActiveTab] = useState<ItemsTabFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,7 +91,10 @@ export function ItemsTable({
         const matchesCode = item.code.toLowerCase().includes(query);
         const matchesName = item.name.toLowerCase().includes(query);
         const matchesCategory = item.category.toLowerCase().includes(query);
-        if (!matchesCode && !matchesName && !matchesCategory) return false;
+        const matchesBatch = (item.batchNumber || '').toLowerCase().includes(query);
+        const matchesSubkit = (item.subkit || '').toLowerCase().includes(query);
+        const matchesModule = (item.module || '').toLowerCase().includes(query);
+        if (!matchesCode && !matchesName && !matchesCategory && !matchesBatch && !matchesSubkit && !matchesModule) return false;
       }
 
       return true;
@@ -367,6 +374,38 @@ export function ItemsTable({
 
       </div>
 
+      {/* ================= BULK SELECTION ACTION BAR ================= */}
+      {selectedIds.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-teal-200/70 bg-teal-50/70 px-6 py-2.5 text-xs">
+          <div className="flex items-center gap-2 font-semibold text-[#0a2540]">
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#008a90] px-1.5 text-[11px] font-bold text-white">
+              {selectedIds.length}
+            </span>
+            <span>item{selectedIds.length === 1 ? '' : 's'} selected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {onBulkShareToWarehouse && (
+              <button
+                type="button"
+                onClick={() => onBulkShareToWarehouse(selectedIds)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#008a90] hover:bg-[#00747a] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-all cursor-pointer"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                <span>Share to Warehouse</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-600 cursor-pointer"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>Clear</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ================= DATA TABLE ================= */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-xs">
@@ -388,6 +427,9 @@ export function ItemsTable({
               <th className="py-3 px-4 font-bold text-[#0a2540]">Item Name</th>
               <th className="py-3 px-4 font-bold text-[#0a2540]">Category</th>
               <th className="py-3 px-4 font-bold text-[#0a2540]">Unit</th>
+              <th className="py-3 px-4 font-bold text-[#0a2540]">Batch Number</th>
+              <th className="py-3 px-4 font-bold text-[#0a2540]">Subkit</th>
+              <th className="py-3 px-4 font-bold text-[#0a2540]">Module</th>
               <th
                 onClick={() => handleSort('stockQuantity')}
                 className="py-3 px-4 font-bold text-[#0a2540] cursor-pointer select-none"
@@ -416,7 +458,7 @@ export function ItemsTable({
           <tbody className="divide-y divide-slate-100">
             {paginatedItems.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-slate-400">
+                <td colSpan={12} className="py-12 text-center text-slate-400">
                   <div className="font-semibold text-slate-700 text-sm mb-1">No Inventory Items Found</div>
                   <div className="text-xs text-slate-400">Add an item using "+ Add New Item" or import spreadsheet data dynamically.</div>
                 </td>
@@ -476,6 +518,25 @@ export function ItemsTable({
                     {/* Unit */}
                     <td className="py-3 px-4 text-slate-600 font-medium">
                       {item.unit}
+                    </td>
+
+                    {/* Batch Number */}
+                    <td className="py-3 px-4 font-mono text-[11px] font-semibold text-slate-700 whitespace-nowrap">
+                      {item.batchNumber || '-'}
+                    </td>
+
+                    {/* Subkit */}
+                    <td className="py-3 px-4 text-slate-700 font-medium whitespace-nowrap">
+                      <span className="inline-block rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                        {item.subkit || '-'}
+                      </span>
+                    </td>
+
+                    {/* Module */}
+                    <td className="py-3 px-4 text-slate-700 font-medium whitespace-nowrap">
+                      <span className="inline-block rounded-md bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-[#008a90]">
+                        {item.module || '-'}
+                      </span>
                     </td>
 
                     {/* Quantity */}

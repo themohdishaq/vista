@@ -45,6 +45,9 @@ export interface LocationStockItem {
   name: string;           // e.g. "Surgical Mask"
   category: string;       // e.g. "Medical Supplies"
   unit: string;           // e.g. "Box"
+  batchNumber?: string;   // e.g. "LOT-2026-01"
+  subkit?: string;        // e.g. "Trauma Subkit A"
+  module?: string;        // e.g. "Emergency Care"
   totalStock: number;     // e.g. 5000
   available: number;      // e.g. 4200
   reserved: number;       // e.g. 500

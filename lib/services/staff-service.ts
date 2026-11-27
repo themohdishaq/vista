@@ -225,6 +225,9 @@ export async function getStaffDashboardData(
          i.name as item_name,
          i.category,
          i.unit,
+         COALESCE(NULLIF(i.batch_number, ''), 'LOT-GENERAL') as item_batch_number,
+         COALESCE(i.subkit, 'General') as subkit,
+         COALESCE(i.module, 'Core') as module,
          COALESCE(i.reorder_level, 100) as min_threshold,
          i.status as item_status
        FROM stock_balances sb
@@ -266,8 +269,10 @@ export async function getStaffDashboardData(
       availableStock: Number(row.quantity_on_hand) || 0,
       reservedStock: Number(row.quantity_reserved) || 0,
       unit: row.unit || 'Units',
-      batchNo: row.batch_number || 'LOT-GENERAL',
-      lotNumber: row.batch_number || 'LOT-GENERAL',
+      batchNo: row.batch_number || row.item_batch_number || 'LOT-GENERAL',
+      subkit: row.subkit || 'General',
+      module: row.module || 'Core',
+      lotNumber: row.batch_number || row.item_batch_number || 'LOT-GENERAL',
       expiryDate: expDateStr,
       isLowStock: isLow,
       minThreshold: Number(row.min_threshold) || 100,

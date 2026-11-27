@@ -65,7 +65,9 @@ export default function ManagerStockPage() {
           availableUnits: s.available,
           reservedUnits: s.reserved,
           unit: s.unit || 'Box',
-          batchNo: 'LOT-2025-01',
+          batchNo: s.batchNumber || 'LOT-GENERAL',
+          subkit: s.subkit || 'General',
+          module: s.module || 'Core',
           expiryDate: '2026-12-31',
           status: s.status === 'In Stock' ? 'Optimal' : s.status === 'Low Stock' ? 'Low Stock' : 'Critical',
         })));
@@ -85,12 +87,15 @@ export default function ManagerStockPage() {
     const matchSearch =
       b.itemCode.toLowerCase().includes(search.toLowerCase()) ||
       b.itemName.toLowerCase().includes(search.toLowerCase()) ||
-      b.binLocation.toLowerCase().includes(search.toLowerCase());
+      b.binLocation.toLowerCase().includes(search.toLowerCase()) ||
+      b.batchNo.toLowerCase().includes(search.toLowerCase()) ||
+      (b.subkit || '').toLowerCase().includes(search.toLowerCase()) ||
+      (b.module || '').toLowerCase().includes(search.toLowerCase());
     return matchSearch;
   });
 
   const handleExportCSV = () => {
-    const headers = ['Facility', 'Bin', 'SKU', 'Item Name', 'Available', 'Reserved', 'Unit', 'Batch No', 'Expiry', 'Status'];
+    const headers = ['Facility', 'Bin', 'SKU', 'Item Name', 'Available', 'Reserved', 'Unit', 'Batch No', 'Subkit', 'Module', 'Expiry', 'Status'];
     const rows = filtered.map((b) => [
       `"${b.facility}"`,
       b.binLocation,
@@ -100,6 +105,8 @@ export default function ManagerStockPage() {
       b.reservedUnits,
       b.unit,
       b.batchNo,
+      `"${b.subkit || '-'}"`,
+      `"${b.module || '-'}"`,
       b.expiryDate,
       b.status,
     ]);
@@ -212,6 +219,8 @@ export default function ManagerStockPage() {
                 <th className="py-3 px-4 text-right">Available Stock</th>
                 <th className="py-3 px-4 text-right">Reserved</th>
                 <th className="py-3 px-4">Batch / Lot</th>
+                <th className="py-3 px-4">Subkit</th>
+                <th className="py-3 px-4">Module</th>
                 <th className="py-3 px-4">Expiry Date</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-center">Action</th>
@@ -255,6 +264,8 @@ export default function ManagerStockPage() {
                       {b.reservedUnits.toLocaleString()} {b.unit}
                     </td>
                     <td className="py-3 px-4 font-mono text-slate-600">{b.batchNo}</td>
+                    <td className="py-3 px-4 text-slate-700">{b.subkit || '-'}</td>
+                    <td className="py-3 px-4 text-[#008a90] font-medium">{b.module || '-'}</td>
                     <td className="py-3 px-4 text-slate-600">{b.expiryDate}</td>
                     <td className="py-3 px-4">
                       <span

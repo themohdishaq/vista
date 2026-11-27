@@ -26,6 +26,9 @@ export function AddItemModal({
   const [customCategory, setCustomCategory] = useState('');
   const [isCustomCat, setIsCustomCat] = useState(false);
   const [unit, setUnit] = useState('Box');
+  const [batchNumber, setBatchNumber] = useState('');
+  const [subkit, setSubkit] = useState('');
+  const [moduleName, setModuleName] = useState('');
   const [stockQuantity, setStockQuantity] = useState(0);
   const [reorderLevel, setReorderLevel] = useState(100);
   const [expiryDate, setExpiryDate] = useState('');
@@ -52,6 +55,9 @@ export function AddItemModal({
       setIsCustomCat(false);
       setCustomCategory('');
       setUnit('Box');
+      setBatchNumber('');
+      setSubkit('');
+      setModuleName('');
       setStockQuantity(0);
       setReorderLevel(100);
       setExpiryDate('');
@@ -84,6 +90,9 @@ export function AddItemModal({
       name: name.trim(),
       category: finalCategory as ItemCategory,
       unit,
+      batchNumber: batchNumber.trim() || 'LOT-INIT-01',
+      subkit: subkit.trim() || 'General',
+      module: moduleName.trim() || 'Core',
       stockQuantity: qty,
       status: qty === 0 ? 'Out of Stock' : qty <= reorder ? 'Low Stock' : 'Active',
       expiryDate: expiryDate.trim() || '-',
@@ -201,6 +210,41 @@ export function AddItemModal({
               placeholder="e.g. Examination Powder-Free Gloves"
               className="w-full rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 text-xs text-slate-900 focus:border-[#008a90] focus:bg-white focus:outline-none"
             />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700">Batch Number</label>
+              <input
+                type="text"
+                value={batchNumber}
+                onChange={(e) => setBatchNumber(e.target.value)}
+                placeholder="e.g. LOT-2026-01"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 text-xs font-mono text-slate-900 focus:border-[#008a90] focus:bg-white focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700">Subkit</label>
+              <input
+                type="text"
+                value={subkit}
+                onChange={(e) => setSubkit(e.target.value)}
+                placeholder="e.g. Trauma Subkit A"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 text-xs text-slate-900 focus:border-[#008a90] focus:bg-white focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700">Module</label>
+              <input
+                type="text"
+                value={moduleName}
+                onChange={(e) => setModuleName(e.target.value)}
+                placeholder="e.g. Emergency Care"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 text-xs text-slate-900 focus:border-[#008a90] focus:bg-white focus:outline-none"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">

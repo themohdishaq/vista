@@ -40,6 +40,8 @@ export interface AssignedBinItem {
   reservedStock: number;
   unit: string;
   batchNo: string;
+  subkit?: string;
+  module?: string;
   lotNumber?: string;
   expiryDate: string;
   isLowStock: boolean;

@@ -20,6 +20,9 @@ export interface InventoryItem {
   name: string;               // e.g. "Surgical Mask"
   category: ItemCategory;
   unit: string;               // e.g. "Box", "Pack", "Bottle", "Unit"
+  batchNumber?: string;       // e.g. "LOT-2026-01"
+  subkit?: string;            // e.g. "Trauma Subkit A"
+  module?: string;            // e.g. "Emergency Care"
   stockQuantity: number;
   status: ItemStatus;
   expiryDate: string;         // e.g. "Dec 31, 2026" or "-"

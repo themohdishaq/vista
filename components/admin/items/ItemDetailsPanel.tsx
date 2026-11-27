@@ -202,7 +202,7 @@ export function ItemDetailsPanel({
 
   useEffect(() => {
     fetchItemDetails();
-    setNewTxnRef(`PO-(item.code)`);
+    setNewTxnRef(`PO-${item.code}`);
   }, [item.id, item.code]);
 
   // ================= ACTION HANDLERS (ALL POST TO API) =================
@@ -649,6 +649,24 @@ export function ItemDetailsPanel({
 
                 <div className="space-y-1.5 text-xs">
                   <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Batch Number</span>
+                    <span className="font-mono font-semibold text-[#0a2540]">
+                      {item.batchNumber || (item as any)?.batch_number || '-'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Subkit</span>
+                    <span className="font-semibold text-slate-800">
+                      {item.subkit || '-'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Module</span>
+                    <span className="font-semibold text-[#008a90]">
+                      {item.module || '-'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
                     <span className="text-slate-500">Batch Tracking</span>
                     <span className="font-semibold text-emerald-700">
                       {item.batchTracking ? 'LOT Enabled' : 'Disabled'}
@@ -845,7 +863,14 @@ export function ItemDetailsPanel({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredHistory.map((h) => (
+                  {filteredHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-10 text-center text-slate-400 text-xs">
+                        No stock history movements recorded for this item in the selected window.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredHistory.map((h) => (
                     <tr key={h.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">{h.date}</td>
                       <td className="py-2.5 px-3 font-medium text-slate-800">{h.eventType}</td>
@@ -887,7 +912,8 @@ export function ItemDetailsPanel({
                       </td>
                       <td className="py-2.5 px-3 text-slate-500 text-[11px]">{h.facility}</td>
                     </tr>
-                  ))}
+                  ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -961,7 +987,14 @@ export function ItemDetailsPanel({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredTransactions.map((txn) => (
+                  {filteredTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-10 text-center text-slate-400 text-xs">
+                        No transactions recorded for this item yet. Use &ldquo;Record Transaction&rdquo; to log a movement.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredTransactions.map((txn) => (
                     <tr key={txn.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">{txn.date}</td>
                       <td className="py-2.5 px-3">
@@ -1020,7 +1053,8 @@ export function ItemDetailsPanel({
                         </span>
                       </td>
                     </tr>
-                  ))}
+                  ))
+                  )}
                 </tbody>
               </table>
             </div>

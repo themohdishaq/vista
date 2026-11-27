@@ -554,6 +554,24 @@ export default function StaffDashboard() {
 
           <button
             type="button"
+            onClick={() => setIsRequestOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition-colors cursor-pointer"
+          >
+            <PlusSquare className="w-4 h-4 text-sky-300" />
+            <span>Request Stock</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsShortageOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/30 text-rose-100 text-xs font-bold transition-colors cursor-pointer"
+          >
+            <ShieldAlert className="w-4 h-4 text-rose-300" />
+            <span>Report to Manager</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsReceiveOpen(true)}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#008a90] hover:bg-[#00747a] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
           >
